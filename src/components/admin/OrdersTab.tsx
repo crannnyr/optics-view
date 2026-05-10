@@ -3,8 +3,7 @@ import OrderDetailModal from './OrderDetailModal';
 import OrderTabsHeader from './orders/OrderTabsHeader';
 import OrderFilters from './orders/OrderFilters';
 import OrderVerificationList from './orders/OrderVerificationList';
-import { useOrders } from './orders/hooks/useOrders';
-
+import { useOrders } from './hooks/useOrders';
 export default function OrdersTab() {
   const {
     orders,
