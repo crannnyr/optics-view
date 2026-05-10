@@ -1,0 +1,112 @@
+import { PaystackButton } from 'react-paystack';
+import { CreditCard, ShieldCheck, AlertTriangle, Smartphone, CheckCircle, Copy, Loader2 } from 'lucide-react';
+
+interface PaymentExecutionStepProps {
+  paymentMethod: 'paystack' | 'transfer';
+  paystackConfig: any;
+  payableAmount: number;
+  transferDetails: { bank: string; number: string; name: string };
+  copied: boolean;
+  loading: boolean;
+  themeColor?: string;
+  handlePaystackSuccess: (reference: any) => void;
+  handleCopyAccount: () => void;
+  handleTransferComplete: () => void;
+}
+
+export default function PaymentExecutionStep({
+  paymentMethod,
+  paystackConfig,
+  payableAmount,
+  transferDetails,
+  copied,
+  loading,
+  themeColor = '#0d2818',
+  handlePaystackSuccess,
+  handleCopyAccount,
+  handleTransferComplete
+}: PaymentExecutionStepProps) {
+  return (
+    <div className="animate-in fade-in zoom-in-95 duration-300">
+      {paymentMethod === 'paystack' && paystackConfig ? (
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto text-blue-600 mb-4">
+            <CreditCard size={32} />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium">Complete Card Payment</h3>
+            <p className="text-sm text-gray-500 mt-1">Click the button below to launch the secure payment window.</p>
+          </div>
+          <PaystackButton 
+            {...paystackConfig}
+            text="PAY NOW"
+            onSuccess={handlePaystackSuccess}
+            onClose={() => alert("Payment cancelled")}
+            className="w-full text-white py-4 text-sm font-bold tracking-widest hover:opacity-90 rounded shadow-lg"
+            style={{ backgroundColor: themeColor }}
+          />
+          <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
+            <ShieldCheck size={12} />
+            SECURED BY PAYSTACK
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="bg-orange-50 border border-orange-200 p-4 rounded-lg flex gap-3">
+            <AlertTriangle className="text-orange-600 shrink-0" size={20} />
+            <div>
+              <h4 className="text-sm font-bold text-orange-800 uppercase">Warning</h4>
+              <p className="text-xs text-orange-800 mt-1">
+                Fake receipts or fraudulent transfer attempts will result in an immediate and permanent account ban.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-gray-900 text-white p-6 rounded-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <Smartphone size={100} />
+            </div>
+            <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">Transfer Details</p>
+
+            <div className="space-y-4 relative z-10">
+              <div>
+                <p className="text-[10px] text-gray-400">BANK NAME</p>
+                <p className="text-lg font-medium">{transferDetails.bank}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400">ACCOUNT NUMBER</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-2xl font-mono font-bold tracking-wider">{transferDetails.number}</p>
+                  <button onClick={handleCopyAccount} className="p-2 bg-white/10 rounded hover:bg-white/20 transition-colors">
+                    {copied ? <CheckCircle size={16} className="text-green-400"/> : <Copy size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400">ACCOUNT NAME</p>
+                <p className="text-lg font-medium">{transferDetails.name}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-center">
+            <p className="text-sm font-bold mb-2">Amount to Transfer</p>
+            <p className="text-3xl font-light" style={{ color: themeColor }}>
+              ₦{payableAmount.toLocaleString()}
+            </p>
+          </div>
+
+          <button 
+            onClick={handleTransferComplete}
+            disabled={loading}
+            className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ backgroundColor: themeColor }}
+          >
+            {loading ? <Loader2 className="animate-spin" /> : <CheckCircle size={16} />}
+            I HAVE MADE THE TRANSFER
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
