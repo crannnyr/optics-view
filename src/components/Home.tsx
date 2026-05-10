@@ -20,6 +20,9 @@ interface HomeProps {
   onNavigateToTerms: () => void;
 }
 
+const GIF_URL = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/InShot_20260510_233204426.gif';
+const HERO_URL = 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg';
+
 // ProductCard Component
 function ProductCard({ product, onAddToCart, onViewDetails }: { 
   product: Product; 
@@ -52,7 +55,7 @@ function ProductCard({ product, onAddToCart, onViewDetails }: {
         .eq('product_id', product.id)
         .order('created_at', { ascending: false })
         .limit(2);
-      
+
       if (data) setReviews(data);
     };
     fetchReviews();
@@ -152,7 +155,7 @@ function ProductCard({ product, onAddToCart, onViewDetails }: {
           >
             {product.name}
           </h3>
-          
+
           <div 
             ref={descriptionRef}
             onClick={toggleDescription}
@@ -245,6 +248,29 @@ export default function Home({
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
 
+  // GIF hero state — plays once on mount then crossfades to static image
+  const [gifFading, setGifFading] = useState(false);
+  const [gifDone, setGifDone] = useState(false);
+
+  useEffect(() => {
+    // Adjust this duration (ms) to match your GIF's actual length
+    const GIF_DURATION = 6000;
+    const FADE_DURATION = 1000;
+
+    const fadeTimer = setTimeout(() => {
+      setGifFading(true);
+    }, GIF_DURATION);
+
+    const doneTimer = setTimeout(() => {
+      setGifDone(true);
+    }, GIF_DURATION + FADE_DURATION);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(doneTimer);
+    };
+  }, []);
+
   useEffect(() => {
     loadProducts();
   }, [store.id]);
@@ -323,7 +349,7 @@ export default function Home({
 
   return (
     <div className="min-h-screen bg-white relative flex flex-col">
-      
+
       {/* Header */}
       <header className="border-b border-gray-200 sticky top-0 bg-white z-40">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
@@ -333,7 +359,7 @@ export default function Home({
           >
             {store.name.toUpperCase()}
           </h1>
-          
+
           <div>
             {user ? (
               <div className="relative">
@@ -381,14 +407,26 @@ export default function Home({
       </header>
 
       <main className="flex-grow w-full">
-        {/* Hero Image Section */}
+        {/* Hero Section — GIF plays once, then crossfades to static image */}
         <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden">
-          <img 
-            src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg"
+
+          {/* Static hero image — always underneath */}
+          <img
+            src={HERO_URL}
             alt="Smart Glasses Hero"
-            className="w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-contain"
           />
-          
+
+          {/* GIF overlay — fades out after it plays once */}
+          {!gifDone && (
+            <img
+              src={GIF_URL}
+              alt="Smart Glasses Hero GIF"
+              className="absolute inset-0 w-full h-full object-contain transition-opacity duration-1000"
+              style={{ opacity: gifFading ? 0 : 1 }}
+            />
+          )}
+
           {/* Animated Text Overlay */}
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <div className="text-center max-w-3xl px-6">
@@ -414,7 +452,7 @@ export default function Home({
           </div>
         </section>
 
-        {/* Become a Retailer Button - NOW SHOWS ON ALL STORES */}
+        {/* Become a Retailer Button */}
         <section className="max-w-7xl mx-auto px-6 py-8">
           <button
             onClick={() => setIsRetailerModalOpen(true)}
@@ -526,7 +564,7 @@ export default function Home({
           >
             {store.name.toUpperCase()}
           </h2>
-          
+
           <div className="flex gap-8">
             <button 
               onClick={onNavigateToPrivacy}
@@ -599,7 +637,6 @@ export default function Home({
         onViewPrivacy={onNavigateToPrivacy}
       />
 
-      {/* UPDATED: Pass store.id as referringRetailerId */}
       <RetailerModal 
         isOpen={isRetailerModalOpen}
         onClose={() => setIsRetailerModalOpen(false)}
