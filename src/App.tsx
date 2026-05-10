@@ -1,0 +1,324 @@
+import { useState, useEffect } from 'react';
+import { supabase, CartItem, Product } from './lib/supabase';
+import Home from './components/Home';
+import Admin from './components/Admin';
+import OrderHistory from './components/OrderHistory';
+import ProductDetails from './components/ProductDetails';
+import LegalPages from './components/LegalPages';
+import { Lock, Loader2, SearchX } from 'lucide-react'; // <--- Added SearchX
+import RetailerDashboard from './components/RetailerDashboard';
+import { useStore } from './context/StoreContext';
+
+function App() {
+  const { store, loading: storeLoading, storeNotFound } = useStore(); // <--- Get error state
+  const [currentView, setCurrentView] = useState<'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'legal-privacy' | 'legal-terms'>('shop');
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminError, setAdminError] = useState('');
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [cart, setCart] = useState<CartItem[]>(() => {
+    const saved = localStorage.getItem('optics_cart');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // 1. Initial Load & Routing Logic
+  useEffect(() => {
+    // Check Session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+    });
+
+    // Parse URL for Routing
+    const path = window.location.pathname;
+    
+    if (path === '/admin') {
+      setCurrentView('admin');
+    } else if (path === '/retailer') {
+      setCurrentView('retailer');
+    } else if (path === '/privacy-policy') {
+      setCurrentView('legal-privacy');
+    } else if (path === '/terms-conditions') {
+      setCurrentView('legal-terms');
+    } 
+    // If path is a retailer slug (e.g. /joshua), StoreContext handles the data, 
+    // and we just stay on 'shop' view to render the Home component with that data.
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // 2. Persist Cart
+  useEffect(() => {
+    localStorage.setItem('optics_cart', JSON.stringify(cart));
+  }, [cart]);
+
+  // 3. Scroll to top on view change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [currentView]);
+
+  // --- Cart Actions ---
+  const addToCart = (product: Product, quantity: number = 1, selectedColor?: string, selectedType?: string) => {
+    setCart((prev) => {
+      const exists = prev.find((item) => 
+        item.product.id === product.id && 
+        item.selectedColor === selectedColor &&
+        item.selectedType === selectedType
+      );
+      
+      if (exists) {
+        return prev.map((item) =>
+          item.product.id === product.id && 
+          item.selectedColor === selectedColor &&
+          item.selectedType === selectedType
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
+      }
+      
+      return [...prev, { 
+        product, 
+        quantity,
+        selectedColor,
+        selectedType
+      }];
+    });
+  };
+
+  const updateQuantity = (id: string, qty: number) => {
+    if (qty <= 0) {
+      setCart(prev => prev.filter(i => i.product.id !== id));
+    } else {
+      setCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity: qty } : i));
+    }
+  };
+
+  const removeFromCart = (id: string) => {
+    setCart(prev => prev.filter(i => i.product.id !== id));
+  };
+
+  const clearCart = () => setCart([]);
+
+  // --- Admin Handler ---
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminError('');
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: adminEmail,
+      password: adminPassword
+    });
+
+    if (error) {
+      setAdminError('Invalid credentials');
+      return;
+    }
+
+    if (data.user?.user_metadata?.role !== 'admin') {
+      setAdminError('Access Denied: Not an administrator');
+      await supabase.auth.signOut();
+    }
+  };
+
+  // --- Loading State ---
+  // Wait for both Auth and Store identification to complete
+  if (authLoading || storeLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Loader2 size={32} className="animate-spin text-gray-300" />
+      </div>
+    );
+  }
+
+  // --- 404: STORE NOT FOUND ---
+  if (storeNotFound) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
+        <div className="bg-white p-10 rounded-lg shadow-xl max-w-md w-full border-t-4 border-red-500">
+          <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
+            <SearchX size={32} className="text-red-500" />
+          </div>
+          <h1 className="text-2xl font-light text-gray-900 mb-2">Store Not Found</h1>
+          <p className="text-gray-500 mb-8">
+            We couldn't find the retailer store you're looking for. The link might be incorrect or the store may no longer exist.
+          </p>
+          <a 
+            href="/" 
+            className="block w-full bg-[#0d2818] text-white py-3 text-sm tracking-widest hover:opacity-90 transition-opacity rounded"
+          >
+            VISIT MAIN STORE
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // --- View: Legal Pages ---
+  if (currentView === 'legal-privacy') {
+    return <LegalPages page="privacy" onBack={() => setCurrentView('shop')} />;
+  }
+  if (currentView === 'legal-terms') {
+    return <LegalPages page="terms" onBack={() => setCurrentView('shop')} />;
+  }
+
+  // --- View: Admin ---
+  if (currentView === 'admin') {
+    const isAdmin = user && user.user_metadata?.role === 'admin';
+
+    if (!isAdmin) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+          <div className="bg-white p-8 max-w-md w-full shadow-lg text-center border-t-4 border-[#0d2818]">
+            <Lock size={48} className="mx-auto mb-4 text-[#0d2818]" />
+            <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-6">ADMIN ACCESS</h1>
+            
+            <form onSubmit={handleAdminLogin} className="space-y-4 text-left">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  value={adminEmail}
+                  onChange={e => setAdminEmail(e.target.value)}
+                  className="w-full border p-3 text-sm outline-none focus:border-[#0d2818] transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Password</label>
+                <input 
+                  type="password" 
+                  value={adminPassword}
+                  onChange={e => setAdminPassword(e.target.value)}
+                  className="w-full border p-3 text-sm outline-none focus:border-[#0d2818] transition-colors"
+                />
+              </div>
+              
+              {adminError && <p className="text-red-500 text-xs text-center font-medium">{adminError}</p>}
+
+              <button className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 transition-opacity">
+                ENTER PANEL
+              </button>
+            </form>
+
+            <button 
+              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              className="mt-6 text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Return to Store
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div className="bg-[#0d2818] text-white px-6 py-3 flex justify-between items-center sticky top-0 z-50 shadow-md">
+          <span className="text-xs tracking-widest font-bold">ADMIN PANEL</span>
+          <div className="flex gap-4 items-center">
+            <span className="text-xs opacity-70 hidden sm:inline">Logged in as {user.email}</span>
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', '/');
+                setCurrentView('shop');
+              }}
+              className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
+            >
+              EXIT
+            </button>
+          </div>
+        </div>
+        <Admin />
+      </div>
+    );
+  }
+
+  // --- View: Retailer Dashboard ---
+  if (currentView === 'retailer') {
+    if (!user) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
+          <div className="bg-white p-8 max-w-md w-full shadow-lg text-center border-t-4 border-[#0d2818]">
+            <Lock size={48} className="mx-auto mb-4 text-[#0d2818]" />
+            <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-2">RETAILER ACCESS</h1>
+            <p className="text-sm text-gray-600 mb-8">Please sign in to access your dashboard.</p>
+            
+            <button 
+              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:bg-opacity-90"
+            >
+              GO TO HOME & SIGN IN
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div>
+        <div className="bg-[#0d2818] text-white px-6 py-3 flex justify-between items-center sticky top-0 z-50">
+          <span className="text-xs tracking-widest font-bold">RETAILER DASHBOARD</span>
+          <div className="flex gap-4 items-center">
+            <span className="text-xs opacity-70 hidden sm:inline">{user.email}</span>
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', '/');
+                setCurrentView('shop');
+              }}
+              className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
+            >
+              EXIT
+            </button>
+          </div>
+        </div>
+        <RetailerDashboard />
+      </div>
+    );
+  }
+
+  // --- View: Customer Order History ---
+  if (currentView === 'orders') {
+    return <OrderHistory onBack={() => setCurrentView('shop')} />;
+  }
+
+  // --- View: Product Details ---
+  if (currentView === 'details' && selectedProduct) {
+    return (
+      <ProductDetails 
+        product={selectedProduct} 
+        onBack={() => setCurrentView('shop')}
+        onAddToCart={addToCart}
+      />
+    );
+  }
+
+  // --- View: Shop (Home) ---
+  // The 'Home' component uses useStore() internally to decide what branding to show.
+  return (
+    <Home 
+      user={user}
+      cart={cart}
+      onAddToCart={(p) => addToCart(p, 1)}
+      onUpdateQuantity={updateQuantity}
+      onRemoveFromCart={removeFromCart}
+      onClearCart={clearCart}
+      onNavigateToOrders={() => setCurrentView('orders')}
+      onViewProduct={(product) => {
+        setSelectedProduct(product);
+        setCurrentView('details');
+      }}
+      onNavigateToPrivacy={() => setCurrentView('legal-privacy')}
+      onNavigateToTerms={() => setCurrentView('legal-terms')}
+    />
+  );
+}
+
+export default App;
