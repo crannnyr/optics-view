@@ -6,7 +6,7 @@ import OrdersTab from './admin/OrdersTab';
 import RetailersTab from './admin/RetailersTab';
 import CombosTab from './admin/CombosTab';
 import AdminTasksTab from './admin/AdminTasksTab';
-import RewardClaimsTab from './admin/RewardClaimsTab'; // <--- Import New Tab
+import RewardClaimsTab from './admin/RewardClaimsTab'; //
 
 // Added 'claims' to the type
 type TabType = 'products' | 'orders' | 'combos' | 'retailers' | 'tasks' | 'claims' | 'settings';
