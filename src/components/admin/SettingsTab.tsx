@@ -3,6 +3,7 @@ import SettingsTabsHeader from './settings/SettingsTabsHeader';
 import DeliverySettingsView from './settings/DeliverySettingsView';
 import RetailerApplicationsView from './settings/RetailerApplicationsView';
 import PaymentSettingsView from './settings/PaymentSettingsView';
+import CategoriesSettingsView from './settings/CategoriesSettingsView';
 
 export default function SettingsTab() {
   const {
@@ -23,19 +24,31 @@ export default function SettingsTab() {
     handleUpdateDeliveryFee,
     getDeliveryFee,
     getStatusBadge,
-    formatDate
+    formatDate,
+    categories,
+    categoriesLoading,
+    newCategoryName,
+    setNewCategoryName,
+    newItemTypeInputs,
+    setNewItemTypeInputs,
+    categoryError,
+    setCategoryError,
+    handleAddCategory,
+    handleDeleteCategory,
+    handleAddItemType,
+    handleDeleteItemType,
+    handleMoveProduct,
+    fetchCategories,
   } = useSettings();
 
   return (
     <div className="max-w-6xl">
-      {/* Tab Navigation */}
-      <SettingsTabsHeader 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        retailersCount={retailers.length} 
+      <SettingsTabsHeader
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        retailersCount={retailers.length}
       />
 
-      {/* Delivery Settings Tab */}
       {activeTab === 'delivery' && (
         <DeliverySettingsView
           getDeliveryFee={getDeliveryFee}
@@ -47,7 +60,6 @@ export default function SettingsTab() {
         />
       )}
 
-      {/* Retailer Applications Tab */}
       {activeTab === 'retailers' && (
         <RetailerApplicationsView
           retailers={retailers}
@@ -57,7 +69,6 @@ export default function SettingsTab() {
         />
       )}
 
-      {/* Payment Settings Tab */}
       {activeTab === 'payments' && (
         <PaymentSettingsView
           paymentLoading={paymentLoading}
@@ -66,6 +77,25 @@ export default function SettingsTab() {
           transferDetails={transferDetails}
           setTransferDetails={setTransferDetails}
           handleSavePaymentSettings={handleSavePaymentSettings}
+        />
+      )}
+
+      {activeTab === 'categories' && (
+        <CategoriesSettingsView
+          categories={categories}
+          categoriesLoading={categoriesLoading}
+          newCategoryName={newCategoryName}
+          setNewCategoryName={setNewCategoryName}
+          newItemTypeInputs={newItemTypeInputs}
+          setNewItemTypeInputs={setNewItemTypeInputs}
+          categoryError={categoryError}
+          setCategoryError={setCategoryError}
+          handleAddCategory={handleAddCategory}
+          handleDeleteCategory={handleDeleteCategory}
+          handleAddItemType={handleAddItemType}
+          handleDeleteItemType={handleDeleteItemType}
+          handleMoveProduct={handleMoveProduct}
+          fetchCategories={fetchCategories}
         />
       )}
     </div>
