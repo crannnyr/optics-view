@@ -62,7 +62,7 @@ export default function Home({
     setOrderSuccess,
     handleSignOut,
     handleCheckout,
-    categoryDescriptions
+    categories,
   } = useHome({ user });
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -89,7 +89,7 @@ export default function Home({
         <CategoryFilter 
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
-          categoryDescriptions={categoryDescriptions}
+          categories={categories}
           themeColor={store.themeColor}
         />
 
@@ -104,7 +104,7 @@ export default function Home({
 
         {/* Products Grid */}
         <section className="max-w-7xl mx-auto px-6 pb-20">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
             {filteredProducts.map((product) => (
               <ProductCard 
                 key={product.id} 

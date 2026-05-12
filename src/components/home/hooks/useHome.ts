@@ -11,6 +11,7 @@ export function useHome({ user }: UseHomeProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [categories, setCategories] = useState<{ slug: string; name: string; image: string | null }[]>([]);
   
   // Modal States
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -24,6 +25,7 @@ export function useHome({ user }: UseHomeProps) {
 
   useEffect(() => {
     loadProducts();
+    loadCategories();
   }, [store.id]);
 
   // Handle auto-opening checkout after successful login
@@ -34,12 +36,11 @@ export function useHome({ user }: UseHomeProps) {
     }
   }, [user, pendingCheckout]);
 
-  // Filter products when category changes
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredProducts(products);
     } else {
-      setFilteredProducts(products.filter(p => p.product_type === selectedCategory));
+      setFilteredProducts(products.filter(p => p.category === selectedCategory));
     }
   }, [selectedCategory, products]);
 
@@ -74,6 +75,29 @@ export function useHome({ user }: UseHomeProps) {
     }
   };
 
+  const loadCategories = async () => {
+    const { data: cats } = await supabase
+      .from('categories')
+      .select('slug, name')
+      .order('sort_order');
+    if (!cats) return;
+
+    const withImages = await Promise.all(
+      cats.map(async (cat) => {
+        const { data: product } = await supabase
+          .from('products')
+          .select('images, image_url')
+          .eq('category', cat.slug)
+          .eq('is_active', true)
+          .limit(1)
+          .single();
+        const image = product?.images?.[0] || product?.image_url || null;
+        return { ...cat, image };
+      })
+    );
+    setCategories(withImages);
+  };
+
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     setIsUserMenuOpen(false);
@@ -87,13 +111,6 @@ export function useHome({ user }: UseHomeProps) {
     } else {
       setIsCheckoutOpen(true);
     }
-  };
-
-  const categoryDescriptions = {
-    all: 'All smart glasses including audio-only and video cam. All models support calls.',
-    video: 'AI glasses with video capabilities, object recognition, and calls.',
-    audio_only: 'Audio-only smart glasses with call support.',
-    combo: 'Personal offers - get 2 items at a discounted price.'
   };
 
   return {
@@ -116,6 +133,6 @@ export function useHome({ user }: UseHomeProps) {
     setOrderSuccess,
     handleSignOut,
     handleCheckout,
-    categoryDescriptions
+    categories,
   };
 }

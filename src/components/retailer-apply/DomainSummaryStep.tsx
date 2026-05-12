@@ -20,7 +20,7 @@ interface Props {
 }
 
 const DOMAIN_OPTIONS: { value: DomainType; label: string; cost: number; note?: string }[] = [
-  { value: 'subdomain', label: 'opticsview.store/yourstore', cost: 0, note: 'Free' },
+  { value: 'subdomain', label: 'opticsview.store/yourstore', cost: 7000 },
   { value: 'store', label: 'yourbrand.store', cost: DOMAIN_COSTS.store },
   { value: 'shop', label: 'yourbrand.shop', cost: DOMAIN_COSTS.shop },
   { value: 'com', label: 'yourbrand.com', cost: DOMAIN_COSTS.com },

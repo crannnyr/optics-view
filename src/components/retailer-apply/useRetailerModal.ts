@@ -14,7 +14,7 @@ export interface RetailerFormData {
 }
 
 export const DOMAIN_COSTS: Record<DomainType, number> = {
-  subdomain: 0,
+  subdomain: 7000,
   store: 12950,
   shop: 12950,
   com: 30000,
