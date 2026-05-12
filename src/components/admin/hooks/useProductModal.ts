@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, Product, Review } from '../../../lib/supabase';
+import { Category } from './useSettings';
 
 interface UseProductModalProps {
   product: Product | null;
@@ -7,6 +8,9 @@ interface UseProductModalProps {
 }
 
 export function useProductModal({ product, onSuccess }: UseProductModalProps) {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -16,8 +20,8 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     wholesale_price: '',
     wholesale_min_qty: '7',
     stock: '',
-    category: 'eyewear',
-    product_type: 'video'
+    category: '',
+    product_type: ''
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -33,6 +37,47 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     comment: ''
   });
 
+  // Fetch categories + item types on mount
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    const { data: cats } = await supabase
+      .from('categories')
+      .select('*')
+      .order('sort_order', { ascending: true });
+
+    if (cats && cats.length > 0) {
+      const { data: itemTypes } = await supabase
+        .from('category_item_types')
+        .select('*')
+        .order('sort_order', { ascending: true });
+
+      const merged: Category[] = cats.map(cat => ({
+        ...cat,
+        item_types: (itemTypes || []).filter(it => it.category_id === cat.id)
+      }));
+
+      setCategories(merged);
+
+      // Set defaults only if formData not yet populated (new product)
+      if (!product) {
+        const firstCat = merged[0];
+        const firstType = firstCat?.item_types?.[0]?.slug || '';
+        setFormData(prev => ({
+          ...prev,
+          category: firstCat?.slug || '',
+          product_type: firstType
+        }));
+      }
+    }
+
+    setCategoriesLoading(false);
+  };
+
+  // Populate form when editing existing product
   useEffect(() => {
     if (product) {
       setFormData({
@@ -45,13 +90,23 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
         wholesale_min_qty: String(product.wholesale_min_qty || '7'),
         stock: String(product.stock),
         category: product.category,
-        product_type: product.product_type || 'video'
+        product_type: product.product_type || ''
       });
       setImages(product.images || [product.image_url]);
       setColorOptions(product.color_options || []);
       setTypeOptions(product.type_options || []);
     }
   }, [product]);
+
+  // When category changes, reset product_type to first valid type for that category
+  const handleCategoryChange = (newCategory: string) => {
+    const cat = categories.find(c => c.slug === newCategory);
+    const firstType = cat?.item_types?.[0]?.slug || '';
+    setFormData(prev => ({ ...prev, category: newCategory, product_type: firstType }));
+  };
+
+  // Derived: item types for currently selected category
+  const availableItemTypes = categories.find(c => c.slug === formData.category)?.item_types || [];
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -86,31 +141,21 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
 
   const addColor = () => {
     if (!newColor.trim()) return;
-    if (colorOptions.includes(newColor.trim())) {
-      alert('This color already exists');
-      return;
-    }
+    if (colorOptions.includes(newColor.trim())) { alert('This color already exists'); return; }
     setColorOptions([...colorOptions, newColor.trim()]);
     setNewColor('');
   };
 
-  const removeColor = (color: string) => {
-    setColorOptions(colorOptions.filter(c => c !== color));
-  };
+  const removeColor = (color: string) => setColorOptions(colorOptions.filter(c => c !== color));
 
   const addType = () => {
     if (!newType.trim()) return;
-    if (typeOptions.includes(newType.trim())) {
-      alert('This type already exists');
-      return;
-    }
+    if (typeOptions.includes(newType.trim())) { alert('This type already exists'); return; }
     setTypeOptions([...typeOptions, newType.trim()]);
     setNewType('');
   };
 
-  const removeType = (type: string) => {
-    setTypeOptions(typeOptions.filter(t => t !== type));
-  };
+  const removeType = (type: string) => setTypeOptions(typeOptions.filter(t => t !== type));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,7 +205,6 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
 
   const addReview = () => {
     if (!newReview.reviewer_name) return;
-
     setReviews([...reviews, newReview]);
     setNewReview({ reviewer_name: '', rating: 5, comment: '' });
   };
@@ -186,6 +230,11 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     addType,
     removeType,
     handleSubmit,
-    addReview
+    addReview,
+    // Category data for ProductBasicInfo
+    categories,
+    categoriesLoading,
+    availableItemTypes,
+    handleCategoryChange
   };
 }
