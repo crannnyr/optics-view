@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Star, ShoppingBag } from 'lucide-react';
-import { supabase, Product, Review } from '../../lib/supabase';
+import { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Product } from '../../lib/supabase';
 import { useStore } from '../../context/StoreContext';
 
 interface ProductCardProps {
@@ -12,9 +12,6 @@ interface ProductCardProps {
 export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
-  const [showFullDescription, setShowFullDescription] = useState(false);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const descriptionRef = useRef<HTMLDivElement>(null);
 
   const images = product.images && product.images.length > 0 
     ? product.images.slice(0, 5)
@@ -29,35 +26,6 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
     return () => clearInterval(interval);
   }, [images.length]);
 
-  // Fetch product reviews
-  useEffect(() => {
-    const fetchReviews = async () => {
-      const { data } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('product_id', product.id)
-        .order('created_at', { ascending: false })
-        .limit(2);
-
-      if (data) setReviews(data);
-    };
-    fetchReviews();
-  }, [product.id]);
-
-  // Handle clicking outside the expanded description
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (descriptionRef.current && !descriptionRef.current.contains(e.target as Node)) {
-        setShowFullDescription(false);
-      }
-    };
-
-    if (showFullDescription) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [showFullDescription]);
-
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentImageIdx((prev) => (prev + 1) % images.length);
@@ -66,19 +34,6 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
   const prevImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length);
-  };
-
-  const truncateText = (text: string, maxLength: number) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength);
-  };
-
-  const description = product.description || '';
-  const shouldTruncate = description.length > 80;
-
-  const toggleDescription = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setShowFullDescription(!showFullDescription);
   };
 
   return (
@@ -127,7 +82,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
         )}
       </div>
 
-      <div className="flex justify-between items-start gap-4">
+      <div className="flex justify-between items-center gap-2">
         <div className="flex-1 text-left">
           <h3 
             onClick={() => onViewDetails(product)}
@@ -136,58 +91,12 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
           >
             {product.name}
           </h3>
-
-          <div 
-            ref={descriptionRef}
-            onClick={toggleDescription}
-            className="text-xs text-gray-500 mb-2 cursor-pointer"
-          >
-            {showFullDescription ? description : truncateText(description, 80)}
-            {shouldTruncate && !showFullDescription && '...'}
-          </div>
-
           <p 
-            className="text-base font-medium mb-2"
+            className="text-base font-medium"
             style={{ color: store.themeColor }}
           >
             ₦{product.price.toLocaleString()}
           </p>
-
-          <div className="flex items-center gap-1 mb-2">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <Star 
-                key={star} 
-                size={12} 
-                className={star <= 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} 
-              />
-            ))}
-            {reviews.length > 0 && (
-              <span className="text-[10px] text-gray-400 ml-1">({reviews.length})</span>
-            )}
-          </div>
-
-          {/* Inline Reviews */}
-          {reviews.length > 0 && (
-            <div className="space-y-2 mb-3">
-              {reviews.slice(0, 2).map((review) => (
-                <div key={review.id} className="bg-gray-50 p-2 rounded text-[10px] border border-gray-100">
-                  <div className="flex items-center gap-1 mb-1">
-                    <span className="font-bold text-gray-700">{review.reviewer_name}</span>
-                    <div className="flex gap-0.5">
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={8} 
-                          className={i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} 
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <p className="text-gray-600 line-clamp-2">{review.comment}</p>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <button
@@ -195,10 +104,10 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
             e.stopPropagation();
             onAddToCart(product);
           }}
-          className="shrink-0 text-white px-4 py-2 text-xs tracking-wider hover:opacity-90 transition-opacity flex items-center gap-2"
+          className="shrink-0 text-white px-3 py-1.5 text-[10px] tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5"
           style={{ backgroundColor: store.themeColor }}
         >
-          <ShoppingBag size={14} />
+          <ShoppingBag size={12} />
           BUY
         </button>
       </div>
