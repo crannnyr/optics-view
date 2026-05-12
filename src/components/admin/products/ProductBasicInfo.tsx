@@ -1,3 +1,13 @@
+import { Category } from '../hooks/useSettings';
+
+interface CategoryItemType {
+  id: string;
+  category_id: string;
+  name: string;
+  slug: string;
+  sort_order: number;
+}
+
 interface ProductBasicInfoProps {
   formData: {
     name: string;
@@ -5,12 +15,24 @@ interface ProductBasicInfoProps {
     stock: string;
     wholesale_min_qty: string;
     product_type: string;
+    category: string;
     [key: string]: any;
   };
   setFormData: (data: any) => void;
+  categories: Category[];
+  categoriesLoading: boolean;
+  availableItemTypes: CategoryItemType[];
+  handleCategoryChange: (slug: string) => void;
 }
 
-export default function ProductBasicInfo({ formData, setFormData }: ProductBasicInfoProps) {
+export default function ProductBasicInfo({
+  formData,
+  setFormData,
+  categories,
+  categoriesLoading,
+  availableItemTypes,
+  handleCategoryChange
+}: ProductBasicInfoProps) {
   return (
     <div className="space-y-5">
       <div>
@@ -19,7 +41,7 @@ export default function ProductBasicInfo({ formData, setFormData }: ProductBasic
           required
           placeholder="e.g. Vintage Frames"
           value={formData.name}
-          onChange={e => setFormData({...formData, name: e.target.value})}
+          onChange={e => setFormData({ ...formData, name: e.target.value })}
           className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
         />
       </div>
@@ -30,24 +52,53 @@ export default function ProductBasicInfo({ formData, setFormData }: ProductBasic
           required
           placeholder="Product details..."
           value={formData.description}
-          onChange={e => setFormData({...formData, description: e.target.value})}
+          onChange={e => setFormData({ ...formData, description: e.target.value })}
           className="w-full border p-3 text-sm h-32 focus:border-[#0d2818] outline-none resize-none"
         />
       </div>
 
-      {/* PRODUCT TYPE */}
+      {/* Category */}
       <div>
-        <label className="block text-[10px] uppercase text-gray-500 mb-2">Product Type</label>
-        <select
-          value={formData.product_type || 'video'}
-          onChange={e => setFormData({...formData, product_type: e.target.value})}
-          className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
-        >
-          <option value="video">Video</option>
-          <option value="audio_only">Audio Only</option>
-        </select>
+        <label className="block text-[10px] uppercase text-gray-500 mb-2">Category</label>
+        {categoriesLoading ? (
+          <div className="w-full border p-3 text-sm text-gray-400">Loading categories...</div>
+        ) : categories.length === 0 ? (
+          <div className="w-full border p-3 text-sm text-red-400">
+            No categories found. Add one in Settings → Categories first.
+          </div>
+        ) : (
+          <select
+            value={formData.category}
+            onChange={e => handleCategoryChange(e.target.value)}
+            className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
+          >
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.slug}>{cat.name}</option>
+            ))}
+          </select>
+        )}
+      </div>
+
+      {/* Item Type — filtered by selected category */}
+      <div>
+        <label className="block text-[10px] uppercase text-gray-500 mb-2">Item Type</label>
+        {availableItemTypes.length === 0 ? (
+          <div className="w-full border p-3 text-sm text-gray-400">
+            No item types for this category. Add some in Settings → Categories.
+          </div>
+        ) : (
+          <select
+            value={formData.product_type}
+            onChange={e => setFormData({ ...formData, product_type: e.target.value })}
+            className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
+          >
+            {availableItemTypes.map(type => (
+              <option key={type.id} value={type.slug}>{type.name}</option>
+            ))}
+          </select>
+        )}
         <p className="text-[10px] text-gray-400 mt-1">
-          This determines which category filter shows this product
+          Item types are managed in Settings → Categories
         </p>
       </div>
 
@@ -58,7 +109,7 @@ export default function ProductBasicInfo({ formData, setFormData }: ProductBasic
             type="number"
             required
             value={formData.stock}
-            onChange={e => setFormData({...formData, stock: e.target.value})}
+            onChange={e => setFormData({ ...formData, stock: e.target.value })}
             className="w-full border p-2 text-sm focus:border-[#0d2818] outline-none"
           />
         </div>
@@ -67,7 +118,7 @@ export default function ProductBasicInfo({ formData, setFormData }: ProductBasic
           <input
             type="number"
             value={formData.wholesale_min_qty}
-            onChange={e => setFormData({...formData, wholesale_min_qty: e.target.value})}
+            onChange={e => setFormData({ ...formData, wholesale_min_qty: e.target.value })}
             className="w-full border p-2 text-sm focus:border-[#0d2818] outline-none"
           />
         </div>
