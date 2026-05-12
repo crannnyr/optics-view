@@ -37,7 +37,11 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
     addType,
     removeType,
     handleSubmit,
-    addReview
+    addReview,
+    categories,
+    categoriesLoading,
+    availableItemTypes,
+    handleCategoryChange
   } = useProductModal({ product, onSuccess });
 
   return (
@@ -55,16 +59,20 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
         </h2>
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-          {/* LEFT COLUMN: Text Inputs, Pricing, and Variants */}
+          {/* LEFT COLUMN */}
           <div className="space-y-5">
-            <ProductBasicInfo 
-              formData={formData} 
-              setFormData={setFormData} 
+            <ProductBasicInfo
+              formData={formData}
+              setFormData={setFormData}
+              categories={categories}
+              categoriesLoading={categoriesLoading}
+              availableItemTypes={availableItemTypes}
+              handleCategoryChange={handleCategoryChange}
             />
-            
-            <ProductPricing 
-              formData={formData} 
-              setFormData={setFormData} 
+
+            <ProductPricing
+              formData={formData}
+              setFormData={setFormData}
             />
 
             <ProductVariants
@@ -81,7 +89,7 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
             />
           </div>
 
-          {/* RIGHT COLUMN: Images, Reviews, and Submit */}
+          {/* RIGHT COLUMN */}
           <div className="space-y-6">
             <ProductImages
               images={images}
