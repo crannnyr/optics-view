@@ -106,7 +106,7 @@ export default function RetailerModal({ isOpen, onClose, referringRetailerId }: 
             setPaymentMode={modal.setPaymentMode}
             paymentSettings={modal.paymentSettings}
             transferDetails={modal.transferDetails}
-            onPaystackSuccess={modal.handlePaystackSuccess}
+            onPaystackSuccess={(ref) => modal.handlePaystackSuccess(ref)}
             onPaystackClose={modal.handlePaystackClose}
           />
         )}
