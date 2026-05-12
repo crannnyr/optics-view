@@ -18,9 +18,8 @@ interface UseCheckoutProps {
 
 export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const { store } = useStore();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'full' | 'installment'>('full');
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
   const [shippingData, setShippingData] = useState({ state: '', city: '', area: '' });
   const [processingMessage, setProcessingMessage] = useState('');
@@ -39,7 +38,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   useEffect(() => {
     if (isOpen) {
       setStep(1);
-      setPaymentMode('full');
       setPaystackConfig(null);
       setCurrentOrderId(null);
       fetchSettings();
@@ -79,19 +77,10 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   }, 0);
 
   const totalOrderAmount = subtotal + calculateShipping();
-  const payableAmount = paymentMode === 'full' 
-    ? totalOrderAmount 
-    : Math.ceil(totalOrderAmount / 2);
-  const remainingBalance = totalOrderAmount - payableAmount;
+  const payableAmount = totalOrderAmount;
 
   // --- Handlers ---
-  const handleShippingSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setStep(2);
-  };
-
-  const handlePlanSelection = () => {
-    // If only one method is enabled, skip selection step
+  const handleShippingNext = () => {
     if (settings.enable_paystack && !settings.enable_transfer) {
       setPaymentMethod('paystack');
       createOrder('paystack');
@@ -99,9 +88,13 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       setPaymentMethod('transfer');
       createOrder('transfer');
     } else {
-      // Both enabled, let user choose
-      setStep(3);
+      setStep(2);
     }
+  };
+
+  const handleShippingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleShippingNext();
   };
 
   const handleCopyAccount = () => {
@@ -133,12 +126,8 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           shipping_area: shippingData.area,
           total_amount: totalOrderAmount,
           status: 'pending',
-          payment_type: paymentMode,
           payment_method: method,
           manual_payment_verified: false,
-          amount_paid: 0,
-          remaining_balance: totalOrderAmount,
-          is_fully_paid: false,
           paystack_reference: orderReference,
           retailer_id: store?.id,
           retailer_slug: store?.slug
@@ -179,13 +168,12 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           publicKey: PAYSTACK_PUBLIC_KEY,
           metadata: {
             order_id: order.id,
-            payment_type: paymentMode,
             retailer_id: store?.id
           }
         });
       }
 
-      setStep(4);
+      setStep(3);
       setLoading(false);
       setProcessingMessage('');
 
@@ -258,8 +246,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     store,
     step,
     loading,
-    paymentMode,
-    setPaymentMode,
     paymentMethod,
     setPaymentMethod,
     shippingData,
@@ -273,10 +259,9 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     subtotal,
     totalOrderAmount,
     payableAmount,
-    remainingBalance,
     calculateShipping,
     handleShippingSubmit,
-    handlePlanSelection,
+    handleShippingNext,
     handleCopyAccount,
     createOrder,
     handleTransferComplete,

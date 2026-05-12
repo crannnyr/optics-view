@@ -53,7 +53,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         hostname === 'opticsview.store' || 
         hostname === 'localhost' || 
         hostname.includes('vercel.app') || 
-        hostname.includes('bolt.host') ||  // <--- Added Bolt (Critical Fix)
+        hostname.includes('bolt.host') ||
+        hostname.includes('netlify.app') ||
         hostname.includes('lovableproject.com');
 
       let profile = null;

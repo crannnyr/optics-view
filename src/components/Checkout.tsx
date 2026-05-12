@@ -4,7 +4,6 @@ import { CartItem } from '../lib/supabase';
 // Child Components
 import CheckoutHeader from './checkout/CheckoutHeader';
 import ShippingStep from './checkout/steps/ShippingStep';
-import PaymentPlanStep from './checkout/steps/PaymentPlanStep';
 import PaymentMethodStep from './checkout/steps/PaymentMethodStep';
 import PaymentExecutionStep from './checkout/steps/PaymentExecutionStep';
 
@@ -20,8 +19,6 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
     store,
     step,
     loading,
-    paymentMode,
-    setPaymentMode,
     paymentMethod,
     setPaymentMethod,
     shippingData,
@@ -34,10 +31,8 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
     subtotal,
     totalOrderAmount,
     payableAmount,
-    remainingBalance,
     calculateShipping,
     handleShippingSubmit,
-    handlePlanSelection,
     handleCopyAccount,
     createOrder,
     handleTransferComplete,
@@ -73,18 +68,6 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
           )}
 
           {step === 2 && (
-            <PaymentPlanStep
-              paymentMode={paymentMode}
-              setPaymentMode={setPaymentMode}
-              totalOrderAmount={totalOrderAmount}
-              payableAmount={payableAmount}
-              remainingBalance={remainingBalance}
-              handlePlanSelection={handlePlanSelection}
-              themeColor={store?.themeColor}
-            />
-          )}
-
-          {step === 3 && (
             <PaymentMethodStep
               payableAmount={payableAmount}
               settings={settings}
@@ -95,7 +78,7 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
             />
           )}
 
-          {step === 4 && (
+          {step === 3 && (
             <PaymentExecutionStep
               paymentMethod={paymentMethod}
               paystackConfig={paystackConfig}
