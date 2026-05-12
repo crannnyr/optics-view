@@ -57,6 +57,17 @@ export default function ProductPricing({ formData, setFormData }: ProductPricing
             className="w-full border p-2 text-sm focus:border-[#0d2818] outline-none"
           />
         </div>
+        <div>
+          <label className="block text-[10px] uppercase text-[#0d2818] font-bold mb-1">Dropship Price (₦)</label>
+          <input
+            type="number"
+            placeholder="e.g. 18000"
+            value={formData.dropship_price}
+            onChange={e => setFormData({...formData, dropship_price: e.target.value})}
+            className="w-full border p-2 text-sm focus:border-[#0d2818] outline-none"
+          />
+          <p className="text-[10px] text-gray-400 mt-1">Price retailers sell at</p>
+        </div>
       </div>
     </div>
   );

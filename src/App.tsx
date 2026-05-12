@@ -5,7 +5,7 @@ import Admin from './components/Admin';
 import OrderHistory from './components/OrderHistory';
 import ProductDetails from './components/ProductDetails';
 import LegalPages from './components/LegalPages';
-import { Lock, Loader2, SearchX } from 'lucide-react'; // <--- Added SearchX
+import { Lock, Loader2, SearchX } from 'lucide-react'; // <--- Added SearchnnnX
 import RetailerDashboard from './components/RetailerDashboard';
 import { useStore } from './context/StoreContext';
 

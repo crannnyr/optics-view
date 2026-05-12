@@ -19,6 +19,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     compare_at_price: '',
     wholesale_price: '',
     wholesale_min_qty: '7',
+    dropship_price: '',
     stock: '',
     category: '',
     product_type: ''
@@ -88,6 +89,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
         compare_at_price: String(product.compare_at_price || ''),
         wholesale_price: String(product.wholesale_price || ''),
         wholesale_min_qty: String(product.wholesale_min_qty || '7'),
+        dropship_price: String(product.dropship_price || ''),
         stock: String(product.stock),
         category: product.category,
         product_type: product.product_type || ''
@@ -108,6 +110,26 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
   // Derived: item types for currently selected category
   const availableItemTypes = categories.find(c => c.slug === formData.category)?.item_types || [];
 
+  const compressImage = (file: File, maxWidth = 1000, quality = 0.7): Promise<File> =>
+    new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(
+          blob => resolve(new File([blob!], file.name, { type: 'image/webp' })),
+          'image/webp',
+          quality
+        );
+        URL.revokeObjectURL(url);
+      };
+      img.src = url;
+    });
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     if (images.length >= 5) {
@@ -122,10 +144,11 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     for (const file of files) {
       if (images.length + newImageUrls.length >= 5) break;
 
-      const fileName = `${Math.random()}.${file.name.split('.').pop()}`;
+      const compressed = await compressImage(file);
+      const fileName = `${Math.random()}.webp`;
       const { error } = await supabase.storage
         .from('product-images')
-        .upload(fileName, file);
+        .upload(fileName, compressed, { contentType: 'image/webp' });
 
       if (!error) {
         const { data } = supabase.storage
@@ -172,6 +195,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       cost_price: formData.cost_price ? parseFloat(formData.cost_price) : 0,
       compare_at_price: formData.compare_at_price ? parseFloat(formData.compare_at_price) : null,
       wholesale_price: formData.wholesale_price ? parseFloat(formData.wholesale_price) : null,
+      dropship_price: formData.dropship_price ? parseFloat(formData.dropship_price) : null,
       wholesale_min_qty: parseInt(formData.wholesale_min_qty) || 7,
       stock: parseInt(formData.stock),
       category: formData.category,
@@ -238,3 +262,4 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     handleCategoryChange
   };
 }
+
