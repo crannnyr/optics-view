@@ -31,6 +31,8 @@ export function useRetailerModal(referringRetailerId?: string | null) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
+  const [checkingApplication, setCheckingApplication] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [plan, setPlan] = useState<Plan>('monthly');
@@ -53,12 +55,29 @@ export function useRetailerModal(referringRetailerId?: string | null) {
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
-      if (data.user?.email) setFormData(p => ({ ...p, email: data.user.email }));
+      const u = data.user;
+      setUser(u);
+      if (u?.email) {
+        setFormData(p => ({ ...p, email: u.email }));
+        checkExistingApplication(u.email);
+      } else {
+        setCheckingApplication(false);
+      }
     });
     fetchCategories();
     fetchPaymentSettings();
   }, []);
+
+  const checkExistingApplication = async (email: string) => {
+    const { data } = await supabase
+      .from('retailer_registrations')
+      .select('id')
+      .eq('email', email)
+      .limit(1)
+      .maybeSingle();
+    setHasApplied(!!data);
+    setCheckingApplication(false);
+  };
 
   const fetchCategories = async () => {
     const { data } = await supabase.from('categories').select('*').order('sort_order');
@@ -88,6 +107,8 @@ export function useRetailerModal(referringRetailerId?: string | null) {
   const subscriptionCost = plan === 'yearly' ? yearlyRate : hasFreeMonth ? 0 : monthlyRate;
   const totalDue = subscriptionCost + domainCost;
 
+  const isCustomDomain = formData.domainType !== 'subdomain';
+
   // ── Helpers ────────────────────────────────────────────────
   const generateSlug = (name: string) => {
     const slug = name.toLowerCase()
@@ -101,11 +122,23 @@ export function useRetailerModal(referringRetailerId?: string | null) {
       ? `opticsview.store/${generateSlug(formData.storeName || 'your-store')}`
       : `${formData.customDomainName || 'yourbrand'}.${formData.domainType}`;
 
-  const isCustomDomain = formData.domainType !== 'subdomain';
-
   // ── Submit ─────────────────────────────────────────────────
   const handleSubmitDetails = async () => {
     if (!user) return;
+
+    // Guard: prevent double submission
+    const { data: existing } = await supabase
+      .from('retailer_registrations')
+      .select('id')
+      .eq('email', formData.email)
+      .limit(1)
+      .maybeSingle();
+
+    if (existing) {
+      setHasApplied(true);
+      return;
+    }
+
     setLoading(true);
     try {
       const reference = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -157,35 +190,31 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     setLoading(false);
   };
 
-  // Paystack auto-approves — update registration to active + set trial dates
   const handlePaystackSuccess = async (reference: any) => {
     setLoading(true);
     try {
-      // Find the registration by paystack reference and activate it
       const { data: reg } = await supabase
         .from('retailer_registrations')
-        .select('id, domain_type')
+        .select('id')
         .eq('paystack_reference', reference.reference)
         .single();
 
       if (reg) {
-        const trialEnds = hasFreeMonth
-          ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-          : null;
-
         await supabase
           .from('retailer_registrations')
           .update({
             payment_status: 'verified',
             subscription_status: hasFreeMonth ? 'trial' : 'active',
+            payment_method: 'paystack',
             verified_at: new Date().toISOString(),
-            trial_ends_at: trialEnds,
+            trial_ends_at: hasFreeMonth
+              ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+              : null,
           })
           .eq('id', reg.id);
       }
     } catch (err) {
       console.error('Post-payment update error:', err);
-      // Still redirect — webhook can reconcile
     }
     setLoading(false);
     window.location.href = '/retailer';
@@ -199,6 +228,8 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     step, setStep,
     user,
     loading,
+    hasApplied,
+    checkingApplication,
     categories,
     selectedCategories, toggleCategory,
     plan, setPlan,
@@ -208,10 +239,8 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     paymentSettings,
     transferDetails,
     isCustomDomain,
-    // pricing
     catCount, monthlyRate, hasFreeMonth, domainCost,
     yearlyRate, subscriptionCost, totalDue,
-    // actions
     domainPreview,
     generateSlug,
     handleSubmitDetails,

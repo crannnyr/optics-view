@@ -81,8 +81,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           .select('id, store_name, store_slug, theme_color, logo_url')
           .eq('store_slug', pathSegment)
           .eq('role', 'retailer')
-          .maybeSingle(); // <--- Critical Fix
+          .maybeSingle();
          profile = data;
+
+         if (profile) {
+           const { data: reg } = await supabase
+             .from('retailer_registrations')
+             .select('is_blocked')
+             .eq('store_slug', pathSegment)
+             .maybeSingle();
+           if (reg?.is_blocked) { setStoreNotFound(true); setLoading(false); return; }
+         }
       }
 
       if (profile) {

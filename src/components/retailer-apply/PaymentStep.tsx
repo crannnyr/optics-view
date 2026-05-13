@@ -1,6 +1,9 @@
-import { Loader2, Building2, Copy, CheckCircle } from 'lucide-react';
 import { useState } from 'react';
+import { Loader2, Building2, Copy, CheckCircle, AlertTriangle, ArrowLeft, Clock, RefreshCw } from 'lucide-react';
 import { PaystackButton } from 'react-paystack';
+import { supabase } from '../../lib/supabase';
+
+type ManualState = 'warning' | 'details' | 'sent';
 
 interface Props {
   paystackConfig: any;
@@ -22,11 +25,47 @@ export default function PaymentStep({
 }: Props) {
   const bothEnabled = paymentSettings.enable_paystack && paymentSettings.enable_transfer;
   const [copied, setCopied] = useState(false);
+  const [manualState, setManualState] = useState<ManualState>('warning');
+  const [senderName, setSenderName] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSent = async () => {
+    if (!senderName.trim()) return;
+    setSubmitting(true);
+    await supabase
+      .from('retailer_registrations')
+      .update({ sender_name: senderName.trim(), payment_method: 'transfer' })
+      .eq('email', formData.email)
+      .eq('payment_status', 'pending');
+    setSubmitting(false);
+    setManualState('sent');
+  };
+
+  const handleCheckStatus = async () => {
+    setChecking(true);
+    setStatusMsg('');
+    const { data } = await supabase
+      .from('retailer_registrations')
+      .select('payment_status')
+      .eq('email', formData.email)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data?.payment_status === 'verified') {
+      window.location.href = '/retailer';
+    } else {
+      setStatusMsg('Payment not confirmed yet. Please wait a few more minutes and try again.');
+    }
+    setChecking(false);
   };
 
   return (
@@ -46,23 +85,17 @@ export default function PaymentStep({
           <span>Email</span>
           <span className="font-mono text-xs">{formData.email}</span>
         </div>
-        <div className="flex justify-between text-gray-600">
-          <span>Domain</span>
-          <span className="text-xs font-medium">
-            {formData.domainType === 'subdomain' ? 'opticsview.store/yourstore' : `.${formData.domainType}`}
-          </span>
-        </div>
         <div className="flex justify-between font-bold text-[#0d2818] border-t pt-3 text-base">
           <span>Total Due</span>
           <span>₦{totalDue.toLocaleString()}</span>
         </div>
       </div>
 
-      {/* Payment mode toggle — only show if both enabled */}
+      {/* Payment mode toggle */}
       {bothEnabled && (
         <div className="flex gap-3 mb-6">
           <button
-            onClick={() => setPaymentMode('paystack')}
+            onClick={() => { setPaymentMode('paystack'); setManualState('warning'); }}
             className={`flex-1 py-3 text-sm font-medium rounded-lg border-2 transition-all ${
               paymentMode === 'paystack'
                 ? 'border-[#0d2818] bg-[#0d2818] text-white'
@@ -84,7 +117,7 @@ export default function PaymentStep({
         </div>
       )}
 
-      {/* Paystack */}
+      {/* ── PAYSTACK ─────────────────────────────────────────── */}
       {paymentMode === 'paystack' && paymentSettings.enable_paystack && paystackConfig && (
         <>
           <PaystackButton
@@ -96,55 +129,148 @@ export default function PaymentStep({
             disabled={loading}
           />
           <p className="text-center text-xs text-gray-400">
-            🔒 Secured by Paystack · You'll be redirected to your dashboard on success
+            🔒 Secured by Paystack · Redirected to dashboard on success
           </p>
         </>
       )}
 
-      {/* Bank Transfer */}
+      {/* ── TRANSFER ─────────────────────────────────────────── */}
       {paymentMode === 'transfer' && paymentSettings.enable_transfer && (
-        <div className="space-y-3">
-          <div className="bg-[#0d2818] text-white rounded-lg p-5 space-y-4">
-            <p className="text-xs uppercase tracking-widest text-white/60 mb-2">Transfer Details</p>
-            {[
-              ['Bank', transferDetails.bank],
-              ['Account Number', transferDetails.number],
-              ['Account Name', transferDetails.name],
-              ['Amount', `₦${totalDue.toLocaleString()}`],
-            ].map(([label, value]) => (
-              <div key={label} className="flex items-center justify-between">
-                <span className="text-xs text-white/60">{label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="font-mono font-semibold text-sm select-all">{value}</span>
-                  {label === 'Account Number' && (
-                    <button
-                      onClick={() => handleCopy(value)}
-                      className="p-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
-                    >
-                      {copied
-                        ? <CheckCircle size={13} className="text-green-400" />
-                        : <Copy size={13} />
-                      }
-                    </button>
-                  )}
+        <>
+          {/* WARNING STATE */}
+          {manualState === 'warning' && (
+            <div className="space-y-4">
+              <div className="bg-amber-50 border-2 border-amber-200 rounded-lg p-5">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle size={20} className="text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-amber-900 mb-2">Read before proceeding</p>
+                    <ul className="text-sm text-amber-800 space-y-1.5">
+                      <li>• Only proceed if you are <strong>ready to transfer right now</strong></li>
+                      <li>• Submitting a fake or unverifiable transaction will result in a <strong>permanent account ban</strong></li>
+                      <li>• If you are not ready, click the back button and return when you are</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setPaymentMode('paystack')}
+                  className="flex-1 py-3 border-2 border-gray-200 text-sm text-gray-600 rounded-lg hover:border-gray-300 flex items-center justify-center gap-2"
+                >
+                  <ArrowLeft size={14} /> Go Back
+                </button>
+                <button
+                  onClick={() => setManualState('details')}
+                  className="flex-1 py-3 bg-[#0d2818] text-white text-sm font-medium rounded-lg hover:opacity-90"
+                >
+                  I'm Ready — Show Details
+                </button>
+              </div>
+            </div>
+          )}
 
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <p className="text-xs text-amber-800 leading-relaxed">
-              <strong>After transferring:</strong> Send your receipt to us via WhatsApp or email.
-              Your store will be reviewed and activated within <strong>24 hours</strong>.
-            </p>
-          </div>
-        </div>
+          {/* DETAILS STATE */}
+          {manualState === 'details' && (
+            <div className="space-y-4">
+              <div className="bg-[#0d2818] text-white rounded-lg p-5 space-y-4">
+                <p className="text-xs uppercase tracking-widest text-white/60 mb-2">Transfer To</p>
+                {[
+                  ['Bank', transferDetails.bank],
+                  ['Account Number', transferDetails.number],
+                  ['Account Name', transferDetails.name],
+                  ['Amount', `₦${totalDue.toLocaleString()}`],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between">
+                    <span className="text-xs text-white/60">{label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-semibold text-sm select-all">{value}</span>
+                      {label === 'Account Number' && (
+                        <button
+                          onClick={() => handleCopy(value)}
+                          className="p-1 rounded bg-white/10 hover:bg-white/20 transition-colors"
+                        >
+                          {copied
+                            ? <CheckCircle size={13} className="text-green-400" />
+                            : <Copy size={13} />
+                          }
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div>
+                <label className="block text-xs uppercase text-gray-500 mb-1.5">
+                  Sender Name (name on your bank account) *
+                </label>
+                <input
+                  type="text"
+                  value={senderName}
+                  onChange={e => setSenderName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-[#0d2818] outline-none"
+                />
+              </div>
+
+              <button
+                onClick={handleSent}
+                disabled={!senderName.trim() || submitting}
+                className="w-full bg-[#0d2818] text-white py-4 text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {submitting
+                  ? <><Loader2 size={16} className="animate-spin" /> Submitting...</>
+                  : "I've Sent the Payment"
+                }
+              </button>
+            </div>
+          )}
+
+          {/* SENT STATE */}
+          {manualState === 'sent' && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-5 text-center">
+                <CheckCircle size={32} className="mx-auto text-green-600 mb-3" />
+                <p className="font-semibold text-green-900 mb-1">Transfer Submitted</p>
+                <p className="text-sm text-green-800">
+                  Our team will confirm your payment. This usually takes <strong>under 5 minutes</strong> during business hours.
+                  Once confirmed, you will be automatically routed to your retailer dashboard.
+                </p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 flex items-center gap-3">
+                <Clock size={16} className="text-gray-400 shrink-0" />
+                <p className="text-xs text-gray-500">
+                  You can close this window and come back — your registration is safely saved.
+                  Click "Check Status" anytime to see if you've been approved.
+                </p>
+              </div>
+
+              {statusMsg && (
+                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+                  {statusMsg}
+                </p>
+              )}
+
+              <button
+                onClick={handleCheckStatus}
+                disabled={checking}
+                className="w-full border-2 border-[#0d2818] text-[#0d2818] py-4 text-sm font-medium rounded-lg hover:bg-[#0d2818] hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {checking
+                  ? <><Loader2 size={16} className="animate-spin" /> Checking...</>
+                  : <><RefreshCw size={16} /> Check Status</>
+                }
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {loading && (
         <div className="mt-5 flex items-center gap-2 justify-center text-sm text-gray-500">
-          <Loader2 size={16} className="animate-spin" />
-          Activating your store...
+          <Loader2 size={16} className="animate-spin" /> Activating your store...
         </div>
       )}
     </div>

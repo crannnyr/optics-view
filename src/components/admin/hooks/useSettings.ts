@@ -333,6 +333,7 @@ export function useSettings() {
     // Retailers
     retailers,
     loadingRetailers,
+    fetchRetailers,
 
     // Payments
     paymentLoading,

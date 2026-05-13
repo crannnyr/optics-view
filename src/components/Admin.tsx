@@ -1,27 +1,20 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store, Gift, Trophy, Truck } from 'lucide-react'; // Added Truck icon
+import { Package, Settings, Upload, Store } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
 import RetailersTab from './admin/RetailersTab';
-import CombosTab from './admin/CombosTab';
-import AdminTasksTab from './admin/AdminTasksTab';
-import RewardClaimsTab from './admin/RewardClaimsTab'; // <--- Import New Tab
 
-// Added 'claims' to the type
-type TabType = 'products' | 'orders' | 'combos' | 'retailers' | 'tasks' | 'claims' | 'settings';
+type TabType = 'products' | 'orders' | 'retailers' | 'settings';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
 
   const navItems = [
     { id: 'products' as const, label: 'Products', icon: Upload },
-    { id: 'combos' as const, label: 'Combo Deals', icon: Gift },
     { id: 'orders' as const, label: 'Orders', icon: Package },
     { id: 'retailers' as const, label: 'Retailers', icon: Store },
-    { id: 'tasks' as const, label: 'Retailer Tasks', icon: Trophy },
-    { id: 'claims' as const, label: 'Reward Claims', icon: Truck }, // <--- New Item
-    { id: 'settings' as const, label: 'Delivery Settings', icon: Settings },
+    { id: 'settings' as const, label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -60,9 +53,7 @@ export default function Admin() {
             key={item.id}
             onClick={() => setActiveTab(item.id)}
             className={`p-2 rounded ${
-              activeTab === item.id
-                ? 'bg-gray-100 text-[#0d2818]'
-                : 'text-gray-400'
+              activeTab === item.id ? 'bg-gray-100 text-[#0d2818]' : 'text-gray-400'
             }`}
           >
             <item.icon size={20} />
@@ -74,11 +65,8 @@ export default function Admin() {
       <main className="flex-1 md:ml-64 p-6 md:p-12 mt-12 md:mt-0">
         <div className="max-w-7xl mx-auto">
           {activeTab === 'products' && <ProductsTab />}
-          {activeTab === 'combos' && <CombosTab />}
           {activeTab === 'orders' && <OrdersTab />}
           {activeTab === 'retailers' && <RetailersTab />}
-          {activeTab === 'tasks' && <AdminTasksTab />}
-          {activeTab === 'claims' && <RewardClaimsTab />} {/* <--- Render New Tab */}
           {activeTab === 'settings' && <SettingsTab />}
         </div>
       </main>

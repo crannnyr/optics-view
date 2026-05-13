@@ -63,6 +63,7 @@ export default function Home({
     handleSignOut,
     handleCheckout,
     categories,
+    hasApplied,
   } = useHome({ user });
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);

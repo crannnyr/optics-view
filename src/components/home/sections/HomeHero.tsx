@@ -3,37 +3,31 @@ import { TrendingUp } from 'lucide-react';
 interface HomeHeroProps {
   themeColor: string;
   onRetailerClick: () => void;
+  hasApplied: boolean;
+  user: any;
 }
 
-export default function HomeHero({ themeColor, onRetailerClick }: HomeHeroProps) {
+export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
   return (
     <>
-      {/* Hero Image Section */}
+      {/* Hero */}
       <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden">
-        <img 
+        <img
           src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg"
           alt="Smart Glasses Hero"
           className="w-full h-full object-contain"
         />
-
-        {/* Animated Text Overlay */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div className="text-center max-w-3xl px-6">
-            <h2 
+            <h2
               className="text-3xl md:text-4xl font-light tracking-[0.3em] text-white mb-3"
-              style={{
-                animation: 'fadeInUp 1.2s ease-out forwards',
-                opacity: 0
-              }}
+              style={{ animation: 'fadeInUp 1.2s ease-out forwards', opacity: 0 }}
             >
               SEE BEYOND
             </h2>
-            <p 
+            <p
               className="text-sm md:text-base text-white leading-relaxed"
-              style={{
-                animation: 'fadeInUp 1.2s ease-out 0.4s forwards',
-                opacity: 0
-              }}
+              style={{ animation: 'fadeInUp 1.2s ease-out 0.4s forwards', opacity: 0 }}
             >
               AI-powered clarity.
             </p>
@@ -41,20 +35,33 @@ export default function HomeHero({ themeColor, onRetailerClick }: HomeHeroProps)
         </div>
       </section>
 
-      {/* Become a Retailer Button Section */}
-      <section className="max-w-7xl mx-auto px-6 py-8">
-        <button
-          onClick={onRetailerClick}
-          className="text-white px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
-          style={{
-            backgroundColor: themeColor,
-            animation: 'blink 2s ease-in-out infinite'
-          }}
-        >
-          <TrendingUp size={14} />
-          BECOME A RETAILER
-        </button>
-      </section>
+      {/* Retailer CTA — hidden if already applied */}
+      {!hasApplied && (
+        <section className="max-w-7xl mx-auto px-6 py-8">
+          <button
+            onClick={onRetailerClick}
+            className="text-white px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
+            style={{ backgroundColor: themeColor, animation: 'blink 2s ease-in-out infinite' }}
+          >
+            <TrendingUp size={14} />
+            BECOME A RETAILER
+          </button>
+        </section>
+      )}
+
+      {/* If applied, show subtle dashboard link instead */}
+      {hasApplied && user && (
+        <section className="max-w-7xl mx-auto px-6 py-8">
+          <a
+            href="/retailer"
+            className="text-xs tracking-widest border px-5 py-2 flex items-center gap-2 w-fit hover:opacity-80 transition-opacity"
+            style={{ borderColor: themeColor, color: themeColor }}
+          >
+            <TrendingUp size={13} />
+            MY RETAILER DASHBOARD
+          </a>
+        </section>
+      )}
     </>
   );
 }

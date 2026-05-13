@@ -15,6 +15,7 @@ export default function SettingsTab() {
     setNewDeliveryFee,
     retailers,
     loadingRetailers,
+    fetchRetailers,
     paymentLoading,
     paymentMethods,
     setPaymentMethods,
@@ -64,8 +65,8 @@ export default function SettingsTab() {
         <RetailerApplicationsView
           retailers={retailers}
           loadingRetailers={loadingRetailers}
-          getStatusBadge={getStatusBadge}
           formatDate={formatDate}
+          fetchRetailers={fetchRetailers}
         />
       )}
 

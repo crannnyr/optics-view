@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase, Product, CartItem } from '../../../lib/supabase';
+import { supabase, Product } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
 
 interface UseHomeProps {
@@ -12,23 +12,39 @@ export function useHome({ user }: UseHomeProps) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<{ slug: string; name: string; image: string | null }[]>([]);
-  
+
   // Modal States
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isRetailerModalOpen, setIsRetailerModalOpen] = useState(false);
-  
+
   const [orderSuccess, setOrderSuccess] = useState(false);
   const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
 
   useEffect(() => {
     loadProducts();
     loadCategories();
   }, [store.id]);
 
-  // Handle auto-opening checkout after successful login
+  // Check if user already has a retailer application
+  useEffect(() => {
+    if (user?.email) {
+      supabase
+        .from('retailer_registrations')
+        .select('id')
+        .eq('email', user.email)
+        .limit(1)
+        .maybeSingle()
+        .then(({ data }) => setHasApplied(!!data));
+    } else {
+      setHasApplied(false);
+    }
+  }, [user]);
+
+  // Auto-open checkout after login
   useEffect(() => {
     if (user && pendingCheckout) {
       setPendingCheckout(false);
@@ -36,6 +52,7 @@ export function useHome({ user }: UseHomeProps) {
     }
   }, [user, pendingCheckout]);
 
+  // Filter products by category
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredProducts(products);
@@ -55,7 +72,6 @@ export function useHome({ user }: UseHomeProps) {
 
     if (baseProducts) {
       if (store.isRetailer && store.id) {
-        // Fetch custom retailer prices if viewing through a retailer's store
         const { data: customPrices } = await supabase
           .from('retailer_products')
           .select('product_id, custom_price')
@@ -119,20 +135,15 @@ export function useHome({ user }: UseHomeProps) {
     filteredProducts,
     selectedCategory,
     setSelectedCategory,
-    isCartOpen,
-    setIsCartOpen,
-    isCheckoutOpen,
-    setIsCheckoutOpen,
-    isAuthOpen,
-    setIsAuthOpen,
-    isUserMenuOpen,
-    setIsUserMenuOpen,
-    isRetailerModalOpen,
-    setIsRetailerModalOpen,
-    orderSuccess,
-    setOrderSuccess,
+    categories,
+    hasApplied,
+    isCartOpen, setIsCartOpen,
+    isCheckoutOpen, setIsCheckoutOpen,
+    isAuthOpen, setIsAuthOpen,
+    isUserMenuOpen, setIsUserMenuOpen,
+    isRetailerModalOpen, setIsRetailerModalOpen,
+    orderSuccess, setOrderSuccess,
     handleSignOut,
     handleCheckout,
-    categories,
   };
 }
