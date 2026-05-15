@@ -49,8 +49,11 @@ export interface Category {
   item_types?: CategoryItemType[];
 }
 
+// ← 'hero' added to the union
+export type SettingsActiveTab = 'delivery' | 'retailers' | 'payments' | 'categories' | 'hero';
+
 export function useSettings() {
-  const [activeTab, setActiveTab] = useState<'delivery' | 'retailers' | 'payments' | 'categories'>('delivery');
+  const [activeTab, setActiveTab] = useState<SettingsActiveTab>('delivery');
 
   // Delivery Settings State
   const [deliverySettings, setDeliverySettings] = useState<DeliverySetting[]>([]);
@@ -220,7 +223,6 @@ export function useSettings() {
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    // Check if any products are in this category
     const cat = categories.find(c => c.id === categoryId);
     if (!cat) return;
 
@@ -265,7 +267,6 @@ export function useSettings() {
   };
 
   const handleDeleteItemType = async (itemTypeId: string, itemTypeSlug: string) => {
-    // Check if products use this item type
     const { count } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
@@ -282,7 +283,6 @@ export function useSettings() {
     if (!error) fetchCategories();
   };
 
-  // Move a product from one category to another and update its item type
   const handleMoveProduct = async (
     productId: string,
     newCategorySlug: string,
@@ -299,11 +299,11 @@ export function useSettings() {
 
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
-      pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      verified: 'bg-green-100 text-green-800 border-green-200',
-      failed: 'bg-red-100 text-red-800 border-red-200',
-      trial: 'bg-blue-100 text-blue-800 border-blue-200',
-      active: 'bg-green-100 text-green-800 border-green-200',
+      pending:   'bg-yellow-100 text-yellow-800 border-yellow-200',
+      verified:  'bg-green-100 text-green-800 border-green-200',
+      failed:    'bg-red-100 text-red-800 border-red-200',
+      trial:     'bg-blue-100 text-blue-800 border-blue-200',
+      active:    'bg-green-100 text-green-800 border-green-200',
       suspended: 'bg-gray-100 text-gray-800 border-gray-200'
     };
     return styles[status] || 'bg-gray-100 text-gray-800';
@@ -361,6 +361,6 @@ export function useSettings() {
 
     // Shared
     getStatusBadge,
-    formatDate
+    formatDate,
   };
 }

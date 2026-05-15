@@ -72,12 +72,27 @@ export function useHome({ user }: UseHomeProps) {
 
     if (baseProducts) {
       if (store.isRetailer && store.id) {
+        // Get retailer's selected categories
+        const { data: reg } = await supabase
+          .from('retailer_registrations')
+          .select('selected_categories')
+          .eq('store_slug', store.slug)
+          .maybeSingle();
+
+        const selectedCats: string[] = reg?.selected_categories ?? [];
+
+        // Filter to only retailer's categories
+        const categoryFiltered = selectedCats.length > 0
+          ? baseProducts.filter(p => selectedCats.includes(p.category))
+          : baseProducts;
+
+        // Apply custom prices
         const { data: customPrices } = await supabase
           .from('retailer_products')
           .select('product_id, custom_price')
           .eq('retailer_id', store.id);
 
-        const mergedProducts = baseProducts.map((p) => {
+        const mergedProducts = categoryFiltered.map((p) => {
           const custom = customPrices?.find((cp) => cp.product_id === p.id);
           return custom ? { ...p, price: custom.custom_price } : p;
         });
@@ -92,10 +107,23 @@ export function useHome({ user }: UseHomeProps) {
   };
 
   const loadCategories = async () => {
-    const { data: cats } = await supabase
-      .from('categories')
-      .select('slug, name')
-      .order('sort_order');
+    let query = supabase.from('categories').select('slug, name').order('sort_order');
+
+    // For retailer stores, only show their selected categories
+    if (store.isRetailer && store.slug) {
+      const { data: reg } = await supabase
+        .from('retailer_registrations')
+        .select('selected_categories')
+        .eq('store_slug', store.slug)
+        .maybeSingle();
+
+      const selectedCats: string[] = reg?.selected_categories ?? [];
+      if (selectedCats.length > 0) {
+        query = query.in('slug', selectedCats);
+      }
+    }
+
+    const { data: cats } = await query;
     if (!cats) return;
 
     const withImages = await Promise.all(

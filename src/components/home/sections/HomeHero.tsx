@@ -1,41 +1,143 @@
+import { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { supabase } from '../../../lib/supabase';
+
+interface HeroSettings {
+  image_url: string;
+  title: string;
+  subtitle: string;
+  font_family: string;
+  title_color: string;
+  subtitle_color: string;
+  title_size: number;
+  subtitle_size: number;
+  position: string;
+  letter_spacing: number;
+  overlay_opacity: number;
+  overlay_color: string;
+}
+
+const DEFAULT_HERO: HeroSettings = {
+  image_url: 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg',
+  title: 'SEE BEYOND',
+  subtitle: 'AI-powered clarity.',
+  font_family: 'inherit',
+  title_color: '#ffffff',
+  subtitle_color: '#ffffff',
+  title_size: 36,
+  subtitle_size: 14,
+  position: 'center',
+  letter_spacing: 3,
+  overlay_opacity: 20,
+  overlay_color: '#000000',
+};
+
+function positionToFlex(pos: string): React.CSSProperties {
+  const [v, h] = pos === 'center' ? ['center', 'center'] : pos.split('-');
+  return {
+    justifyContent: v === 'top' ? 'flex-start' : v === 'bottom' ? 'flex-end' : 'center',
+    alignItems:     h === 'left' ? 'flex-start' : h === 'right'  ? 'flex-end'  : 'center',
+  };
+}
+
+function positionToTextAlign(pos: string): 'left' | 'center' | 'right' {
+  if (pos.endsWith('left'))  return 'left';
+  if (pos.endsWith('right')) return 'right';
+  return 'center';
+}
 
 interface HomeHeroProps {
   themeColor: string;
   onRetailerClick: () => void;
-  hasApplied: boolean;
-  user: any;
+  hasApplied?: boolean;
+  user?: any;
 }
 
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
+  const [hero, setHero] = useState<HeroSettings>(DEFAULT_HERO);
+
+  // Load Google Fonts (same fonts available in admin editor)
+  useEffect(() => {
+    if (document.getElementById('hero-gfonts')) return;
+    const link = document.createElement('link');
+    link.id   = 'hero-gfonts';
+    link.rel  = 'stylesheet';
+    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;700&family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;700&family=Raleway:wght@300;400;700&family=Dancing+Script:wght@400;700&family=Pacifico&family=Great+Vibes&display=swap';
+    document.head.appendChild(link);
+  }, []);
+
+  // Fetch published hero settings
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'hero_settings')
+        .single();
+      if (data?.value) setHero(prev => ({ ...prev, ...data.value }));
+    })();
+  }, []);
+
+  const flexStyle = positionToFlex(hero.position);
+  const textAlign = positionToTextAlign(hero.position);
+
   return (
     <>
       {/* Hero */}
       <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden">
         <img
-          src="https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg"
-          alt="Smart Glasses Hero"
+          src={hero.image_url}
+          alt="Hero Banner"
           className="w-full h-full object-contain"
         />
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-center max-w-3xl px-6">
+
+        {/* Overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundColor: hero.overlay_color,
+            opacity: hero.overlay_opacity / 100,
+          }}
+        />
+
+        {/* Text */}
+        <div className="absolute inset-0 flex flex-col px-8 py-6" style={flexStyle}>
+          {hero.title && (
             <h2
-              className="text-3xl md:text-4xl font-light tracking-[0.3em] text-white mb-3"
-              style={{ animation: 'fadeInUp 1.2s ease-out forwards', opacity: 0 }}
+              style={{
+                fontFamily:    hero.font_family,
+                fontSize:      `${hero.title_size}px`,
+                color:         hero.title_color,
+                letterSpacing: `${(hero.letter_spacing * 0.1).toFixed(2)}em`,
+                textAlign,
+                fontWeight: 300,
+                margin: 0,
+                opacity: 0,
+                animation: 'fadeInUp 1.2s ease-out forwards',
+              }}
             >
-              SEE BEYOND
+              {hero.title}
             </h2>
+          )}
+          {hero.subtitle && (
             <p
-              className="text-sm md:text-base text-white leading-relaxed"
-              style={{ animation: 'fadeInUp 1.2s ease-out 0.4s forwards', opacity: 0 }}
+              style={{
+                fontFamily: hero.font_family,
+                fontSize:   `${hero.subtitle_size}px`,
+                color:      hero.subtitle_color,
+                textAlign,
+                margin:     '0.5rem 0 0 0',
+                opacity: 0,
+                animation: 'fadeInUp 1.2s ease-out 0.4s forwards',
+              }}
             >
-              AI-powered clarity.
+              {hero.subtitle}
             </p>
-          </div>
+          )}
         </div>
       </section>
 
-      {/* Retailer CTA — hidden if already applied */}
+      {/* Retailer CTA */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
           <button
@@ -49,7 +151,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
         </section>
       )}
 
-      {/* If applied, show subtle dashboard link instead */}
       {hasApplied && user && (
         <section className="max-w-7xl mx-auto px-6 py-8">
           <a

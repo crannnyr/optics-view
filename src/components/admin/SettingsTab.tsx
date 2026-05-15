@@ -4,6 +4,7 @@ import DeliverySettingsView from './settings/DeliverySettingsView';
 import RetailerApplicationsView from './settings/RetailerApplicationsView';
 import PaymentSettingsView from './settings/PaymentSettingsView';
 import CategoriesSettingsView from './settings/CategoriesSettingsView';
+import HeroSettingsView from './settings/HeroSettingsView';
 
 export default function SettingsTab() {
   const {
@@ -98,6 +99,10 @@ export default function SettingsTab() {
           handleMoveProduct={handleMoveProduct}
           fetchCategories={fetchCategories}
         />
+      )}
+
+      {activeTab === 'hero' && (
+        <HeroSettingsView />
       )}
     </div>
   );

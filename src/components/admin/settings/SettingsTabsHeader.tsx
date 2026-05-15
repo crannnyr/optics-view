@@ -1,8 +1,10 @@
-import { Truck, Users, CreditCard, LayoutGrid } from 'lucide-react';
+import { Truck, Users, CreditCard, LayoutGrid, LayoutTemplate } from 'lucide-react';
+
+type SettingsTab = 'delivery' | 'retailers' | 'payments' | 'categories' | 'hero';
 
 interface SettingsTabsHeaderProps {
-  activeTab: 'delivery' | 'retailers' | 'payments' | 'categories';
-  setActiveTab: (tab: 'delivery' | 'retailers' | 'payments' | 'categories') => void;
+  activeTab: SettingsTab;
+  setActiveTab: (tab: SettingsTab) => void;
   retailersCount: number;
 }
 
@@ -12,10 +14,11 @@ export default function SettingsTabsHeader({
   retailersCount
 }: SettingsTabsHeaderProps) {
   const tabs = [
-    { key: 'delivery', label: 'Delivery Settings', icon: <Truck size={16} /> },
-    { key: 'retailers', label: `Retailer Applications (${retailersCount})`, icon: <Users size={16} /> },
-    { key: 'payments', label: 'Payment Gateways', icon: <CreditCard size={16} /> },
-    { key: 'categories', label: 'Categories', icon: <LayoutGrid size={16} /> },
+    { key: 'delivery',   label: 'Delivery Settings',                    icon: <Truck size={16} /> },
+    { key: 'retailers',  label: `Retailer Applications (${retailersCount})`, icon: <Users size={16} /> },
+    { key: 'payments',   label: 'Payment Gateways',                     icon: <CreditCard size={16} /> },
+    { key: 'categories', label: 'Categories',                           icon: <LayoutGrid size={16} /> },
+    { key: 'hero',       label: 'Hero Banner',                          icon: <LayoutTemplate size={16} /> },
   ] as const;
 
   return (
