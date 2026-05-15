@@ -56,9 +56,11 @@ interface HomeHeroProps {
 
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
   const { store } = useStore();
-  const [hero, setHero] = useState<HeroSettings>(DEFAULT_HERO);
 
-  // Load Google Fonts (same set as admin + retailer editors)
+  // null = still fetching — nothing renders until DB responds
+  const [hero, setHero] = useState<HeroSettings | null>(null);
+
+  // Load Google Fonts
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
     const link = document.createElement('link');
@@ -68,9 +70,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
     document.head.appendChild(link);
   }, []);
 
-  // Fetch hero settings:
-  //   • Retailer store → profiles.hero_settings — falls back to DEFAULT_HERO if not set
-  //   • Main store     → app_settings key='hero_settings'
   useEffect(() => {
     (async () => {
       if (store.isRetailer && store.id) {
@@ -79,82 +78,88 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
           .select('hero_settings')
           .eq('id', store.id)
           .single();
-        // Merge with DEFAULT_HERO so unset fields always have a safe value
-        if (data?.hero_settings) {
-          setHero({ ...DEFAULT_HERO, ...data.hero_settings });
-        }
-        // else: stays as DEFAULT_HERO — retailer hasn't customised yet
+        // Retailer has custom settings → use them; otherwise fall back to DEFAULT_HERO
+        setHero(data?.hero_settings
+          ? { ...DEFAULT_HERO, ...data.hero_settings }
+          : DEFAULT_HERO
+        );
       } else {
         const { data } = await supabase
           .from('app_settings')
           .select('value')
           .eq('key', 'hero_settings')
           .single();
-        if (data?.value) setHero({ ...DEFAULT_HERO, ...data.value });
+        setHero(data?.value
+          ? { ...DEFAULT_HERO, ...data.value }
+          : DEFAULT_HERO
+        );
       }
     })();
   }, [store.id, store.isRetailer]);
 
-  const flexStyle = positionToFlex(hero.position);
-  const textAlign = positionToTextAlign(hero.position);
-
   return (
     <>
-      {/* Hero */}
+      {/* Hero — reserve space while fetching so layout doesn't jump,
+          but keep it white/empty so the OLD image never flashes */}
       <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-white">
-        <img
-          src={hero.image_url}
-          alt="Hero Banner"
-          className="w-full h-full object-contain"
-        />
+        {hero && (
+          <>
+            <img
+              src={hero.image_url}
+              alt="Hero Banner"
+              className="w-full h-full object-contain"
+            />
 
-        {/* Overlay */}
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundColor: hero.overlay_color,
-            opacity: hero.overlay_opacity / 100,
-          }}
-        />
+            {/* Overlay */}
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: hero.overlay_color,
+                opacity: hero.overlay_opacity / 100,
+              }}
+            />
 
-        {/* Text */}
-        <div className="absolute inset-0 flex flex-col px-8 py-6" style={flexStyle}>
-          {hero.title && (
-            <h2
-              style={{
-                fontFamily:    hero.font_family,
-                fontSize:      `${hero.title_size}px`,
-                color:         hero.title_color,
-                letterSpacing: `${(hero.letter_spacing * 0.1).toFixed(2)}em`,
-                textAlign,
-                fontWeight: 300,
-                margin: 0,
-                opacity: 0,
-                animation: 'fadeInUp 1.2s ease-out forwards',
-              }}
-            >
-              {hero.title}
-            </h2>
-          )}
-          {hero.subtitle && (
-            <p
-              style={{
-                fontFamily: hero.font_family,
-                fontSize:   `${hero.subtitle_size}px`,
-                color:      hero.subtitle_color,
-                textAlign,
-                margin:     '0.5rem 0 0 0',
-                opacity: 0,
-                animation: 'fadeInUp 1.2s ease-out 0.4s forwards',
-              }}
-            >
-              {hero.subtitle}
-            </p>
-          )}
-        </div>
+            {/* Text */}
+            <div className="absolute inset-0 flex flex-col px-8 py-6"
+              style={positionToFlex(hero.position)}>
+              {hero.title && (
+                <h2
+                  style={{
+                    fontFamily:    hero.font_family,
+                    fontSize:      `${hero.title_size}px`,
+                    color:         hero.title_color,
+                    letterSpacing: `${(hero.letter_spacing * 0.1).toFixed(2)}em`,
+                    textAlign:     positionToTextAlign(hero.position),
+                    fontWeight: 300,
+                    margin: 0,
+                    opacity: 0,
+                    animation: 'fadeInUp 1.2s ease-out forwards',
+                  }}
+                >
+                  {hero.title}
+                </h2>
+              )}
+              {hero.subtitle && (
+                <p
+                  style={{
+                    fontFamily: hero.font_family,
+                    fontSize:   `${hero.subtitle_size}px`,
+                    color:      hero.subtitle_color,
+                    textAlign:  positionToTextAlign(hero.position),
+                    margin:     '0.5rem 0 0 0',
+                    opacity: 0,
+                    animation: 'fadeInUp 1.2s ease-out 0.4s forwards',
+                  }}
+                >
+                  {hero.subtitle}
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </section>
 
-      {/* Retailer CTA — original logic, shows on all stores */}
+      {/* Retailer CTA — original logic */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
           <button
