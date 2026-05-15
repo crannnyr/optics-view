@@ -3,19 +3,21 @@ import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard, Package, ShoppingBag, Wallet,
   Loader2, ExternalLink, Copy, Check, Store,
-  Clock, RefreshCw, AlertTriangle, BookOpen, LayoutTemplate
+  Clock, RefreshCw, AlertTriangle, BookOpen, LayoutTemplate, CreditCard
 } from 'lucide-react';
 import RetailerOverview from './retailer/RetailerOverview';
 import RetailerProductsTab from './retailer/RetailerProductsTab';
 import RetailerOrdersTab from './retailer/RetailerOrdersTab';
 import RetailerWalletTab from './retailer/RetailerWalletTab';
 import RetailerHeroTab from './retailer/RetailerHeroTab';
+import RetailerSubscriptionTab from './retailer/RetailerSubscriptionTab';
 
-type ActiveTab = 'overview' | 'catalog' | 'orders' | 'wallet' | 'store';
+type ActiveTab = 'overview' | 'catalog' | 'orders' | 'wallet' | 'store' | 'subscription';
 
 export default function RetailerDashboard() {
   const [profile, setProfile]           = useState<any>(null);
   const [registration, setRegistration] = useState<any>(null);
+  const [wallet, setWallet]             = useState<any>({ balance: 0, total_earned: 0 });
   const [loading, setLoading]           = useState(true);
   const [activeTab, setActiveTab]       = useState<ActiveTab>('overview');
   const [copiedUrl, setCopiedUrl]       = useState(false);
@@ -30,7 +32,7 @@ export default function RetailerDashboard() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [{ data: prof }, { data: reg }] = await Promise.all([
+    const [{ data: prof }, { data: reg }, { data: wal }] = await Promise.all([
       supabase.from('profiles').select('*').eq('id', user.id).single(),
       supabase
         .from('retailer_registrations')
@@ -39,10 +41,16 @@ export default function RetailerDashboard() {
         .order('created_at', { ascending: false })
         .limit(1)
         .single(),
+      supabase
+        .from('retailer_wallets')
+        .select('*')
+        .eq('retailer_id', user.id)
+        .maybeSingle(),
     ]);
 
     if (prof) setProfile(prof);
     if (reg)  setRegistration(reg);
+    setWallet(wal ?? { balance: 0, total_earned: 0 });
     setLoading(false);
   };
 
@@ -165,11 +173,12 @@ export default function RetailerDashboard() {
     registration?.domain_type === 'custom' && !registration?.domain_confirmed;
 
   const tabs = [
-    { key: 'overview', icon: <LayoutDashboard size={15} />, label: 'Overview' },
-    { key: 'catalog',  icon: <BookOpen size={15} />,        label: 'Catalog' },
-    { key: 'orders',   icon: <ShoppingBag size={15} />,     label: 'Orders' },
-    { key: 'wallet',   icon: <Wallet size={15} />,          label: 'Wallet' },
-    { key: 'store',    icon: <LayoutTemplate size={15} />,  label: 'My Banner' },
+    { key: 'overview',      icon: <LayoutDashboard size={15} />, label: 'Overview' },
+    { key: 'catalog',       icon: <BookOpen size={15} />,        label: 'Catalog' },
+    { key: 'orders',        icon: <ShoppingBag size={15} />,     label: 'Orders' },
+    { key: 'wallet',        icon: <Wallet size={15} />,          label: 'Wallet' },
+    { key: 'store',         icon: <LayoutTemplate size={15} />,  label: 'My Banner' },
+    { key: 'subscription',  icon: <CreditCard size={15} />,      label: 'Subscription' },
   ] as const;
 
   return (
@@ -238,19 +247,29 @@ export default function RetailerDashboard() {
       </header>
 
       <main className="flex-1 max-w-6xl mx-auto w-full p-4 md:p-6">
-        {activeTab === 'overview' && <RetailerOverview profile={profile} />}
+        {activeTab === 'overview' && (
+          <RetailerOverview profile={profile} wallet={wallet} registration={registration} />
+        )}
 
         {activeTab === 'catalog' && (
-          <div className="bg-white border rounded-lg p-8 text-center text-gray-400">
-            <Package size={40} className="mx-auto mb-3 opacity-40" />
-            <p className="text-sm font-medium">Import Catalog — Coming Soon</p>
-            <p className="text-xs mt-1">You'll be able to import products from your selected categories here.</p>
-          </div>
+          <RetailerProductsTab profile={profile} registration={registration} />
         )}
 
         {activeTab === 'orders' && <RetailerOrdersTab profile={profile} />}
-        {activeTab === 'wallet' && <RetailerWalletTab profile={profile} />}
-        {activeTab === 'store'  && <RetailerHeroTab profile={profile} />}
+
+        {activeTab === 'wallet' && (
+          <RetailerWalletTab profile={profile} wallet={wallet} onWalletUpdate={loadData} />
+        )}
+
+        {activeTab === 'store' && <RetailerHeroTab profile={profile} />}
+
+        {activeTab === 'subscription' && (
+          <RetailerSubscriptionTab
+            profile={profile}
+            registration={registration}
+            onRegistrationUpdate={loadData}
+          />
+        )}
       </main>
     </div>
   );

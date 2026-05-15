@@ -1,311 +1,384 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { CreditCard, ArrowDownLeft, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
+import {
+  Wallet, ArrowDownLeft, Clock, CheckCircle, XCircle,
+  Users, AlertTriangle, Loader2, RefreshCw, Info
+} from 'lucide-react';
 
-interface Referral {
-  id: string;
-  referred_retailer_id: string;
-  plan_type: string;
-  registration_fee: number;
-  commission_amount: number;
-  subscription_status: string;
-  activated_at: string | null;
-  created_at: string;
-  referred_retailer: {
-    store_name: string;
-    email: string;
-    store_slug: string;
-  };
-}
+interface Props { profile: any; wallet: any; onWalletUpdate: () => void; }
 
-export default function RetailerWalletTab({ profile }: { profile: any }) {
-  const [activeTab, setActiveTab] = useState<'payouts' | 'referrals'>('payouts');
-  const [payouts, setPayouts] = useState<any[]>([]);
-  const [referrals, setReferrals] = useState<Referral[]>([]);
-  const [loading, setLoading] = useState(true);
+const WITHDRAWAL_FEE = 0.12;
+const MIN_WITHDRAWAL = 20000;
 
-  useEffect(() => {
-    if (profile) {
-      fetchPayouts();
-      fetchReferrals();
-    }
-  }, [profile]);
+type WalletSection = 'main' | 'withdraw' | 'referrals';
 
-  const fetchPayouts = async () => {
-    const { data } = await supabase
-      .from('payouts')
-      .select('*')
-      .eq('retailer_id', profile.id)
-      .order('created_at', { ascending: false });
-    
-    setPayouts(data || []);
-  };
+export default function RetailerWalletTab({ profile, wallet, onWalletUpdate }: Props) {
+  const [section, setSection]           = useState<WalletSection>('main');
+  const [withdrawals, setWithdrawals]   = useState<any[]>([]);
+  const [referrals, setReferrals]       = useState<any[]>([]);
+  const [loading, setLoading]           = useState(true);
 
-  const fetchReferrals = async () => {
-    const { data } = await supabase
-      .from('retailer_referral_commissions')
-      .select(`
-        *,
-        referred_retailer:profiles!referred_retailer_id(
-          store_name,
-          email,
-          store_slug
-        )
-      `)
-      .eq('referrer_retailer_id', profile.id)
-      .order('created_at', { ascending: false });
-    
-    setReferrals(data || []);
+  // Withdrawal form
+  const [amount, setAmount]             = useState('');
+  const [bankName, setBankName]         = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [accountName, setAccountName]   = useState('');
+  const [submitting, setSubmitting]     = useState(false);
+  const [error, setError]               = useState('');
+
+  useEffect(() => { if (profile) fetchData(); }, [profile]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    const [{ data: wds }, { data: refs }] = await Promise.all([
+      supabase
+        .from('withdrawal_requests')
+        .select('*')
+        .eq('retailer_id', profile.id)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('retailer_referral_commissions')
+        .select('*, referred_retailer:profiles!referred_retailer_id(store_name, email)')
+        .eq('referrer_retailer_id', profile.id)
+        .order('created_at', { ascending: false }),
+    ]);
+    setWithdrawals(wds || []);
+    setReferrals(refs || []);
     setLoading(false);
   };
 
-  if (loading) {
+  const hasPendingWithdrawal = withdrawals.some(w => w.status === 'pending');
+  const balance = wallet?.balance ?? 0;
+
+  const requestedAmount = parseFloat(amount) || 0;
+  const feeAmount       = Math.round(requestedAmount * WITHDRAWAL_FEE);
+  const netAmount       = requestedAmount - feeAmount;
+
+  const handleWithdraw = async () => {
+    setError('');
+    if (requestedAmount < MIN_WITHDRAWAL) {
+      setError(`Minimum withdrawal is ₦${MIN_WITHDRAWAL.toLocaleString()}`);
+      return;
+    }
+    if (requestedAmount > balance) {
+      setError('Amount exceeds your available balance');
+      return;
+    }
+    if (!bankName || !accountNumber || !accountName) {
+      setError('Please fill in all bank details');
+      return;
+    }
+    if (hasPendingWithdrawal) {
+      setError('You have a pending withdrawal. Wait for it to be processed first.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Create withdrawal request
+      const { error: insertErr } = await supabase.from('withdrawal_requests').insert({
+        retailer_id: profile.id,
+        amount_requested: requestedAmount,
+        fee_amount: feeAmount,
+        net_amount: netAmount,
+        bank_name: bankName,
+        account_number: accountNumber,
+        account_name: accountName,
+        status: 'pending',
+      });
+      if (insertErr) throw insertErr;
+
+      // Deduct from wallet immediately
+      await supabase
+        .from('retailer_wallets')
+        .update({ balance: balance - requestedAmount })
+        .eq('retailer_id', profile.id);
+
+      onWalletUpdate();
+      fetchData();
+      setSection('main');
+      setAmount(''); setBankName(''); setAccountNumber(''); setAccountName('');
+    } catch (err: any) {
+      setError(err.message || 'Failed to submit request. Try again.');
+    }
+    setSubmitting(false);
+  };
+
+  const getWdBadge = (status: string) => {
+    if (status === 'approved') return <span className="flex items-center gap-1 text-green-700 text-xs"><CheckCircle size={12}/> Approved</span>;
+    if (status === 'rejected') return <span className="flex items-center gap-1 text-red-700 text-xs"><XCircle size={12}/> Rejected</span>;
+    return <span className="flex items-center gap-1 text-amber-700 text-xs"><Clock size={12}/> Pending</span>;
+  };
+
+  if (loading) return <div className="p-8 text-center text-xs text-gray-400">LOADING WALLET...</div>;
+
+  // ── WITHDRAW FORM ─────────────────────────────────────────
+  if (section === 'withdraw') {
     return (
-      <div className="p-8 text-center text-xs tracking-widest text-gray-400">
-        LOADING WALLET...
+      <div className="max-w-md space-y-4 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3">
+          <button onClick={() => { setSection('main'); setError(''); }} className="p-2 hover:bg-gray-100 rounded-full">←</button>
+          <h3 className="font-medium text-[#0d2818]">Request Withdrawal</h3>
+        </div>
+
+        <div className="bg-gray-50 border rounded-lg p-4 text-sm space-y-1">
+          <div className="flex justify-between text-gray-500">
+            <span>Available balance</span>
+            <span className="font-semibold text-[#0d2818]">₦{balance.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>Minimum withdrawal</span>
+            <span>₦{MIN_WITHDRAWAL.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-gray-500">
+            <span>Withdrawal fee</span>
+            <span>12%</span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs uppercase text-gray-400 mb-1.5">Amount (₦) *</label>
+            <input
+              type="number"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              placeholder="e.g. 20000"
+              className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-[#0d2818] outline-none"
+            />
+          </div>
+
+          {/* Live fee preview */}
+          {requestedAmount >= MIN_WITHDRAWAL && (
+            <div className="bg-white border rounded-lg p-3 space-y-1.5 text-xs">
+              <div className="flex justify-between text-gray-500">
+                <span>Requested</span>
+                <span>₦{requestedAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-red-600">
+                <span>Fee (12%)</span>
+                <span>−₦{feeAmount.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-[#0d2818] border-t pt-1.5">
+                <span>You Receive</span>
+                <span>₦{netAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs uppercase text-gray-400 mb-1.5">Bank Name *</label>
+            <input
+              type="text"
+              value={bankName}
+              onChange={e => setBankName(e.target.value)}
+              placeholder="e.g. GTBank"
+              className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-[#0d2818] outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase text-gray-400 mb-1.5">Account Number *</label>
+            <input
+              type="text"
+              value={accountNumber}
+              onChange={e => setAccountNumber(e.target.value)}
+              placeholder="0123456789"
+              className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-[#0d2818] outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs uppercase text-gray-400 mb-1.5">Account Name *</label>
+            <input
+              type="text"
+              value={accountName}
+              onChange={e => setAccountName(e.target.value)}
+              placeholder="John Doe"
+              className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-[#0d2818] outline-none"
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-3">
+            <AlertTriangle size={14} className="text-red-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-red-700">{error}</p>
+          </div>
+        )}
+
+        <button
+          onClick={handleWithdraw}
+          disabled={submitting || requestedAmount < MIN_WITHDRAWAL || !bankName || !accountNumber || !accountName}
+          className="w-full bg-[#0d2818] text-white py-4 text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        >
+          {submitting ? <Loader2 size={16} className="animate-spin" /> : null}
+          Submit Withdrawal Request
+        </button>
       </div>
     );
   }
 
-  // Calculate referral stats
-  const totalReferrals = referrals.length;
-  const activeReferrals = referrals.filter(r => r.subscription_status === 'active').length;
-  const totalReferralEarnings = referrals
-    .filter(r => r.subscription_status === 'active')
-    .reduce((sum, r) => sum + Number(r.commission_amount), 0);
+  // ── REFERRALS ─────────────────────────────────────────────
+  if (section === 'referrals') {
+    const totalReferralEarnings = referrals
+      .filter(r => r.subscription_status === 'active')
+      .reduce((sum, r) => sum + Number(r.commission_amount || 0), 0);
 
+    return (
+      <div className="space-y-4 animate-in fade-in duration-200">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setSection('main')} className="p-2 hover:bg-gray-100 rounded-full">←</button>
+          <h3 className="font-medium text-[#0d2818]">Referral Commissions</h3>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            ['Total Referred', referrals.length, 'text-blue-700 bg-blue-50 border-blue-200'],
+            ['Active', referrals.filter(r => r.subscription_status === 'active').length, 'text-green-700 bg-green-50 border-green-200'],
+            ['Total Earned', `₦${totalReferralEarnings.toLocaleString()}`, 'text-purple-700 bg-purple-50 border-purple-200'],
+          ].map(([label, value, cls]) => (
+            <div key={String(label)} className={`border rounded-lg p-3 ${cls}`}>
+              <p className="text-[10px] uppercase tracking-wider font-medium mb-1">{label}</p>
+              <p className="text-lg font-bold">{value}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
+          <Info size={13} className="text-blue-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800">
+            You earn <strong>20%</strong> of each referred retailer's domain fee + <strong>5%</strong> of the platform's cut on their sales. Settled at withdrawal.
+          </p>
+        </div>
+
+        {referrals.length === 0 ? (
+          <div className="text-center py-12 bg-white border rounded-lg text-gray-400">
+            <Users size={36} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No referrals yet</p>
+            <p className="text-xs mt-1">Share your store link — anyone who applies becomes your referral</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {referrals.map(r => (
+              <div key={r.id} className="bg-white border rounded-lg p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[#0d2818]">
+                    {r.referred_retailer?.store_name || 'Unknown Store'}
+                  </p>
+                  <p className="text-xs text-gray-400">{r.referred_retailer?.email}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {new Date(r.created_at).toLocaleDateString('en-NG')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  {r.subscription_status === 'active' ? (
+                    <>
+                      <p className="text-base font-bold text-[#0d2818]">
+                        ₦{Number(r.commission_amount || 0).toLocaleString()}
+                      </p>
+                      <span className="text-xs text-green-600 flex items-center gap-1 justify-end">
+                        <CheckCircle size={11} /> Active
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-gray-400">₦{Number(r.commission_amount || 0).toLocaleString()}</p>
+                      <span className="text-xs text-amber-600 flex items-center gap-1 justify-end">
+                        <Clock size={11} /> Pending
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── MAIN WALLET VIEW ──────────────────────────────────────
   return (
-    <div className="space-y-6">
-      {/* Tab Navigation */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="flex border-b border-gray-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
+      {/* Balance card */}
+      <div className="bg-[#0d2818] text-white rounded-xl p-6">
+        <p className="text-xs uppercase tracking-widest text-white/60 mb-1">Available Balance</p>
+        <h2 className="text-3xl font-bold mb-4">₦{balance.toLocaleString()}</h2>
+        <div className="flex gap-3">
           <button
-            onClick={() => setActiveTab('payouts')}
-            className={`flex-1 px-6 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-              activeTab === 'payouts'
-                ? 'bg-[#0d2818] text-white'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            onClick={() => {
+              if (hasPendingWithdrawal) {
+                alert('You have a pending withdrawal. Wait for it to be processed first.');
+                return;
+              }
+              if (balance < MIN_WITHDRAWAL) {
+                alert(`Minimum withdrawal is ₦${MIN_WITHDRAWAL.toLocaleString()}. Keep earning!`);
+                return;
+              }
+              setSection('withdraw');
+            }}
+            className="flex-1 bg-white text-[#0d2818] py-2.5 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity"
           >
-            <CreditCard size={18} />
-            Payout History
+            Withdraw
           </button>
           <button
-            onClick={() => setActiveTab('referrals')}
-            className={`flex-1 px-6 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors relative ${
-              activeTab === 'referrals'
-                ? 'bg-[#0d2818] text-white'
-                : 'text-gray-600 hover:bg-gray-50'
-            }`}
+            onClick={() => setSection('referrals')}
+            className="flex-1 bg-white/10 text-white py-2.5 text-xs font-medium rounded-lg hover:bg-white/20 transition-colors border border-white/20"
           >
-            <Users size={18} />
-            Referrals
-            {totalReferrals > 0 && (
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                activeTab === 'referrals' 
-                  ? 'bg-white text-[#0d2818]' 
-                  : 'bg-[#0d2818] text-white'
-              }`}>
-                {totalReferrals}
-              </span>
-            )}
+            Referrals ({referrals.length})
+          </button>
+        </div>
+      </div>
+
+      {/* Pending withdrawal notice */}
+      {hasPendingWithdrawal && (
+        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <Clock size={14} className="text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-800">
+            You have a pending withdrawal. New requests are blocked until it's processed.
+          </p>
+        </div>
+      )}
+
+      {/* Withdrawal history */}
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b">
+          <p className="text-sm font-medium text-[#0d2818]">Withdrawal History</p>
+          <button onClick={fetchData} className="p-1.5 hover:bg-gray-100 rounded-full">
+            <RefreshCw size={13} className="text-gray-400" />
           </button>
         </div>
 
-        {/* PAYOUTS TAB */}
-        {activeTab === 'payouts' && (
-          <div className="p-6">
-            <h3 className="text-lg font-light text-[#0d2818] mb-4">
-              Payment History
-            </h3>
-            
-            {payouts.length === 0 ? (
-              <p className="text-sm text-gray-500 italic py-4">
-                No payouts received yet.
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {payouts.map((payout) => (
-                  <div 
-                    key={payout.id} 
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded border border-gray-100"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-green-100 p-2 rounded-full text-green-700">
-                        <ArrowDownLeft size={16} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">Payment Received</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(payout.created_at).toLocaleString()}
-                        </p>
-                        {payout.admin_note && (
-                          <p className="text-xs text-gray-500 mt-1 italic">
-                            "{payout.admin_note}"
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-bold text-[#0d2818]">
-                        +₦{payout.amount.toLocaleString()}
-                      </p>
-                      <p className="text-[10px] uppercase text-gray-400 tracking-wider">
-                        Processed
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+        {withdrawals.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">
+            <Wallet size={32} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No withdrawals yet</p>
           </div>
-        )}
-
-        {/* REFERRALS TAB */}
-        {activeTab === 'referrals' && (
-          <div className="p-6">
-            {/* Referral Stats Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-xs text-blue-600 font-medium uppercase tracking-wider mb-1">
-                  Total Referrals
-                </p>
-                <p className="text-2xl font-bold text-[#0d2818]">
-                  {totalReferrals}
-                </p>
-              </div>
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-xs text-green-600 font-medium uppercase tracking-wider mb-1">
-                  Active Subscriptions
-                </p>
-                <p className="text-2xl font-bold text-[#0d2818]">
-                  {activeReferrals}
-                </p>
-              </div>
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-                <p className="text-xs text-purple-600 font-medium uppercase tracking-wider mb-1">
-                  Total Earned
-                </p>
-                <p className="text-2xl font-bold text-[#0d2818]">
-                  ₦{totalReferralEarnings.toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            <h3 className="text-lg font-light text-[#0d2818] mb-4">
-              Retailers You Referred
-            </h3>
-
-            {referrals.length === 0 ? (
-              <div className="text-center py-12 bg-gray-50 rounded-lg border border-gray-200">
-                <Users size={48} className="mx-auto text-gray-300 mb-3" />
-                <p className="text-sm text-gray-500">No referrals yet</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Share your store link to start earning commissions!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {referrals.map((referral) => (
-                  <div 
-                    key={referral.id} 
-                    className="border border-gray-200 rounded-lg p-5 bg-white hover:shadow-sm transition-shadow"
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      {/* Left: Retailer Info */}
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-10 h-10 bg-[#0d2818] rounded-full flex items-center justify-center text-white font-bold text-sm">
-                            {referral.referred_retailer.store_name?.charAt(0).toUpperCase() || '?'}
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-[#0d2818]">
-                              {referral.referred_retailer.store_name || 'Store Name'}
-                            </h4>
-                            <p className="text-xs text-gray-500">
-                              {referral.referred_retailer.email}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs mt-3">
-                          <div>
-                            <span className="text-gray-500">Plan:</span>
-                            <span className="ml-2 font-medium text-gray-700">
-                              {referral.plan_type === 'standard' ? 'Standard' : 'Custom Domain'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Registration Fee:</span>
-                            <span className="ml-2 font-medium text-gray-700">
-                              ₦{referral.registration_fee.toLocaleString()}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-gray-500">Signed Up:</span>
-                            <span className="ml-2 font-medium text-gray-700">
-                              {new Date(referral.created_at).toLocaleDateString()}
-                            </span>
-                          </div>
-                          {referral.activated_at && (
-                            <div>
-                              <span className="text-gray-500">Activated:</span>
-                              <span className="ml-2 font-medium text-gray-700">
-                                {new Date(referral.activated_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Right: Status & Commission */}
-                      <div className="text-right">
-                        {referral.subscription_status === 'active' ? (
-                          <>
-                            <div className="flex items-center justify-end gap-1 mb-2">
-                              <CheckCircle size={16} className="text-green-600" />
-                              <span className="text-xs font-medium text-green-600 uppercase tracking-wider">
-                                Active
-                              </span>
-                            </div>
-                            <p className="text-xl font-bold text-[#0d2818]">
-                              ₦{referral.commission_amount.toLocaleString()}
-                            </p>
-                            <p className="text-[10px] text-gray-500 uppercase tracking-wider">
-                              Commission Earned
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <div className="flex items-center justify-end gap-1 mb-2">
-                              <Clock size={16} className="text-yellow-600" />
-                              <span className="text-xs font-medium text-yellow-600 uppercase tracking-wider">
-                                Pending
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-500">
-                              ₦{referral.commission_amount.toLocaleString()}
-                            </p>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
-                              Awaiting Activation
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Pending Notice */}
-                    {referral.subscription_status === 'pending' && (
-                      <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded p-3">
-                        <p className="text-xs text-yellow-800">
-                          ⏳ <strong>Pending Admin Approval:</strong> Commission will be credited to your wallet once admin activates their subscription.
-                        </p>
-                      </div>
+        ) : (
+          <div className="divide-y">
+            {withdrawals.map(wd => (
+              <div key={wd.id} className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                    <ArrowDownLeft size={14} className="text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">
+                      {wd.bank_name} · {wd.account_number}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      {new Date(wd.created_at).toLocaleDateString('en-NG')} · Fee: ₦{wd.fee_amount?.toLocaleString()}
+                    </p>
+                    {wd.admin_note && (
+                      <p className="text-xs text-gray-500 mt-0.5 italic">"{wd.admin_note}"</p>
                     )}
                   </div>
-                ))}
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-bold text-[#0d2818]">₦{wd.net_amount?.toLocaleString()}</p>
+                  <div className="mt-0.5">{getWdBadge(wd.status)}</div>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>

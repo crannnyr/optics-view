@@ -47,6 +47,7 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
 
   // Paystack config
   const [paystackConfig, setPaystackConfig] = useState<any>(null);
+  const [confirmedAmount, setConfirmedAmount] = useState(0);
 
   useEffect(() => {
     fetchAllCategories();
@@ -134,6 +135,7 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
 
   const handleProceedToPayment = async () => {
     if (totalAmount <= 0) return;
+    setConfirmedAmount(totalAmount);
     const config = await buildPaystackConfig(totalAmount, {
       categories_to_add: categoriesToAdd,
       domain_type: section === 'domain' ? domainType : null,
@@ -154,7 +156,7 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
     await supabase.from('subscription_payments').insert({
       registration_id: registration.id,
       retailer_email: profile.email,
-      amount: totalAmount,
+      amount: confirmedAmount,
       payment_method: 'transfer',
       paystack_reference: reference,
       sender_name: senderName.trim(),
@@ -188,11 +190,10 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
   // ── Paystack success ───────────────────────────────────────
   const handlePaystackSuccess = async (ref: any) => {
     setLoading(true);
-    // Record in subscription_payments
     await supabase.from('subscription_payments').insert({
       registration_id: registration.id,
       retailer_email: profile.email,
-      amount: totalAmount,
+      amount: confirmedAmount,
       payment_method: 'paystack',
       paystack_reference: ref.reference,
       plan: registration.subscription_plan ?? 'monthly',
@@ -201,7 +202,6 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
       verified_at: new Date().toISOString(),
     });
 
-    // Update registration categories if adding
     if (categoriesToAdd.length > 0) {
       await supabase
         .from('retailer_registrations')
@@ -209,7 +209,6 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
         .eq('id', registration.id);
     }
 
-    // Update domain if upgrading
     if (section === 'domain' && domainName) {
       await supabase
         .from('retailer_registrations')
@@ -518,18 +517,18 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
           {categoriesToAdd.length > 0 && (
             <div className="flex justify-between text-gray-600">
               <span>Adding {categoriesToAdd.length} {categoriesToAdd.length === 1 ? 'category' : 'categories'}</span>
-              <span>₦{subscriptionAmount.toLocaleString()}/mo</span>
+              <span>₦{confirmedAmount.toLocaleString()}/mo</span>
             </div>
           )}
-          {section === 'domain' && domainName && (
+          {domainName && (
             <div className="flex justify-between text-gray-600">
               <span>Domain: {domainName}.{domainType}</span>
-              <span>₦{domainUpgradeAmount.toLocaleString()}</span>
+              <span>₦{confirmedAmount.toLocaleString()}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-[#0d2818] border-t pt-2 text-base">
             <span>Total</span>
-            <span>₦{totalAmount.toLocaleString()}</span>
+            <span>₦{confirmedAmount.toLocaleString()}</span>
           </div>
         </div>
 
@@ -560,7 +559,7 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
           <>
             <PaystackButton
               {...paystackConfig}
-              text={loading ? 'Processing...' : `PAY ₦${totalAmount.toLocaleString()}`}
+              text={loading ? 'Processing...' : `PAY ₦${confirmedAmount.toLocaleString()}`}
               onSuccess={(ref: any) => handlePaystackSuccess(ref)}
               onClose={() => {}}
               className="w-full bg-[#0d2818] text-white py-4 text-sm font-medium rounded-lg hover:opacity-90 disabled:opacity-50"
@@ -600,7 +599,7 @@ export default function RetailerSubscriptionTab({ profile, registration, onRegis
                     ['Bank', transferDetails.bank],
                     ['Account Number', transferDetails.number],
                     ['Account Name', transferDetails.name],
-                    ['Amount', `₦${totalAmount.toLocaleString()}`],
+                    ['Amount', `₦${confirmedAmount.toLocaleString()}`],
                   ].map(([label, value]) => (
                     <div key={label} className="flex items-center justify-between">
                       <span className="text-xs text-white/60">{label}</span>
