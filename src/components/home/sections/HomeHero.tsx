@@ -56,7 +56,7 @@ interface HomeHeroProps {
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
   const [hero, setHero] = useState<HeroSettings>(DEFAULT_HERO);
 
-  // Load Google Fonts (same fonts available in admin editor)
+  // Load Google Fonts (same set available in admin editor)
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
     const link = document.createElement('link');
@@ -83,8 +83,8 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden">
+      {/* Hero — bg-white fills any gaps from object-contain without cropping the image */}
+      <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-white">
         <img
           src={hero.image_url}
           alt="Hero Banner"

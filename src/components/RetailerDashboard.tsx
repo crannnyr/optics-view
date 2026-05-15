@@ -3,18 +3,19 @@ import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard, Package, ShoppingBag, Wallet,
   Loader2, ExternalLink, Copy, Check, Store,
-  Clock, RefreshCw, AlertTriangle, BookOpen
+  Clock, RefreshCw, AlertTriangle, BookOpen, CreditCard
 } from 'lucide-react';
 import RetailerOverview from './retailer/RetailerOverview';
 import RetailerProductsTab from './retailer/RetailerProductsTab';
 import RetailerOrdersTab from './retailer/RetailerOrdersTab';
 import RetailerWalletTab from './retailer/RetailerWalletTab';
+import RetailerSubscriptionTab from './retailer/RetailerSubscriptionTab';
 
 export default function RetailerDashboard() {
   const [profile, setProfile] = useState<any>(null);
   const [registration, setRegistration] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'orders' | 'wallet'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'orders' | 'wallet' | 'subscription'>('overview');
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [checking, setChecking] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
@@ -218,6 +219,7 @@ export default function RetailerDashboard() {
               { key: 'catalog', icon: <BookOpen size={15} />, label: 'Import Catalog' },
               { key: 'orders', icon: <ShoppingBag size={15} />, label: 'Orders' },
               { key: 'wallet', icon: <Wallet size={15} />, label: 'Wallet' },
+              { key: 'subscription', icon: <CreditCard size={15} />, label: 'Subscription' },
             ].map(tab => (
               <button
                 key={tab.key}
@@ -246,6 +248,13 @@ export default function RetailerDashboard() {
         )}
         {activeTab === 'orders' && <RetailerOrdersTab profile={profile} />}
         {activeTab === 'wallet' && <RetailerWalletTab profile={profile} />}
+        {activeTab === 'subscription' && (
+          <RetailerSubscriptionTab
+            profile={profile}
+            registration={registration}
+            onRegistrationUpdate={loadData}
+          />
+        )}
       </main>
     </div>
   );
