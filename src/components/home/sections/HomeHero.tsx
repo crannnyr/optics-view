@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
+import { useStore } from '../../../context/StoreContext';
 
 interface HeroSettings {
   image_url: string;
@@ -54,9 +55,10 @@ interface HomeHeroProps {
 }
 
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
+  const { store } = useStore();
   const [hero, setHero] = useState<HeroSettings>(DEFAULT_HERO);
 
-  // Load Google Fonts (same set available in admin editor)
+  // Load Google Fonts (same set as admin + retailer editors)
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
     const link = document.createElement('link');
@@ -66,24 +68,39 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
     document.head.appendChild(link);
   }, []);
 
-  // Fetch published hero settings
+  // Fetch hero settings:
+  //   • Retailer store → profiles.hero_settings — falls back to DEFAULT_HERO if not set
+  //   • Main store     → app_settings key='hero_settings'
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from('app_settings')
-        .select('value')
-        .eq('key', 'hero_settings')
-        .single();
-      if (data?.value) setHero(prev => ({ ...prev, ...data.value }));
+      if (store.isRetailer && store.id) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('hero_settings')
+          .eq('id', store.id)
+          .single();
+        // Merge with DEFAULT_HERO so unset fields always have a safe value
+        if (data?.hero_settings) {
+          setHero({ ...DEFAULT_HERO, ...data.hero_settings });
+        }
+        // else: stays as DEFAULT_HERO — retailer hasn't customised yet
+      } else {
+        const { data } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'hero_settings')
+          .single();
+        if (data?.value) setHero({ ...DEFAULT_HERO, ...data.value });
+      }
     })();
-  }, []);
+  }, [store.id, store.isRetailer]);
 
   const flexStyle = positionToFlex(hero.position);
   const textAlign = positionToTextAlign(hero.position);
 
   return (
     <>
-      {/* Hero — bg-white fills any gaps from object-contain without cropping the image */}
+      {/* Hero */}
       <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-white">
         <img
           src={hero.image_url}
@@ -137,7 +154,7 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
         </div>
       </section>
 
-      {/* Retailer CTA */}
+      {/* Retailer CTA — original logic, shows on all stores */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
           <button

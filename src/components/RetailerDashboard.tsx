@@ -3,22 +3,24 @@ import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard, Package, ShoppingBag, Wallet,
   Loader2, ExternalLink, Copy, Check, Store,
-  Clock, RefreshCw, AlertTriangle, BookOpen, CreditCard
+  Clock, RefreshCw, AlertTriangle, BookOpen, LayoutTemplate
 } from 'lucide-react';
 import RetailerOverview from './retailer/RetailerOverview';
 import RetailerProductsTab from './retailer/RetailerProductsTab';
 import RetailerOrdersTab from './retailer/RetailerOrdersTab';
 import RetailerWalletTab from './retailer/RetailerWalletTab';
-import RetailerSubscriptionTab from './retailer/RetailerSubscriptionTab';
+import RetailerHeroTab from './retailer/RetailerHeroTab';
+
+type ActiveTab = 'overview' | 'catalog' | 'orders' | 'wallet' | 'store';
 
 export default function RetailerDashboard() {
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile]           = useState<any>(null);
   const [registration, setRegistration] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'catalog' | 'orders' | 'wallet' | 'subscription'>('overview');
-  const [copiedUrl, setCopiedUrl] = useState(false);
-  const [checking, setChecking] = useState(false);
-  const [statusMsg, setStatusMsg] = useState('');
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState<ActiveTab>('overview');
+  const [copiedUrl, setCopiedUrl]       = useState(false);
+  const [checking, setChecking]         = useState(false);
+  const [statusMsg, setStatusMsg]       = useState('');
 
   useEffect(() => {
     loadData();
@@ -40,7 +42,7 @@ export default function RetailerDashboard() {
     ]);
 
     if (prof) setProfile(prof);
-    if (reg) setRegistration(reg);
+    if (reg)  setRegistration(reg);
     setLoading(false);
   };
 
@@ -101,10 +103,7 @@ export default function RetailerDashboard() {
           <p className="text-sm text-gray-500 mb-6">
             Your store has been suspended by the admin. Please contact support to resolve this.
           </p>
-          <a
-            href="/"
-            className="block w-full bg-[#0d2818] text-white py-3 text-sm rounded hover:opacity-90"
-          >
+          <a href="/" className="block w-full bg-[#0d2818] text-white py-3 text-sm rounded hover:opacity-90">
             Return to Main Store
           </a>
         </div>
@@ -153,10 +152,7 @@ export default function RetailerDashboard() {
             }
           </button>
 
-          <a
-            href="/"
-            className="block text-center text-xs text-gray-400 hover:text-gray-600 underline"
-          >
+          <a href="/" className="block text-center text-xs text-gray-400 hover:text-gray-600 underline">
             Return to Store
           </a>
         </div>
@@ -167,6 +163,14 @@ export default function RetailerDashboard() {
   // ── Full Dashboard ────────────────────────────────────────
   const isCustomDomainPending =
     registration?.domain_type === 'custom' && !registration?.domain_confirmed;
+
+  const tabs = [
+    { key: 'overview', icon: <LayoutDashboard size={15} />, label: 'Overview' },
+    { key: 'catalog',  icon: <BookOpen size={15} />,        label: 'Catalog' },
+    { key: 'orders',   icon: <ShoppingBag size={15} />,     label: 'Orders' },
+    { key: 'wallet',   icon: <Wallet size={15} />,          label: 'Wallet' },
+    { key: 'store',    icon: <LayoutTemplate size={15} />,  label: 'My Banner' },
+  ] as const;
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -193,7 +197,9 @@ export default function RetailerDashboard() {
               <div className="bg-white/10 rounded-lg p-3 flex items-center gap-3 border border-white/10">
                 <div className="hidden sm:block">
                   <p className="text-[10px] opacity-50 uppercase tracking-wider">Your Store</p>
-                  <p className="text-xs font-mono opacity-90">{getStoreUrl().replace('https://', '').replace('http://', '')}</p>
+                  <p className="text-xs font-mono opacity-90">
+                    {getStoreUrl().replace('https://', '').replace('http://', '')}
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={copyStoreUrl} className="p-2 hover:bg-white/20 rounded transition-colors">
@@ -213,18 +219,12 @@ export default function RetailerDashboard() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-6 mt-6 border-b border-white/10 overflow-x-auto">
-            {[
-              { key: 'overview', icon: <LayoutDashboard size={15} />, label: 'Overview' },
-              { key: 'catalog', icon: <BookOpen size={15} />, label: 'Import Catalog' },
-              { key: 'orders', icon: <ShoppingBag size={15} />, label: 'Orders' },
-              { key: 'wallet', icon: <Wallet size={15} />, label: 'Wallet' },
-              { key: 'subscription', icon: <CreditCard size={15} />, label: 'Subscription' },
-            ].map(tab => (
+          <div className="flex gap-1 mt-6 border-b border-white/10 overflow-x-auto">
+            {tabs.map(tab => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key as any)}
-                className={`pb-3 text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
+                onClick={() => setActiveTab(tab.key)}
+                className={`pb-3 px-3 text-sm flex items-center gap-2 whitespace-nowrap transition-colors ${
                   activeTab === tab.key
                     ? 'text-white border-b-2 border-white font-medium'
                     : 'text-gray-400 hover:text-white'
@@ -237,8 +237,9 @@ export default function RetailerDashboard() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-6xl mx-auto w-full p-6">
+      <main className="flex-1 max-w-6xl mx-auto w-full p-4 md:p-6">
         {activeTab === 'overview' && <RetailerOverview profile={profile} />}
+
         {activeTab === 'catalog' && (
           <div className="bg-white border rounded-lg p-8 text-center text-gray-400">
             <Package size={40} className="mx-auto mb-3 opacity-40" />
@@ -246,15 +247,10 @@ export default function RetailerDashboard() {
             <p className="text-xs mt-1">You'll be able to import products from your selected categories here.</p>
           </div>
         )}
+
         {activeTab === 'orders' && <RetailerOrdersTab profile={profile} />}
         {activeTab === 'wallet' && <RetailerWalletTab profile={profile} />}
-        {activeTab === 'subscription' && (
-          <RetailerSubscriptionTab
-            profile={profile}
-            registration={registration}
-            onRegistrationUpdate={loadData}
-          />
-        )}
+        {activeTab === 'store'  && <RetailerHeroTab profile={profile} />}
       </main>
     </div>
   );
