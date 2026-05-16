@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { supabase } from '../lib/supabase';
 
 interface Store {
-  id: string | null; // null for main store
+  id: string | null;
   name: string;
   slug: string | null;
   themeColor: string;
@@ -13,7 +13,7 @@ interface Store {
 interface StoreContextType {
   store: Store;
   loading: boolean;
-  storeNotFound: boolean; // <--- New Flag for Error Handling
+  storeNotFound: boolean;
 }
 
 const defaultStore: Store = {
@@ -21,7 +21,8 @@ const defaultStore: Store = {
   name: 'OpticsView',
   slug: null,
   themeColor: '#0d2818',
-  logoUrl: null,
+  // Main store logo — shown in header for non-retailer stores
+  logoUrl: 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/hero-images/IMG-20260516-WA0000.jpg',
   isRetailer: false
 };
 
@@ -42,17 +43,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const identifyStore = async () => {
-      const hostname = window.location.hostname;
-      const pathname = window.location.pathname;
-      const pathSegment = pathname.split('/')[1]; // Gets the first part (e.g., "joshua-store")
-      
-      const reservedPaths = ['admin', 'retailer', 'login', 'auth', 'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions'];
-      
-      // EXCLUSION LIST: Treat these domains as "Main App" (check slug instead of domain)
-      const isMainDomain = 
-        hostname === 'opticsview.store' || 
-        hostname === 'localhost' || 
-        hostname.includes('vercel.app') || 
+      const hostname    = window.location.hostname;
+      const pathname    = window.location.pathname;
+      const pathSegment = pathname.split('/')[1];
+
+      const reservedPaths = [
+        'admin', 'retailer', 'login', 'auth',
+        'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions'
+      ];
+
+      const isMainDomain =
+        hostname === 'opticsview.store' ||
+        hostname === 'localhost' ||
+        hostname.includes('vercel.app') ||
         hostname.includes('bolt.host') ||
         hostname.includes('netlify.app') ||
         hostname.includes('lovableproject.com');
@@ -60,38 +63,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let profile = null;
       let isLookingForStore = false;
 
-      // 1. Check Custom Domain (Only if NOT a main/dev domain)
-      if (!isMainDomain) { 
-         isLookingForStore = true;
-         // Use maybeSingle() to prevent 406 errors if not found
-         const { data } = await supabase
+      // 1. Check Custom Domain
+      if (!isMainDomain) {
+        isLookingForStore = true;
+        const { data } = await supabase
           .from('profiles')
           .select('id, store_name, store_slug, theme_color, logo_url')
           .eq('custom_domain', hostname)
           .eq('role', 'retailer')
-          .maybeSingle(); // <--- Critical Fix
-         profile = data;
+          .maybeSingle();
+        profile = data;
       }
-      
-      // 2. Check Slug path (if no profile found yet and not a system route)
+
+      // 2. Check Slug path
       else if (pathSegment && !reservedPaths.includes(pathSegment)) {
-         isLookingForStore = true;
-         const { data } = await supabase
+        isLookingForStore = true;
+        const { data } = await supabase
           .from('profiles')
           .select('id, store_name, store_slug, theme_color, logo_url')
           .eq('store_slug', pathSegment)
           .eq('role', 'retailer')
           .maybeSingle();
-         profile = data;
+        profile = data;
 
-         if (profile) {
-           const { data: reg } = await supabase
-             .from('retailer_registrations')
-             .select('is_blocked')
-             .eq('store_slug', pathSegment)
-             .maybeSingle();
-           if (reg?.is_blocked) { setStoreNotFound(true); setLoading(false); return; }
-         }
+        if (profile) {
+          const { data: reg } = await supabase
+            .from('retailer_registrations')
+            .select('is_blocked')
+            .eq('store_slug', pathSegment)
+            .maybeSingle();
+          if (reg?.is_blocked) {
+            setStoreNotFound(true);
+            setLoading(false);
+            return;
+          }
+        }
       }
 
       if (profile) {
@@ -101,10 +107,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           slug: profile.store_slug,
           themeColor: profile.theme_color || '#0d2818',
           logoUrl: profile.logo_url,
-          isRetailer: true
+          isRetailer: true,
         });
       } else if (isLookingForStore) {
-        // If we were looking for a specific store (domain or slug) but didn't find one
         setStoreNotFound(true);
       }
 

@@ -156,6 +156,7 @@ export function useRetailerModal(referringRetailerId?: string | null) {
           custom_domain: customDomain,
           store_slug: generateSlug(formData.storeName),
           registration_fee: totalDue,
+          domain_cost: domainCost,
           paystack_reference: reference,
           payment_status: 'pending',
           subscription_status: 'pending',
