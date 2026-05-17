@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, Package, LogOut, Download } from 'lucide-react';
-import CustomerNotifications from '../CustomerNotifications';
+import CustomerNotifications from '../../CustomerNotifications';
 
 // ── PWA install prompt type ───────────────────────────────────────────────────
 interface BeforeInstallPromptEvent extends Event {
