@@ -86,11 +86,11 @@ export default function HomeHeader({
 
         {/* ── Logo / Store name ── */}
         {store.logoUrl ? (
-          <img
-            src={store.logoUrl}
-            alt={store.name}
-            className="h-9 w-auto object-contain"
-          />
+         <img
+         src={store.logoUrl}
+         alt={store.name}
+         className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+       />
         ) : (
           <h1
             className="text-lg font-light tracking-[0.3em]"
