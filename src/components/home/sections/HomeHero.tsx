@@ -47,70 +47,16 @@ function positionToTextAlign(pos: string): 'left' | 'center' | 'right' {
   return 'center';
 }
 
-// ── Jumia Express speeding bike badge ─────────────────────────────────────────
+// ── Jumia Express badge (text only, no bike) ──────────────────────────────────
 function JumiaExpressBadge() {
   return (
-    <div className="flex items-center gap-2.5 group">
-      {/* Bike SVG */}
-      <div
-        className="transition-transform duration-300 group-hover:-translate-x-0.5"
-        style={{ filter: 'drop-shadow(1px 1px 0px rgba(0,0,0,0.08))' }}
-      >
-        <svg
-          viewBox="0 0 72 32"
-          width="72"
-          height="32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          aria-hidden="true"
-        >
-          {/* ── Speed / motion lines ── */}
-          <line x1="0"  y1="13" x2="8"  y2="13" stroke="#111" strokeWidth="1.6" strokeLinecap="round"/>
-          <line x1="2"  y1="17" x2="8"  y2="17" stroke="#111" strokeWidth="1.6" strokeLinecap="round"/>
-          <line x1="4"  y1="21" x2="8"  y2="21" stroke="#111" strokeWidth="1.4" strokeLinecap="round" opacity="0.5"/>
-
-          {/* ── Rear wheel ── */}
-          <circle cx="18" cy="23" r="7"   stroke="#111" strokeWidth="2.2" />
-          <circle cx="18" cy="23" r="2.2" fill="#111" />
-
-          {/* ── Delivery box (sits above rear wheel) ── */}
-          <rect x="10" y="10" width="15" height="11" rx="1.5" fill="#111" />
-          {/* subtle lid line */}
-          <line x1="10" y1="14.5" x2="25" y2="14.5" stroke="white" strokeWidth="0.8" opacity="0.35"/>
-
-          {/* ── Main frame ── */}
-          <path
-            d="M18 16 L28 10 L42 13.5 L57 16"
-            stroke="#111" strokeWidth="2.4" strokeLinecap="round" fill="none"
-          />
-
-          {/* ── Rider body — leaning aggressively forward ── */}
-          <path d="M34 15 C36 9 44 7 45 13 L39 16 Z" fill="#111" />
-
-          {/* ── Helmet / head ── */}
-          <circle cx="46" cy="8" r="5" fill="#111" />
-
-          {/* ── Arm to handlebar ── */}
-          <line x1="44" y1="13" x2="54" y2="11" stroke="#111" strokeWidth="2" strokeLinecap="round"/>
-
-          {/* ── Fork ── */}
-          <line x1="53" y1="12" x2="58" y2="18" stroke="#111" strokeWidth="2.4" strokeLinecap="round"/>
-
-          {/* ── Front wheel ── */}
-          <circle cx="58" cy="23" r="7"   stroke="#111" strokeWidth="2.2" />
-          <circle cx="58" cy="23" r="2.2" fill="#111" />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div className="leading-none">
-        <p className="text-[11px] font-black tracking-[0.08em] text-black italic">
-          JUMIA<span className="text-[#f68b1e] not-italic ml-0.5">★</span>
-        </p>
-        <p className="text-[8.5px] tracking-[0.18em] text-gray-400 uppercase mt-0.5 font-medium">
-          Express Delivery
-        </p>
-      </div>
+    <div className="flex flex-col leading-none flex-shrink-0">
+      <p className="text-[11px] font-black tracking-[0.08em] text-black italic whitespace-nowrap">
+        JUMIA<span className="text-[#f68b1e] not-italic ml-0.5">★</span>
+      </p>
+      <p className="text-[8.5px] tracking-[0.16em] text-gray-400 uppercase mt-0.5 font-medium whitespace-nowrap">
+        Express Delivery
+      </p>
     </div>
   );
 }
@@ -127,7 +73,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
   const { store } = useStore();
   const [hero, setHero] = useState<HeroSettings | null>(null);
 
-  // Load Google Fonts
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
     const link = document.createElement('link');
@@ -215,21 +160,22 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
         )}
       </section>
 
-      {/* Retailer CTA + Jumia Express badge */}
+      {/* CTA row — flex-nowrap keeps button + badge on one line on all screens */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-5 flex-wrap">
+          <div className="flex items-center gap-4">
             <button
               onClick={onRetailerClick}
-              className="text-white px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg"
+              className="text-white px-4 md:px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg flex-shrink-0"
               style={{ backgroundColor: themeColor, animation: 'blink 2s ease-in-out infinite' }}
             >
               <TrendingUp size={14} />
-              BECOME A RETAILER
+              <span className="hidden xs:inline">BECOME A RETAILER</span>
+              <span className="xs:hidden">RETAILER</span>
             </button>
 
             {/* Divider */}
-            <div className="h-8 w-px bg-gray-200 hidden sm:block" />
+            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
 
             <JumiaExpressBadge />
           </div>
@@ -238,18 +184,18 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
 
       {hasApplied && user && (
         <section className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-5 flex-wrap">
+          <div className="flex items-center gap-4">
             <a
               href="/retailer"
-              className="text-xs tracking-widest border px-5 py-2 flex items-center gap-2 w-fit hover:opacity-80 transition-opacity"
+              className="text-xs tracking-widest border px-4 md:px-5 py-2 flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
               style={{ borderColor: themeColor, color: themeColor }}
             >
               <TrendingUp size={13} />
-              MY RETAILER DASHBOARD
+              MY DASHBOARD
             </a>
 
             {/* Divider */}
-            <div className="h-8 w-px bg-gray-200 hidden sm:block" />
+            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
 
             <JumiaExpressBadge />
           </div>
