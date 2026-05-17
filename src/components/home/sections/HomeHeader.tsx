@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, Package, LogOut, Download } from 'lucide-react';
+import CustomerNotifications from '../CustomerNotifications';
 
 // ── PWA install prompt type ───────────────────────────────────────────────────
 interface BeforeInstallPromptEvent extends Event {
@@ -13,14 +14,13 @@ function usePWAInstall() {
   const [isInstalled, setIsInstalled]       = useState(false);
 
   useEffect(() => {
-    // Already running as installed PWA
     if (window.matchMedia('(display-mode: standalone)').matches) {
       setIsInstalled(true);
       return;
     }
 
     const onBeforeInstall = (e: Event) => {
-      e.preventDefault(); // stops the mini-infobar
+      e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
     };
 
@@ -86,11 +86,11 @@ export default function HomeHeader({
 
         {/* ── Logo / Store name ── */}
         {store.logoUrl ? (
-         <img
-         src={store.logoUrl}
-         alt={store.name}
-         className="h-10 w-10 rounded-full object-cover flex-shrink-0"
-       />
+          <img
+            src={store.logoUrl}
+            alt={store.name}
+            className="h-10 w-10 rounded-full object-cover flex-shrink-0"
+          />
         ) : (
           <h1
             className="text-lg font-light tracking-[0.3em]"
@@ -103,15 +103,12 @@ export default function HomeHeader({
         {/* ── Right side ── */}
         <div className="flex items-center gap-3">
 
-          {/* PWA Install button — only visible when browser fires beforeinstallprompt */}
+          {/* PWA Install button */}
           {canInstall && (
             <button
               onClick={triggerInstall}
               className="flex items-center gap-1.5 text-xs tracking-wider border px-3 py-1.5 rounded-full transition-colors hover:text-white"
-              style={{
-                borderColor: store.themeColor,
-                color: store.themeColor,
-              }}
+              style={{ borderColor: store.themeColor, color: store.themeColor }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.backgroundColor = store.themeColor;
                 (e.currentTarget as HTMLButtonElement).style.color = '#fff';
@@ -129,49 +126,51 @@ export default function HomeHeader({
 
           {/* User menu / Sign in */}
           {user ? (
-            <div className="relative">
-              <button
-                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              >
-                <Menu size={24} style={{ color: store.themeColor }} />
-              </button>
+            // FIX 2: </div> was missing before the closing ) of this ternary
+            <div className="flex items-center gap-1">
+              <CustomerNotifications user={user} />
+              <div className="relative">
+                {/* FIX 1: className was outside the opening tag — now correctly placed */}
+                <button
+                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <Menu size={24} style={{ color: store.themeColor }} />
+                </button>
 
-              {isUserMenuOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setIsUserMenuOpen(false)}
-                  />
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-white border shadow-lg z-50 py-2">
-                    <div className="px-4 py-3 border-b mb-2">
-                      <p className="text-xs text-gray-500">Signed in as</p>
-                      <p className="text-sm font-medium truncate">{user.email}</p>
+                {isUserMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-56 bg-white border shadow-lg z-50 py-2">
+                      <div className="px-4 py-3 border-b mb-2">
+                        <p className="text-xs text-gray-500">Signed in as</p>
+                        <p className="text-sm font-medium truncate">{user.email}</p>
+                      </div>
+                      <button
+                        onClick={() => { onNavigateToOrders(); setIsUserMenuOpen(false); }}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                      >
+                        <Package size={16} /> My Purchases
+                      </button>
+                      <button
+                        onClick={handleSignOut}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
+                      >
+                        <LogOut size={16} /> Sign Out
+                      </button>
                     </div>
-                    <button
-                      onClick={() => { onNavigateToOrders(); setIsUserMenuOpen(false); }}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
-                    >
-                      <Package size={16} /> My Purchases
-                    </button>
-                    <button
-                      onClick={handleSignOut}
-                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-red-600"
-                    >
-                      <LogOut size={16} /> Sign Out
-                    </button>
-                  </div>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
           ) : (
             <button
               onClick={() => setIsAuthOpen(true)}
               className="text-xs tracking-widest border px-6 py-2 transition-colors hover:text-white"
-              style={{
-                borderColor: store.themeColor,
-                color: store.themeColor,
-              }}
+              style={{ borderColor: store.themeColor, color: store.themeColor }}
               onMouseEnter={e => {
                 (e.currentTarget as HTMLButtonElement).style.backgroundColor = store.themeColor;
                 (e.currentTarget as HTMLButtonElement).style.color = '#ffffff';
