@@ -113,6 +113,18 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
       const orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+      // Calculate retailer markup (only when buying from a retailer store)
+      let retailerProfit = 0;
+      if (store?.isRetailer && store?.id) {
+        for (const item of items) {
+          const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
+          const soldPrice = item.product.price; // Already custom_price in retailer context
+          if (soldPrice > costPrice) {
+            retailerProfit += (soldPrice - costPrice) * item.quantity;
+          }
+        }
+      }
+
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert([{
@@ -130,7 +142,8 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           manual_payment_verified: false,
           paystack_reference: orderReference,
           retailer_id: store?.id,
-          retailer_slug: store?.slug
+          retailer_slug: store?.slug,
+          retailer_profit: Math.max(0, retailerProfit),
         }])
         .select()
         .single();

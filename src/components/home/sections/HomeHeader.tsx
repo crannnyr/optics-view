@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, Package, LogOut, Download } from 'lucide-react';
+import { Menu, Package, LogOut, Download, MessageCircle } from 'lucide-react';
 import CustomerNotifications from '../../CustomerNotifications';
 
 // ── PWA install prompt type ───────────────────────────────────────────────────
@@ -69,6 +69,8 @@ interface HomeHeaderProps {
   setIsAuthOpen: (open: boolean) => void;
 }
 
+const WHATSAPP_NUMBER = '447404707531';
+
 export default function HomeHeader({
   user,
   store,
@@ -79,6 +81,11 @@ export default function HomeHeader({
   setIsAuthOpen,
 }: HomeHeaderProps) {
   const { canInstall, triggerInstall } = usePWAInstall();
+
+  const handleCustomerService = () => {
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank');
+    setIsUserMenuOpen(false);
+  };
 
   return (
     <header className="border-b border-gray-200 sticky top-0 bg-white z-40">
@@ -126,11 +133,9 @@ export default function HomeHeader({
 
           {/* User menu / Sign in */}
           {user ? (
-            // FIX 2: </div> was missing before the closing ) of this ternary
             <div className="flex items-center gap-1">
               <CustomerNotifications user={user} />
               <div className="relative">
-                {/* FIX 1: className was outside the opening tag — now correctly placed */}
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -154,6 +159,12 @@ export default function HomeHeader({
                         className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                       >
                         <Package size={16} /> My Purchases
+                      </button>
+                      <button
+                        onClick={handleCustomerService}
+                        className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-green-600"
+                      >
+                        <MessageCircle size={16} /> Customer Service
                       </button>
                       <button
                         onClick={handleSignOut}
