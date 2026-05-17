@@ -169,9 +169,8 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               className="text-white px-4 md:px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg flex-shrink-0"
               style={{ backgroundColor: themeColor, animation: 'blink 2s ease-in-out infinite' }}
             >
-              <TrendingUp size={14} />
-              <span className="hidden xs:inline">BECOME A RETAILER</span>
-              <span className="xs:hidden">RETAILER</span>
+            <TrendingUp size={14} />
+BECOME A RETAILER
             </button>
 
             {/* Divider */}

@@ -76,12 +76,25 @@ export default function ShippingStep({
         </div>
       </div>
 
-      <button 
-        className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 transition-opacity rounded mt-2"
-        style={{ backgroundColor: themeColor }}
-      >
-        CONTINUE
-      </button>
+      {/* Jumia Express trust badge */}
+<div className="flex items-center gap-4 py-2">
+  <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
+  <div className="flex flex-col leading-none flex-shrink-0">
+    <p className="text-[11px] font-black tracking-[0.08em] text-black italic whitespace-nowrap">
+      JUMIA<span className="text-[#f68b1e] not-italic ml-0.5">★</span>
+    </p>
+    <p className="text-[8.5px] tracking-[0.16em] text-gray-400 uppercase mt-0.5 font-medium whitespace-nowrap">
+      Express Delivery
+    </p>
+  </div>
+</div>
+
+<button 
+  className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 transition-opacity rounded mt-2"
+  style={{ backgroundColor: themeColor }}
+>
+  CONTINUE
+</button>
     </form>
   );
 }

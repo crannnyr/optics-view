@@ -38,13 +38,14 @@ export default function PaymentExecutionStep({
             <p className="text-sm text-gray-500 mt-1">Click the button below to launch the secure payment window.</p>
           </div>
           <PaystackButton 
-            {...paystackConfig}
-            text="PAY NOW"
-            onSuccess={handlePaystackSuccess}
-            onClose={() => alert("Payment cancelled")}
-            className="w-full text-white py-4 text-sm font-bold tracking-widest hover:opacity-90 rounded shadow-lg"
-            style={{ backgroundColor: themeColor }}
-          />
+  {...paystackConfig}
+  onSuccess={handlePaystackSuccess}
+  onClose={() => alert("Payment cancelled")}
+  className="w-full text-white py-4 text-sm font-bold tracking-widest hover:opacity-90 rounded shadow-lg"
+  style={{ backgroundColor: themeColor }}
+>
+  PAY NOW — ₦{payableAmount.toLocaleString()}
+</PaystackButton>
           <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
             <ShieldCheck size={12} />
             SECURED BY PAYSTACK

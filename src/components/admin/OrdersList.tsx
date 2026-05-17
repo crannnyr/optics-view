@@ -1,105 +1,71 @@
-import { Order } from '../../lib/supabase';
-import { Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+const STATUS_COLORS: Record<string, string> = {
+  pending:     'bg-yellow-100 text-yellow-800 border-yellow-200',
+  approved:    'bg-blue-100 text-blue-800 border-blue-200',
+  shipped:     'bg-purple-100 text-purple-800 border-purple-200',
+  delivered:   'bg-green-100 text-green-800 border-green-200',
+  rejected:    'bg-red-100 text-red-800 border-red-200',
+  unavailable: 'bg-orange-100 text-orange-800 border-orange-200',
+  refunded:    'bg-gray-100 text-gray-600 border-gray-200',
+};
 
-interface OrdersListProps {
-  orders: any[]; // Using any to accomodate the joined query structure
+interface Props {
+  orders: any[];
   onSelectOrder: (order: any) => void;
 }
 
-export default function OrdersList({ orders, onSelectOrder }: OrdersListProps) {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'approved': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'shipped': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'pickup': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'delivered': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
+export default function OrdersList({ orders, onSelectOrder }: Props) {
   if (orders.length === 0) {
     return (
-      <div className="text-center py-12 border border-dashed border-gray-200 rounded-sm bg-gray-50">
-        <p className="text-gray-400 text-xs italic">No orders found in this view.</p>
+      <div className="text-center py-12 border border-dashed border-gray-200 rounded bg-gray-50">
+        <p className="text-gray-400 text-xs italic">No orders found.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      {orders.map((order) => {
-        // Safe defaults if fields are missing (backwards compatibility)
-        const isInstallment = order.payment_type === 'installment';
-        const total = order.total_amount || 0;
-        const paid = order.amount_paid || 0;
-        const percentPaid = total > 0 ? Math.min(100, Math.round((paid / total) * 100)) : 0;
-        const isFullyPaid = order.is_fully_paid || (!isInstallment); // Full payments are fully paid by default logic
-
-        return (
-          <div
-            key={order.id}
-            onClick={() => onSelectOrder(order)}
-            className="bg-white border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:border-[#0d2818] hover:shadow-md transition-all group gap-4"
-          >
-            {/* Left: Status & Info */}
-            <div className="flex items-start gap-4">
-              <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${
-                order.status === 'pending' ? 'bg-yellow-400 animate-pulse' : 'bg-gray-300'
-              }`} />
-              
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-mono text-[10px] text-gray-400">
-                    #{order.id.slice(0, 8)}
+      {orders.map(order => (
+        <div
+          key={order.id}
+          onClick={() => onSelectOrder(order)}
+          className="bg-white border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between cursor-pointer hover:border-[#0d2818] hover:shadow-sm transition-all gap-4 rounded"
+        >
+          <div className="flex items-start gap-4">
+            <div className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${order.status === 'pending' ? 'bg-yellow-400 animate-pulse' : 'bg-gray-300'}`} />
+            <div>
+              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                <span className="font-mono text-[10px] text-gray-400">#{order.id.slice(0, 8)}</span>
+                <span className={`text-[10px] uppercase px-2 py-0.5 rounded border ${STATUS_COLORS[order.status] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                  {order.status}
+                </span>
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${
+                  order.payment_method === 'paystack'
+                    ? 'bg-blue-50 text-blue-600 border-blue-200'
+                    : 'bg-amber-50 text-amber-600 border-amber-200'
+                }`}>
+                  {order.payment_method === 'paystack' ? 'Paystack' : 'Transfer'}
+                </span>
+                {order.retailer_slug && (
+                  <span className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded">
+                    {order.retailer_slug}
                   </span>
-                  <span className={`text-[10px] uppercase px-2 py-0.5 rounded border ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </span>
-                  {/* Payment Badge */}
-                  {isInstallment && (
-                    <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded border flex items-center gap-1 ${isFullyPaid ? 'bg-green-50 text-green-700 border-green-200' : 'bg-orange-50 text-orange-700 border-orange-200'}`}>
-                      {isFullyPaid ? <CheckCircle2 size={10} /> : <Clock size={10} />}
-                      {isFullyPaid ? 'Paid' : 'Partial'}
-                    </span>
-                  )}
-                </div>
-                
-                <h3 className="text-sm font-medium text-[#0d2818] group-hover:underline decoration-[#0d2818]/50 underline-offset-2">
-                  {order.customer_name}
-                </h3>
-                <p className="text-[10px] text-gray-400">
-                  {new Date(order.created_at).toLocaleDateString()} • {order.items?.length || 0} items
-                </p>
+                )}
               </div>
-            </div>
-
-            {/* Right: Payment Details */}
-            <div className="text-right min-w-[140px]">
-              <p className="font-medium text-sm text-[#0d2818]">₦{total.toLocaleString()}</p>
-              
-              {isInstallment ? (
-                <div className="mt-1">
-                  <div className="flex justify-end items-center gap-1 text-[10px] text-gray-500 mb-1">
-                    <span>{percentPaid}% Paid</span>
-                    <span>(₦{paid.toLocaleString()})</span>
-                  </div>
-                  {/* Progress Bar */}
-                  <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden ml-auto max-w-[140px]">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-500 ${isFullyPaid ? 'bg-[#0d2818]' : 'bg-orange-500'}`} 
-                      style={{ width: `${percentPaid}%` }}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider">Full Payment</p>
-              )}
+              <p className="text-sm font-medium text-[#0d2818]">{order.customer_name}</p>
+              <p className="text-[10px] text-gray-400">
+                {new Date(order.created_at).toLocaleDateString('en-NG')} · {order.items?.length || 0} items
+              </p>
             </div>
           </div>
-        );
-      })}
+
+          <div className="text-right min-w-[120px]">
+            <p className="font-medium text-sm text-[#0d2818]">₦{(order.total_amount || 0).toLocaleString()}</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">
+              {order.payment_method === 'paystack' ? 'Auto-approved' : order.manual_payment_verified ? 'Verified' : 'Unverified'}
+            </p>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
