@@ -165,10 +165,11 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
             )}
             <span className="text-xl md:text-2xl font-medium">₦{product.price.toLocaleString()}</span>
             
-            {product.wholesale_price && (
-              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
-                Buy {wholesaleMinQty}+ get {calculateDiscount()}% OFF (₦{product.wholesale_price.toLocaleString()} ea)
-              </span>
+            {!store.isRetailer && product.wholesale_price && (
+  <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+    Buy {wholesaleMinQty}+ get {calculateDiscount()}% OFF (₦{product.wholesale_price.toLocaleString()} ea)
+  </span>
+)}
             )}
           </div>
 
