@@ -53,22 +53,48 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     customDomainName: '',
   });
 
+  // ── Auth listener — re-checks application on every auth change ──
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const u = data.user;
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ?? null;
       setUser(u);
       if (u?.email) {
-        setFormData(p => ({ ...p, email: u.email }));
-        checkExistingApplication(u.email);
+        setFormData(p => ({ ...p, email: u.email! }));
+        checkExistingApplication(u.email!);
       } else {
+        setHasApplied(false);
         setCheckingApplication(false);
       }
     });
+
+    // Listen for auth changes (login, logout, account switch)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ?? null;
+      setUser(u);
+      if (u?.email) {
+        setFormData(p => ({ ...p, email: u.email! }));
+        checkExistingApplication(u.email!);
+      } else {
+        // Logged out — reset everything
+        setHasApplied(false);
+        setCheckingApplication(false);
+        setStep(1);
+        setFormData({ storeName: '', email: '', phone: '', domainType: 'subdomain', customDomainName: '' });
+        setSelectedCategories([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
     fetchCategories();
     fetchPaymentSettings();
   }, []);
 
   const checkExistingApplication = async (email: string) => {
+    setCheckingApplication(true);
     const { data } = await supabase
       .from('retailer_registrations')
       .select('id')
@@ -126,7 +152,6 @@ export function useRetailerModal(referringRetailerId?: string | null) {
   const handleSubmitDetails = async () => {
     if (!user) return;
 
-    // Guard: prevent double submission
     const { data: existing } = await supabase
       .from('retailer_registrations')
       .select('id')
