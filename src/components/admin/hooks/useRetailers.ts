@@ -20,23 +20,17 @@ export function useRetailers() {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Payout Modal State
   const [selectedRetailer, setSelectedRetailer] = useState<Retailer | null>(null);
   const [payoutAmount, setPayoutAmount] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [processingPayout, setProcessingPayout] = useState(false);
-
-  // Activation State
   const [activatingRetailerId, setActivatingRetailerId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadRetailers();
-  }, []);
+  useEffect(() => { loadRetailers(); }, []);
 
   const loadRetailers = async () => {
     setLoading(true);
 
-    // Get Retailers
     const { data: profiles } = await supabase
       .from('profiles')
       .select('*')
@@ -45,18 +39,13 @@ export function useRetailers() {
       .order('created_at', { ascending: false });
 
     if (profiles) {
-      // Get Balances for all retailers
       const { data: balances } = await supabase
         .from('retailer_balances')
         .select('retailer_id, current_balance');
 
-      // Merge Balance into Profile
       const merged = profiles.map(p => {
         const bal = balances?.find(b => b.retailer_id === p.id);
-        return {
-          ...p,
-          balance: bal ? bal.current_balance : 0
-        };
+        return { ...p, balance: bal ? bal.current_balance : 0 };
       });
 
       setRetailers(merged as Retailer[]);
@@ -77,7 +66,7 @@ export function useRetailers() {
     setActivatingRetailerId(retailer.id);
 
     try {
-      // 1. Update subscription status to active
+      // 1. Activate profile
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ subscription_status: 'active' })
@@ -85,52 +74,82 @@ export function useRetailers() {
 
       if (updateError) throw updateError;
 
-      // 2. Check if this retailer was referred by someone
+      // 2. Get registration to check referral + domain_cost
       const { data: registration } = await supabase
         .from('retailer_registrations')
-        .select('referred_by_retailer_id, domain_type, registration_fee')
+        .select('referred_by_retailer_id, domain_type, domain_cost, registration_fee')
         .eq('email', retailer.email)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
 
-      // 3. If they were referred, create commission record
+      // 3. If referred — credit 20% of domain_cost to referrer
       if (registration?.referred_by_retailer_id) {
-        const planType = registration.domain_type === 'subdomain' ? 'standard' : 'custom';
-        const commissionAmount = planType === 'standard' ? 2000 : 3480;
+        const domainCost = Number(registration.domain_cost || 7000);
+        const commissionAmount = Math.round(domainCost * 0.20);
 
-        const { error: commissionError } = await supabase
+        // Check for existing domain_fee commission to avoid double credit
+        const { data: existing } = await supabase
           .from('retailer_referral_commissions')
-          .insert({
-            referrer_retailer_id: registration.referred_by_retailer_id,
-            referred_retailer_id: retailer.id,
-            plan_type: planType,
-            registration_fee: registration.registration_fee,
-            commission_amount: commissionAmount,
-            subscription_status: 'active',
-            activated_at: new Date().toISOString()
-          });
+          .select('id')
+          .eq('referrer_retailer_id', registration.referred_by_retailer_id)
+          .eq('referred_retailer_id', retailer.id)
+          .eq('commission_type', 'domain_fee')
+          .maybeSingle();
 
-        if (commissionError) {
-          console.error('Commission creation error:', commissionError);
-          // Don't fail the whole operation if commission fails
-          alert(`Retailer activated, but commission creation failed: ${commissionError.message}`);
+        if (!existing) {
+          // Log commission row
+          const { error: commissionError } = await supabase
+            .from('retailer_referral_commissions')
+            .insert({
+              referrer_retailer_id: registration.referred_by_retailer_id,
+              referred_retailer_id: retailer.id,
+              plan_type: registration.domain_type ?? 'subdomain',
+              registration_fee: registration.registration_fee,
+              commission_amount: commissionAmount,
+              commission_type: 'domain_fee',
+              subscription_status: 'active',
+              activated_at: new Date().toISOString(),
+            });
+
+          if (commissionError) throw new Error(`Commission insert failed: ${commissionError.message}`);
+
+          // Credit referrer wallet
+          const { data: refWallet } = await supabase
+            .from('retailer_wallets')
+            .select('balance, total_earned')
+            .eq('retailer_id', registration.referred_by_retailer_id)
+            .maybeSingle();
+
+          if (refWallet) {
+            await supabase.from('retailer_wallets').update({
+              balance: Number(refWallet.balance) + commissionAmount,
+              total_earned: Number(refWallet.total_earned) + commissionAmount,
+              updated_at: new Date().toISOString(),
+            }).eq('retailer_id', registration.referred_by_retailer_id);
+          } else {
+            await supabase.from('retailer_wallets').insert({
+              retailer_id: registration.referred_by_retailer_id,
+              balance: commissionAmount,
+              total_earned: commissionAmount,
+            });
+          }
+
+          // Update profiles for permanent tracking
+          await supabase
+            .from('profiles')
+            .update({ referred_by_retailer_id: registration.referred_by_retailer_id })
+            .eq('id', retailer.id);
+
+          alert(`✅ ${retailer.store_name} activated!\n💰 ₦${commissionAmount.toLocaleString()} (20% of ₦${domainCost.toLocaleString()} domain fee) credited to referring retailer.`);
         } else {
-          alert(`✅ ${retailer.store_name} activated successfully!\n💰 Commission of ₦${commissionAmount.toLocaleString()} credited to referring retailer.`);
+          alert(`✅ ${retailer.store_name} activated! (Commission already credited)`);
         }
       } else {
         alert(`✅ ${retailer.store_name} activated successfully!`);
       }
 
-      // 4. Also update the referred_by field in profiles for permanent tracking
-      if (registration?.referred_by_retailer_id) {
-        await supabase
-          .from('profiles')
-          .update({ referred_by_retailer_id: registration.referred_by_retailer_id })
-          .eq('id', retailer.id);
-      }
-
-      loadRetailers(); // Refresh list
+      loadRetailers();
 
     } catch (error: any) {
       console.error('Activation error:', error);
@@ -148,25 +167,24 @@ export function useRetailers() {
     const amount = parseFloat(payoutAmount);
 
     if (amount <= 0) {
-      alert("Please enter a valid amount");
+      alert('Please enter a valid amount');
       setProcessingPayout(false);
       return;
     }
 
     if (amount > (selectedRetailer.balance || 0)) {
-        if(!confirm(`⚠️ Warning: You are paying ₦${amount.toLocaleString()} but they only have ₦${(selectedRetailer.balance || 0).toLocaleString()} in their wallet. Do you want to proceed?`)) {
-            setProcessingPayout(false);
-            return;
-        }
+      if (!confirm(`⚠️ Warning: You are paying ₦${amount.toLocaleString()} but they only have ₦${(selectedRetailer.balance || 0).toLocaleString()} in their wallet. Proceed?`)) {
+        setProcessingPayout(false);
+        return;
+      }
     }
 
     try {
-      // Insert Payout Record
       const { error } = await supabase.from('payouts').insert({
         retailer_id: selectedRetailer.id,
-        amount: amount,
+        amount,
         admin_note: adminNote || 'Manual Payout',
-        processed_by: (await supabase.auth.getUser()).data.user?.id
+        processed_by: (await supabase.auth.getUser()).data.user?.id,
       });
 
       if (error) throw error;
@@ -175,7 +193,7 @@ export function useRetailers() {
       setSelectedRetailer(null);
       setPayoutAmount('');
       setAdminNote('');
-      loadRetailers(); // Refresh balances
+      loadRetailers();
 
     } catch (error: any) {
       console.error('Payout error:', error);
@@ -217,6 +235,6 @@ export function useRetailers() {
     handlePayout,
     copyToClipboard,
     getStoreUrl,
-    getDaysRemaining
+    getDaysRemaining,
   };
 }
