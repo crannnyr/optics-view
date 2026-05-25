@@ -1,12 +1,13 @@
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { CartItem } from '../lib/supabase';
+import { useStore } from '../context/StoreContext';
 
 interface CartProps {
   isOpen: boolean;
   onClose: () => void;
   items: CartItem[];
-  onUpdateQuantity: (id: string, quantity: number) => void;
-  onRemove: (id: string) => void;
+  onUpdateQuantity: (id: string, quantity: number, selectedColor?: string, selectedType?: string) => void;
+  onRemove: (id: string, selectedColor?: string, selectedType?: string) => void;
   onCheckout: () => void;
 }
 
@@ -18,27 +19,27 @@ export default function Cart({
   onRemove,
   onCheckout,
 }: CartProps) {
+  const { store } = useStore();
+
   if (!isOpen) return null;
 
-  // 1. Calculate Subtotal
+  // Wholesale only applies on the main store, never on retailer stores
+  const wholesaleEnabled = !store.isRetailer;
+
   const subtotal = items.reduce((sum, item) => {
-    // Wholesale Logic: Apply wholesale price if item quantity >= 7 AND wholesale_price exists
-    const priceToUse = (item.quantity >= 7 && item.product.wholesale_price) 
-      ? item.product.wholesale_price 
-      : item.product.price;
+    const isWholesale = wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price;
+    const priceToUse = isWholesale ? item.product.wholesale_price! : item.product.price;
     return sum + (priceToUse * item.quantity);
   }, 0);
 
-  // 2. Calculate Total Item Count
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  // 3. Shipping Logic (Tiered)
   const calculateShipping = (count: number) => {
     if (count === 0) return 0;
     if (count <= 5) return 4950;
     if (count <= 30) return 7800;
     if (count <= 100) return 10000;
-    return 15000; // 101 to 200+
+    return 15000;
   };
 
   const shippingFee = calculateShipping(totalItems);
@@ -46,11 +47,11 @@ export default function Cart({
 
   return (
     <div className="fixed inset-0 z-50">
-      <div 
+      <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       <div className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-xl flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-white">
@@ -69,12 +70,13 @@ export default function Cart({
             </div>
           ) : (
             items.map((item) => {
-              const isWholesale = item.quantity >= 7 && item.product.wholesale_price;
-              
+              const itemKey = `${item.product.id}-${item.selectedColor ?? ''}-${item.selectedType ?? ''}`;
+              const isWholesale = wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price;
+
               return (
-                <div key={item.product.id} className="flex gap-4">
+                <div key={itemKey} className="flex gap-4">
                   <div className="w-20 h-20 bg-gray-50 shrink-0">
-                     <img
+                    <img
                       src={item.product.images?.[0] || item.product.image_url}
                       alt={item.product.name}
                       className="w-full h-full object-cover"
@@ -89,8 +91,7 @@ export default function Cart({
                         </p>
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-1">{item.product.description}</p>
-                      
-                      {/* Display selected variants */}
+
                       {(item.selectedColor || item.selectedType) && (
                         <div className="flex flex-wrap gap-1 mt-1">
                           {item.selectedColor && (
@@ -105,30 +106,30 @@ export default function Cart({
                           )}
                         </div>
                       )}
-                      
+
                       {isWholesale && (
-                         <p className="text-[10px] text-green-700 font-medium mt-1">Wholesale Discount Applied</p>
+                        <p className="text-[10px] text-green-700 font-medium mt-1">Wholesale Discount Applied</p>
                       )}
                     </div>
-                    
+
                     <div className="flex justify-between items-center mt-2">
                       <div className="flex items-center border border-gray-200">
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => onUpdateQuantity(item.product.id, item.quantity - 1, item.selectedColor, item.selectedType)}
                           className="p-1 hover:bg-gray-50"
                         >
                           <Minus size={14} />
                         </button>
                         <span className="w-8 text-center text-xs">{item.quantity}</span>
                         <button
-                          onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => onUpdateQuantity(item.product.id, item.quantity + 1, item.selectedColor, item.selectedType)}
                           className="p-1 hover:bg-gray-50"
                         >
                           <Plus size={14} />
                         </button>
                       </div>
                       <button
-                        onClick={() => onRemove(item.product.id)}
+                        onClick={() => onRemove(item.product.id, item.selectedColor, item.selectedType)}
                         className="text-xs text-red-500 hover:text-red-700 underline underline-offset-2"
                       >
                         remove
@@ -154,12 +155,12 @@ export default function Cart({
                 <span>₦{shippingFee.toLocaleString()}</span>
               </div>
             </div>
-            
+
             <div className="flex justify-between text-lg font-medium text-[#0d2818] pt-4 border-t border-gray-200">
               <span>Total</span>
               <span>₦{total.toLocaleString()}</span>
             </div>
-            
+
             <button
               onClick={onCheckout}
               className="w-full bg-[#0d2818] text-white py-4 text-xs tracking-[0.2em] hover:bg-[#1a3d28] transition-colors"
