@@ -21,8 +21,8 @@ interface HomeProps {
   user: any;
   cart: CartItem[];
   onAddToCart: (product: Product) => void;
-  onUpdateQuantity: (id: string, qty: number) => void;
-  onRemoveFromCart: (id: string) => void;
+  onUpdateQuantity: (id: string, qty: number, selectedColor?: string, selectedType?: string) => void;
+  onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string) => void;
   onClearCart: () => void;
   onNavigateToOrders: () => void;
   onViewProduct: (product: Product) => void;
@@ -42,7 +42,7 @@ export default function Home({
   onNavigateToPrivacy,
   onNavigateToTerms
 }: HomeProps) {
-  
+
   const {
     store,
     filteredProducts,
