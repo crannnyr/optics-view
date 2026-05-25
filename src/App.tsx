@@ -5,16 +5,16 @@ import Admin from './components/Admin';
 import OrderHistory from './components/OrderHistory';
 import ProductDetails from './components/ProductDetails';
 import LegalPages from './components/LegalPages';
-import { Lock, Loader2, SearchX } from 'lucide-react'; // <--- Added SearchnnnX
+import { Lock, Loader2, SearchX } from 'lucide-react';
 import RetailerDashboard from './components/RetailerDashboard';
 import { useStore } from './context/StoreContext';
 
 function App() {
-  const { store, loading: storeLoading, storeNotFound } = useStore(); // <--- Get error state
+  const { store, loading: storeLoading, storeNotFound } = useStore();
   const [currentView, setCurrentView] = useState<'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'legal-privacy' | 'legal-terms'>('shop');
   const [user, setUser] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  
+
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
@@ -27,7 +27,6 @@ function App() {
 
   // 1. Initial Load & Routing Logic
   useEffect(() => {
-    // Check Session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setAuthLoading(false);
@@ -38,9 +37,7 @@ function App() {
       setAuthLoading(false);
     });
 
-    // Parse URL for Routing
     const path = window.location.pathname;
-    
     if (path === '/admin') {
       setCurrentView('admin');
     } else if (path === '/retailer') {
@@ -49,9 +46,7 @@ function App() {
       setCurrentView('legal-privacy');
     } else if (path === '/terms-conditions') {
       setCurrentView('legal-terms');
-    } 
-    // If path is a retailer slug (e.g. /joshua), StoreContext handles the data, 
-    // and we just stay on 'shop' view to render the Home component with that data.
+    }
 
     return () => subscription.unsubscribe();
   }, []);
@@ -69,41 +64,46 @@ function App() {
   // --- Cart Actions ---
   const addToCart = (product: Product, quantity: number = 1, selectedColor?: string, selectedType?: string) => {
     setCart((prev) => {
-      const exists = prev.find((item) => 
-        item.product.id === product.id && 
+      const exists = prev.find((item) =>
+        item.product.id === product.id &&
         item.selectedColor === selectedColor &&
         item.selectedType === selectedType
       );
-      
+
       if (exists) {
         return prev.map((item) =>
-          item.product.id === product.id && 
+          item.product.id === product.id &&
           item.selectedColor === selectedColor &&
           item.selectedType === selectedType
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      
-      return [...prev, { 
-        product, 
-        quantity,
-        selectedColor,
-        selectedType
-      }];
+
+      return [...prev, { product, quantity, selectedColor, selectedType }];
     });
   };
 
-  const updateQuantity = (id: string, qty: number) => {
+  // Match on id + variant so different variants update independently
+  const updateQuantity = (id: string, qty: number, selectedColor?: string, selectedType?: string) => {
     if (qty <= 0) {
-      setCart(prev => prev.filter(i => i.product.id !== id));
+      setCart(prev => prev.filter(i =>
+        !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType)
+      ));
     } else {
-      setCart(prev => prev.map(i => i.product.id === id ? { ...i, quantity: qty } : i));
+      setCart(prev => prev.map(i =>
+        i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType
+          ? { ...i, quantity: qty }
+          : i
+      ));
     }
   };
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(i => i.product.id !== id));
+  // Match on id + variant so only the specific variant is removed
+  const removeFromCart = (id: string, selectedColor?: string, selectedType?: string) => {
+    setCart(prev => prev.filter(i =>
+      !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType)
+    ));
   };
 
   const clearCart = () => setCart([]);
@@ -112,10 +112,10 @@ function App() {
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminError('');
-    
+
     const { data, error } = await supabase.auth.signInWithPassword({
       email: adminEmail,
-      password: adminPassword
+      password: adminPassword,
     });
 
     if (error) {
@@ -129,8 +129,6 @@ function App() {
     }
   };
 
-  // --- Loading State ---
-  // Wait for both Auth and Store identification to complete
   if (authLoading || storeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -139,7 +137,6 @@ function App() {
     );
   }
 
-  // --- 404: STORE NOT FOUND ---
   if (storeNotFound) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -151,8 +148,8 @@ function App() {
           <p className="text-gray-500 mb-8">
             We couldn't find the retailer store you're looking for. The link might be incorrect or the store may no longer exist.
           </p>
-          <a 
-            href="/" 
+          <a
+            href="/"
             className="block w-full bg-[#0d2818] text-white py-3 text-sm tracking-widest hover:opacity-90 transition-opacity rounded"
           >
             VISIT MAIN STORE
@@ -162,7 +159,6 @@ function App() {
     );
   }
 
-  // --- View: Legal Pages ---
   if (currentView === 'legal-privacy') {
     return <LegalPages page="privacy" onBack={() => setCurrentView('shop')} />;
   }
@@ -170,7 +166,6 @@ function App() {
     return <LegalPages page="terms" onBack={() => setCurrentView('shop')} />;
   }
 
-  // --- View: Admin ---
   if (currentView === 'admin') {
     const isAdmin = user && user.user_metadata?.role === 'admin';
 
@@ -180,12 +175,12 @@ function App() {
           <div className="bg-white p-8 max-w-md w-full shadow-lg text-center border-t-4 border-[#0d2818]">
             <Lock size={48} className="mx-auto mb-4 text-[#0d2818]" />
             <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-6">ADMIN ACCESS</h1>
-            
+
             <form onSubmit={handleAdminLogin} className="space-y-4 text-left">
               <div>
                 <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Email</label>
-                <input 
-                  type="email" 
+                <input
+                  type="email"
                   value={adminEmail}
                   onChange={e => setAdminEmail(e.target.value)}
                   className="w-full border p-3 text-sm outline-none focus:border-[#0d2818] transition-colors"
@@ -193,14 +188,14 @@ function App() {
               </div>
               <div>
                 <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Password</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={adminPassword}
                   onChange={e => setAdminPassword(e.target.value)}
                   className="w-full border p-3 text-sm outline-none focus:border-[#0d2818] transition-colors"
                 />
               </div>
-              
+
               {adminError && <p className="text-red-500 text-xs text-center font-medium">{adminError}</p>}
 
               <button className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 transition-opacity">
@@ -208,7 +203,7 @@ function App() {
               </button>
             </form>
 
-            <button 
+            <button
               onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
               className="mt-6 text-xs text-gray-400 hover:text-gray-600 underline"
             >
@@ -226,10 +221,7 @@ function App() {
           <div className="flex gap-4 items-center">
             <span className="text-xs opacity-70 hidden sm:inline">Logged in as {user.email}</span>
             <button
-              onClick={() => {
-                window.history.pushState({}, '', '/');
-                setCurrentView('shop');
-              }}
+              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
               className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
             >
               EXIT
@@ -241,7 +233,6 @@ function App() {
     );
   }
 
-  // --- View: Retailer Dashboard ---
   if (currentView === 'retailer') {
     if (!user) {
       return (
@@ -250,8 +241,7 @@ function App() {
             <Lock size={48} className="mx-auto mb-4 text-[#0d2818]" />
             <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-2">RETAILER ACCESS</h1>
             <p className="text-sm text-gray-600 mb-8">Please sign in to access your dashboard.</p>
-            
-            <button 
+            <button
               onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
               className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:bg-opacity-90"
             >
@@ -269,10 +259,7 @@ function App() {
           <div className="flex gap-4 items-center">
             <span className="text-xs opacity-70 hidden sm:inline">{user.email}</span>
             <button
-              onClick={() => {
-                window.history.pushState({}, '', '/');
-                setCurrentView('shop');
-              }}
+              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
               className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
             >
               EXIT
@@ -284,26 +271,22 @@ function App() {
     );
   }
 
-  // --- View: Customer Order History ---
   if (currentView === 'orders') {
     return <OrderHistory onBack={() => setCurrentView('shop')} />;
   }
 
-  // --- View: Product Details ---
   if (currentView === 'details' && selectedProduct) {
     return (
-      <ProductDetails 
-        product={selectedProduct} 
+      <ProductDetails
+        product={selectedProduct}
         onBack={() => setCurrentView('shop')}
         onAddToCart={addToCart}
       />
     );
   }
 
-  // --- View: Shop (Home) ---
-  // The 'Home' component uses useStore() internally to decide what branding to show.
   return (
-    <Home 
+    <Home
       user={user}
       cart={cart}
       onAddToCart={(p) => addToCart(p, 1)}
