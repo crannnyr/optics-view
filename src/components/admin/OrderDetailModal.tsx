@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
 import {
   X, MapPin, Package, Truck, CheckCircle, Loader2,
-  CreditCard, AlertTriangle, RotateCcw, Ban
+  AlertTriangle, RotateCcw, Ban, Phone, Copy, Check
 } from 'lucide-react';
 
 interface Props {
@@ -24,6 +23,35 @@ const STATUS_COLORS: Record<string, string> = {
   refunded:    'bg-gray-100 text-gray-600',
 };
 
+function CopyField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-gray-100 rounded px-3 py-2 group">
+      <div className="min-w-0">
+        <p className="text-[9px] uppercase tracking-wider text-gray-400">{label}</p>
+        <p className={`text-xs text-[#0d2818] truncate ${mono ? 'font-mono' : ''}`}>{value}</p>
+      </div>
+      <button
+        onClick={handleCopy}
+        className="shrink-0 p-1.5 rounded hover:bg-gray-200 transition-colors"
+        title="Copy"
+      >
+        {copied
+          ? <Check size={12} className="text-green-600" />
+          : <Copy size={12} className="text-gray-400 group-hover:text-gray-600" />
+        }
+      </button>
+    </div>
+  );
+}
+
 export default function OrderDetailModal({
   order, onClose, onUpdateStatus,
   onMarkUnavailable, onMarkRefunded, statusLoading
@@ -34,6 +62,7 @@ export default function OrderDetailModal({
   useEffect(() => { setLiveOrder(order); }, [order]);
 
   const total = liveOrder.total_amount || 0;
+  const fullAddress = `${liveOrder.shipping_city}, ${liveOrder.shipping_state} · ${liveOrder.shipping_area}`;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -43,7 +72,7 @@ export default function OrderDetailModal({
         <div className="sticky top-0 bg-white z-10 border-b px-6 py-4 flex justify-between items-center">
           <div>
             <h2 className="text-xl font-light text-[#0d2818]">Order Details</h2>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className="font-mono text-[10px] text-gray-400">#{liveOrder.id.slice(0, 8)}</span>
               <span className={`text-[10px] uppercase px-2 py-0.5 rounded font-bold ${STATUS_COLORS[liveOrder.status] ?? 'bg-gray-100 text-gray-600'}`}>
                 {liveOrder.status}
@@ -69,7 +98,7 @@ export default function OrderDetailModal({
 
         <div className="p-6 space-y-6">
 
-          {/* Refund info (unavailable orders) */}
+          {/* Refund info */}
           {liveOrder.status === 'unavailable' && (
             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-2">
               <div className="flex items-center gap-2 text-orange-800 font-semibold text-sm">
@@ -95,36 +124,50 @@ export default function OrderDetailModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-400 mb-2 font-bold border-b pb-1">Customer</p>
-              <p className="font-medium text-sm">{liveOrder.customer_name}</p>
-              <p className="text-xs text-gray-500 font-mono">{liveOrder.customer_email}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{liveOrder.customer_phone}</p>
-              <div className="flex items-start gap-2 mt-3 bg-gray-50 p-3 rounded border text-xs text-gray-600">
-                <MapPin size={14} className="shrink-0 mt-0.5 text-[#0d2818]" />
-                <p>{liveOrder.shipping_city}, {liveOrder.shipping_state} · {liveOrder.shipping_area}</p>
+              <div className="space-y-2">
+                <CopyField label="Name" value={liveOrder.customer_name} />
+                <CopyField label="Email" value={liveOrder.customer_email} mono />
+
+                {/* Phone numbers */}
+                {liveOrder.customer_phone_1 && (
+                  <CopyField label="Primary Phone" value={liveOrder.customer_phone_1} mono />
+                )}
+                {liveOrder.customer_phone_2 && (
+                  <CopyField label="Alternate Phone" value={liveOrder.customer_phone_2} mono />
+                )}
+                {/* Fallback for old orders */}
+                {!liveOrder.customer_phone_1 && liveOrder.customer_phone && (
+                  <CopyField label="Phone" value={liveOrder.customer_phone} mono />
+                )}
+
+                <CopyField label="Delivery Address" value={fullAddress} />
               </div>
             </div>
 
             <div>
               <p className="text-xs uppercase tracking-wider text-gray-400 mb-2 font-bold border-b pb-1">Payment</p>
-              <div className="space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Method</span>
-                  <span className="font-medium">{liveOrder.payment_method === 'paystack' ? 'Paystack (Card)' : 'Bank Transfer'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Verified via</span>
-                  <span>{liveOrder.payment_verified_via || '—'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Order Total</span>
-                  <span className="font-bold text-[#0d2818] text-base">₦{total.toLocaleString()}</span>
-                </div>
-                {liveOrder.retailer_profit && (
-                  <div className="flex justify-between text-green-700">
-                    <span>Retailer Profit</span>
-                    <span>₦{liveOrder.retailer_profit.toLocaleString()}</span>
+              <div className="space-y-2">
+                <CopyField label="Order Reference" value={liveOrder.paystack_reference || liveOrder.id} mono />
+                <div className="space-y-1.5 text-xs px-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Method</span>
+                    <span className="font-medium">{liveOrder.payment_method === 'paystack' ? 'Paystack (Card)' : 'Bank Transfer'}</span>
                   </div>
-                )}
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Verified via</span>
+                    <span>{liveOrder.payment_verified_via || '—'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Order Total</span>
+                    <span className="font-bold text-[#0d2818] text-base">₦{total.toLocaleString()}</span>
+                  </div>
+                  {liveOrder.retailer_profit > 0 && (
+                    <div className="flex justify-between text-green-700">
+                      <span>Retailer Profit</span>
+                      <span>₦{liveOrder.retailer_profit.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -173,7 +216,6 @@ export default function OrderDetailModal({
                 Close
               </button>
 
-              {/* Pending manual transfer — verify or reject */}
               {liveOrder.status === 'pending' && liveOrder.payment_method === 'transfer' && (
                 <>
                   <button
@@ -191,7 +233,6 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {/* Approved → ship or mark unavailable */}
               {liveOrder.status === 'approved' && (
                 <>
                   <button
@@ -209,7 +250,6 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {/* Shipped → deliver or unavailable */}
               {liveOrder.status === 'shipped' && (
                 <>
                   <button
@@ -227,7 +267,6 @@ export default function OrderDetailModal({
                 </>
               )}
 
-              {/* Unavailable → mark refunded */}
               {liveOrder.status === 'unavailable' && (
                 <button
                   onClick={() => onMarkRefunded(liveOrder.id)}
