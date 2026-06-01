@@ -21,14 +21,15 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
-  const [shippingData, setShippingData] = useState({ state: '', city: '', area: '' });
+  const [shippingData, setShippingData] = useState({
+    state: '', city: '', area: '', phone1: '', phone2: ''
+  });
   const [processingMessage, setProcessingMessage] = useState('');
   const [paystackConfig, setPaystackConfig] = useState<any>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [settings, setSettings] = useState({ enable_paystack: true, enable_transfer: true });
   const [copied, setCopied] = useState(false);
 
-  // Transfer Details (Dynamic from database)
   const [transferDetails, setTransferDetails] = useState({
     bank: "OPay",
     number: "9069149803",
@@ -45,17 +46,11 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   }, [isOpen]);
 
   const fetchSettings = async () => {
-    // Fetch Payment Methods
     const { data: methodData } = await supabase.from('app_settings').select('*').eq('key', 'payment_methods').single();
-    if (methodData?.value) {
-      setSettings(methodData.value);
-    }
+    if (methodData?.value) setSettings(methodData.value);
 
-    // Fetch Transfer Details
     const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
-    if (transferData?.value) {
-      setTransferDetails(transferData.value);
-    }
+    if (transferData?.value) setTransferDetails(transferData.value);
   };
 
   // --- Calculations ---
@@ -70,8 +65,8 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
   const subtotal = items.reduce((sum, item) => {
     const threshold = item.product.wholesale_min_qty || 7;
-    const price = (item.quantity >= threshold && item.product.wholesale_price) 
-      ? item.product.wholesale_price 
+    const price = (item.quantity >= threshold && item.product.wholesale_price)
+      ? item.product.wholesale_price
       : item.product.price;
     return sum + (price * item.quantity);
   }, 0);
@@ -113,17 +108,21 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
       const orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      // Calculate retailer markup (only when buying from a retailer store)
       let retailerProfit = 0;
       if (store?.isRetailer && store?.id) {
         for (const item of items) {
           const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
-          const soldPrice = item.product.price; // Already custom_price in retailer context
+          const soldPrice = item.product.price;
           if (soldPrice > costPrice) {
             retailerProfit += (soldPrice - costPrice) * item.quantity;
           }
         }
       }
+
+      // Build contact phones string for admin visibility
+      const contactPhones = [shippingData.phone1, shippingData.phone2]
+        .filter(Boolean)
+        .join(', ');
 
       const { data: order, error: orderError } = await supabase
         .from('orders')
@@ -131,7 +130,9 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           user_id: user.id,
           customer_name: user.user_metadata.full_name || 'Customer',
           customer_email: user.email,
-          customer_phone: user.user_metadata.phone || '',
+          customer_phone: contactPhones,
+          customer_phone_1: shippingData.phone1,
+          customer_phone_2: shippingData.phone2 || null,
           customer_address: `${shippingData.city}, ${shippingData.state} (${shippingData.area})`,
           shipping_state: shippingData.state,
           shipping_city: shippingData.city,
@@ -151,29 +152,24 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       if (orderError) throw orderError;
       setCurrentOrderId(order.id);
 
-      // Create Order Items
       const orderItems = items.map(item => {
         const threshold = item.product.wholesale_min_qty || 7;
         return {
           order_id: order.id,
           product_id: item.product.id,
           quantity: item.quantity,
-          price: (item.quantity >= threshold && item.product.wholesale_price) 
-            ? item.product.wholesale_price 
+          price: (item.quantity >= threshold && item.product.wholesale_price)
+            ? item.product.wholesale_price
             : item.product.price,
           selected_color: item.selectedColor || null,
           selected_type: item.selectedType || null
         };
       });
 
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
       if (method === 'paystack') {
-        // Prepare Paystack Config
         setPaystackConfig({
           reference: orderReference,
           email: user.email!,
@@ -202,7 +198,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     setProcessingMessage('Recording transaction...');
 
     try {
-      // Create a pending payment record for admin to verify
       await supabase.from('payments').insert({
         order_id: currentOrderId,
         amount: payableAmount,
@@ -213,7 +208,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       });
 
       setProcessingMessage('Order placed! Awaiting verification.');
-
       setTimeout(() => {
         onSuccess();
         setLoading(false);
@@ -240,7 +234,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         is_balance_payment: false
       });
 
-      // Quick update to say we used paystack
       await supabase.from('orders').update({ payment_verified_via: 'paystack' }).eq('id', currentOrderId);
 
       setProcessingMessage('Payment successful! 🎉');
@@ -251,7 +244,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
     } catch (error) {
       console.error('Payment record error:', error);
-      onSuccess(); // Close anyway, webhook will handle it
+      onSuccess();
     }
   };
 
