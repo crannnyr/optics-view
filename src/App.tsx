@@ -25,6 +25,17 @@ function App() {
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Resolve view from a pathname
+  const resolveView = (path: string) => {
+    if (path === '/admin') return 'admin';
+    if (path === '/retailer') return 'retailer';
+    if (path === '/privacy-policy') return 'legal-privacy';
+    if (path === '/terms-conditions') return 'legal-terms';
+    if (path === '/orders') return 'orders';
+    if (path.startsWith('/product/')) return 'details';
+    return 'shop';
+  };
+
   // 1. Initial Load & Routing Logic
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -38,17 +49,47 @@ function App() {
     });
 
     const path = window.location.pathname;
-    if (path === '/admin') {
-      setCurrentView('admin');
-    } else if (path === '/retailer') {
-      setCurrentView('retailer');
-    } else if (path === '/privacy-policy') {
-      setCurrentView('legal-privacy');
-    } else if (path === '/terms-conditions') {
-      setCurrentView('legal-terms');
+    const view = resolveView(path);
+    setCurrentView(view as any);
+
+    // If landing directly on a product URL, fetch that product
+    if (view === 'details') {
+      const productId = path.replace('/product/', '');
+      supabase
+        .from('products')
+        .select('*')
+        .eq('id', productId)
+        .single()
+        .then(({ data }) => {
+          if (data) setSelectedProduct(data);
+          else navigateTo('shop', '/');
+        });
     }
 
-    return () => subscription.unsubscribe();
+    // Handle browser back/forward buttons
+    const handlePopState = () => {
+      const newPath = window.location.pathname;
+      const newView = resolveView(newPath);
+      setCurrentView(newView as any);
+
+      if (newView === 'details') {
+        const productId = newPath.replace('/product/', '');
+        supabase
+          .from('products')
+          .select('*')
+          .eq('id', productId)
+          .single()
+          .then(({ data }) => {
+            if (data) setSelectedProduct(data);
+          });
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      subscription.unsubscribe();
+      window.removeEventListener('popstate', handlePopState);
+    };
   }, []);
 
   // 2. Persist Cart
@@ -60,6 +101,17 @@ function App() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentView]);
+
+  // Central navigation helper
+  const navigateTo = (view: typeof currentView, path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentView(view);
+  };
+
+  const viewProduct = (product: Product) => {
+    setSelectedProduct(product);
+    navigateTo('details', `/product/${product.id}`);
+  };
 
   // --- Cart Actions ---
   const addToCart = (product: Product, quantity: number = 1, selectedColor?: string, selectedType?: string) => {
@@ -84,7 +136,6 @@ function App() {
     });
   };
 
-  // Match on id + variant so different variants update independently
   const updateQuantity = (id: string, qty: number, selectedColor?: string, selectedType?: string) => {
     if (qty <= 0) {
       setCart(prev => prev.filter(i =>
@@ -99,7 +150,6 @@ function App() {
     }
   };
 
-  // Match on id + variant so only the specific variant is removed
   const removeFromCart = (id: string, selectedColor?: string, selectedType?: string) => {
     setCart(prev => prev.filter(i =>
       !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType)
@@ -160,10 +210,10 @@ function App() {
   }
 
   if (currentView === 'legal-privacy') {
-    return <LegalPages page="privacy" onBack={() => setCurrentView('shop')} />;
+    return <LegalPages page="privacy" onBack={() => navigateTo('shop', '/')} />;
   }
   if (currentView === 'legal-terms') {
-    return <LegalPages page="terms" onBack={() => setCurrentView('shop')} />;
+    return <LegalPages page="terms" onBack={() => navigateTo('shop', '/')} />;
   }
 
   if (currentView === 'admin') {
@@ -175,7 +225,6 @@ function App() {
           <div className="bg-white p-8 max-w-md w-full shadow-lg text-center border-t-4 border-[#0d2818]">
             <Lock size={48} className="mx-auto mb-4 text-[#0d2818]" />
             <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-6">ADMIN ACCESS</h1>
-
             <form onSubmit={handleAdminLogin} className="space-y-4 text-left">
               <div>
                 <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Email</label>
@@ -195,16 +244,13 @@ function App() {
                   className="w-full border p-3 text-sm outline-none focus:border-[#0d2818] transition-colors"
                 />
               </div>
-
               {adminError && <p className="text-red-500 text-xs text-center font-medium">{adminError}</p>}
-
               <button className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 transition-opacity">
                 ENTER PANEL
               </button>
             </form>
-
             <button
-              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              onClick={() => navigateTo('shop', '/')}
               className="mt-6 text-xs text-gray-400 hover:text-gray-600 underline"
             >
               Return to Store
@@ -221,7 +267,7 @@ function App() {
           <div className="flex gap-4 items-center">
             <span className="text-xs opacity-70 hidden sm:inline">Logged in as {user.email}</span>
             <button
-              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              onClick={() => navigateTo('shop', '/')}
               className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
             >
               EXIT
@@ -242,7 +288,7 @@ function App() {
             <h1 className="text-xl font-light tracking-wide text-[#0d2818] mb-2">RETAILER ACCESS</h1>
             <p className="text-sm text-gray-600 mb-8">Please sign in to access your dashboard.</p>
             <button
-              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              onClick={() => navigateTo('shop', '/')}
               className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:bg-opacity-90"
             >
               GO TO HOME & SIGN IN
@@ -259,7 +305,7 @@ function App() {
           <div className="flex gap-4 items-center">
             <span className="text-xs opacity-70 hidden sm:inline">{user.email}</span>
             <button
-              onClick={() => { window.history.pushState({}, '', '/'); setCurrentView('shop'); }}
+              onClick={() => navigateTo('shop', '/')}
               className="text-xs tracking-widest hover:underline bg-white/10 px-3 py-1 rounded"
             >
               EXIT
@@ -272,14 +318,14 @@ function App() {
   }
 
   if (currentView === 'orders') {
-    return <OrderHistory onBack={() => setCurrentView('shop')} />;
+    return <OrderHistory onBack={() => navigateTo('shop', '/')} />;
   }
 
   if (currentView === 'details' && selectedProduct) {
     return (
       <ProductDetails
         product={selectedProduct}
-        onBack={() => setCurrentView('shop')}
+        onBack={() => navigateTo('shop', '/')}
         onAddToCart={addToCart}
       />
     );
@@ -293,13 +339,10 @@ function App() {
       onUpdateQuantity={updateQuantity}
       onRemoveFromCart={removeFromCart}
       onClearCart={clearCart}
-      onNavigateToOrders={() => setCurrentView('orders')}
-      onViewProduct={(product) => {
-        setSelectedProduct(product);
-        setCurrentView('details');
-      }}
-      onNavigateToPrivacy={() => setCurrentView('legal-privacy')}
-      onNavigateToTerms={() => setCurrentView('legal-terms')}
+      onNavigateToOrders={() => navigateTo('orders', '/orders')}
+      onViewProduct={viewProduct}
+      onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
+      onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
     />
   );
 }
