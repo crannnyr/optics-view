@@ -37,15 +37,22 @@ export default function PaymentExecutionStep({
             <h3 className="text-lg font-medium">Complete Card Payment</h3>
             <p className="text-sm text-gray-500 mt-1">Click the button below to launch the secure payment window.</p>
           </div>
-          <PaystackButton 
-  {...paystackConfig}
-  onSuccess={handlePaystackSuccess}
-  onClose={() => alert("Payment cancelled")}
-  className="w-full text-white py-4 text-sm font-bold tracking-widest hover:opacity-90 rounded shadow-lg"
-  style={{ backgroundColor: themeColor }}
->
-  PAY NOW — ₦{payableAmount.toLocaleString()}
-</PaystackButton>
+
+          {/* Wrapper forces correct styles since PaystackButton strips custom style prop */}
+          <div
+            className="w-full rounded shadow-lg overflow-hidden"
+            style={{ backgroundColor: themeColor }}
+          >
+            <PaystackButton
+              {...paystackConfig}
+              onSuccess={handlePaystackSuccess}
+              onClose={() => alert("Payment cancelled")}
+              className="w-full py-4 text-sm font-bold tracking-widest hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: 'transparent', color: '#ffffff', width: '100%', border: 'none', cursor: 'pointer' }}
+              text={`PAY NOW — ₦${payableAmount.toLocaleString()}`}
+            />
+          </div>
+
           <div className="flex items-center justify-center gap-2 text-[10px] text-gray-400">
             <ShieldCheck size={12} />
             SECURED BY PAYSTACK
@@ -97,7 +104,7 @@ export default function PaymentExecutionStep({
             </p>
           </div>
 
-          <button 
+          <button
             onClick={handleTransferComplete}
             disabled={loading}
             className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 rounded flex items-center justify-center gap-2 disabled:opacity-50"
