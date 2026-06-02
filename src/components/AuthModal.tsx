@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { sendEmail } from '../lib/email';
 import { X, ArrowLeft, Mail } from 'lucide-react';
 
 interface AuthModalProps {
@@ -10,7 +9,7 @@ interface AuthModalProps {
   onViewPrivacy: () => void;
 }
 
-type AuthView = 'signin' | 'signup' | 'forgot' | 'reset_sent' | 'limit_reached';
+type AuthView = 'signin' | 'signup' | 'forgot' | 'reset_sent' | 'new_password';
 
 const ADMIN_EMAIL = 'opticsview1@gmail.com';
 
@@ -18,10 +17,20 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
   const [view, setView] = useState<AuthView>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Detect recovery token in URL hash — Supabase puts it there after reset link click
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes('type=recovery') && hash.includes('access_token')) {
+      setView('new_password');
+    }
+  }, []);
 
   if (!isOpen) return null;
 
@@ -29,6 +38,8 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     setError('');
     setEmail('');
     setPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
     setFullName('');
     setAcceptedTerms(false);
   };
@@ -45,21 +56,13 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     setLoading(true);
     try {
       if (view === 'signup') {
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: fullName } },
         });
         if (signUpError) throw signUpError;
-
-        // Send welcome email — warm, cheerful, no await so it doesn't block
-        sendEmail({
-          type: 'welcome',
-          to_email: email,
-          to_name: fullName,
-          data: { name: fullName },
-        });
-
+        // Welcome email handled by DB trigger handle_new_user — no duplicate call here
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -76,23 +79,41 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
-      const result = await sendEmail({
-        type: 'password_reset',
-        to_email: email,
-        data: { email },
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/?reset=true`,
       });
-
-      if (result.limit_reached) {
-        setView('limit_reached');
-      } else if (result.success) {
-        setView('reset_sent');
-      } else {
-        setError('Something went wrong. Please try again.');
-      }
+      if (error) throw error;
+      setView('reset_sent');
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      // Clear the hash from URL cleanly
+      window.history.replaceState(null, '', window.location.pathname);
+      onClose();
+    } catch (err: any) {
+      setError(err.message || 'Failed to update password. The link may have expired.');
     } finally {
       setLoading(false);
     }
@@ -221,7 +242,17 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   required
                 />
               </div>
-              {error && <p className="text-red-500 text-xs">{error}</p>}
+              {error && (
+                <>
+                  <p className="text-red-500 text-xs">{error}</p>
+                  <a
+                    href={`mailto:${ADMIN_EMAIL}?subject=Password Reset Request&body=Hi, I need help resetting my password for ${email}`}
+                    className="block text-center text-xs text-[#0d2818] underline"
+                  >
+                    Contact us for help instead
+                  </a>
+                </>
+              )}
               <button
                 disabled={loading}
                 className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 disabled:opacity-50"
@@ -253,32 +284,46 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
           </div>
         )}
 
-        {/* ── Limit Reached ─────────────────────────── */}
-        {view === 'limit_reached' && (
-          <div className="text-center py-4">
-            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail size={28} className="text-orange-500" />
-            </div>
-            <h2 className="text-xl font-light text-[#0d2818] mb-2">Unable to send right now</h2>
-            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-              We couldn't send your reset email at the moment. Please contact us directly and we'll assist you right away.
-            </p>
-            <a
-              href={`mailto:${ADMIN_EMAIL}?subject=Password Reset Request&body=Hi, I need help resetting my password for ${email}`}
-              className="inline-block bg-[#0d2818] text-white px-6 py-3 text-xs tracking-widest hover:opacity-90 rounded mb-4"
-            >
-              EMAIL US FOR HELP
-            </a>
-            <br />
-            <button
-              onClick={() => { reset(); setView('signin'); }}
-              className="text-xs text-gray-400 underline hover:text-[#0d2818]"
-            >
-              Back to sign in
-            </button>
-          </div>
-        )}
+        {/* ── New Password (after clicking reset link) ── */}
+        {view === 'new_password' && (
+          <>
+            <h2 className="text-2xl font-light text-[#0d2818] mb-2 tracking-wide">Set New Password</h2>
+            <p className="text-sm text-gray-500 mb-6">Choose a new password for your account.</p>
 
+            <form onSubmit={handleSetNewPassword} className="space-y-4">
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">New Password</label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
+                  required
+                  minLength={6}
+                  placeholder="Min. 6 characters"
+                />
+              </div>
+              <div>
+                <label className="block text-xs uppercase tracking-wider text-gray-500 mb-1">Confirm Password</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
+                  required
+                  minLength={6}
+                />
+              </div>
+              {error && <p className="text-red-500 text-xs">{error}</p>}
+              <button
+                disabled={loading}
+                className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? 'UPDATING...' : 'UPDATE PASSWORD'}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );
