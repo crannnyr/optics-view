@@ -74,6 +74,9 @@ function App() {
     sessionTimeoutRef.current = setTimeout(() => {
       setAuthLoading((prev) => {
         if (prev) {
+          // Clear the broken auth state so Supabase stops waiting for
+          // a token refresh and immediately serves public queries as anon
+          supabase.auth.signOut();
           setSessionTimedOut(true);
           return false;
         }
