@@ -41,7 +41,8 @@ export default function Home({
 }: HomeProps) {
 
   const {
-    store, filteredProducts, productsLoading, selectedCategory, setSelectedCategory,
+    store, filteredProducts, productsLoading,
+    selectedCategory, setSelectedCategory,
     isCartOpen, setIsCartOpen, isCheckoutOpen, setIsCheckoutOpen,
     isAuthOpen, setIsAuthOpen, isUserMenuOpen, setIsUserMenuOpen,
     isRetailerModalOpen, setIsRetailerModalOpen, orderSuccess, setOrderSuccess,
