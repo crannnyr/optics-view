@@ -6,6 +6,23 @@ interface UseHomeProps {
   user: any;
 }
 
+// ── Cache helpers ─────────────────────────────────────────────────────────────
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCached<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL_MS) { sessionStorage.removeItem(key); return null; }
+    return data as T;
+  } catch { return null; }
+}
+
+function setCache(key: string, data: unknown) {
+  try { sessionStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch { /* storage full */ }
+}
+
 export function useHome({ user }: UseHomeProps) {
   const { store } = useStore();
   const [products, setProducts] = useState<Product[]>([]);
@@ -13,7 +30,6 @@ export function useHome({ user }: UseHomeProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories] = useState<{ slug: string; name: string; image: string | null }[]>([]);
 
-  // Modal States
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -29,7 +45,6 @@ export function useHome({ user }: UseHomeProps) {
     loadCategories();
   }, [store.id]);
 
-  // Check if user already has a retailer application
   useEffect(() => {
     if (user?.email) {
       supabase
@@ -44,7 +59,6 @@ export function useHome({ user }: UseHomeProps) {
     }
   }, [user]);
 
-  // Auto-open checkout after login
   useEffect(() => {
     if (user && pendingCheckout) {
       setPendingCheckout(false);
@@ -52,7 +66,7 @@ export function useHome({ user }: UseHomeProps) {
     }
   }, [user, pendingCheckout]);
 
-  // Filter products by category
+  // Single source of truth for filtering — always driven by this effect
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredProducts(products);
@@ -62,54 +76,60 @@ export function useHome({ user }: UseHomeProps) {
   }, [selectedCategory, products]);
 
   const loadProducts = async () => {
+    const cacheKey = `products_${store.id ?? 'main'}`;
+
+    // Paint from cache immediately — no blank grid on return visits
+    const cached = getCached<Product[]>(cacheKey);
+    if (cached) setProducts(cached); // filtered products handled by useEffect above
+
+    // Fetch fresh in background
     const { data: baseProducts, error } = await supabase
       .from('products')
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
-    if (error) console.error('Error loading products:', error);
+    if (error) { console.error('Error loading products:', error); return; }
+    if (!baseProducts) return;
 
-    if (baseProducts) {
-      if (store.isRetailer && store.id) {
-        // Get retailer's selected categories
-        const { data: reg } = await supabase
-          .from('retailer_registrations')
-          .select('selected_categories')
-          .eq('store_slug', store.slug)
-          .maybeSingle();
+    let finalProducts: Product[] = baseProducts;
 
-        const selectedCats: string[] = reg?.selected_categories ?? [];
+    if (store.isRetailer && store.id) {
+      const { data: reg } = await supabase
+        .from('retailer_registrations')
+        .select('selected_categories')
+        .eq('store_slug', store.slug)
+        .maybeSingle();
 
-        // Filter to only retailer's categories
-        const categoryFiltered = selectedCats.length > 0
-          ? baseProducts.filter(p => selectedCats.includes(p.category))
-          : baseProducts;
+      const selectedCats: string[] = reg?.selected_categories ?? [];
+      const categoryFiltered = selectedCats.length > 0
+        ? baseProducts.filter(p => selectedCats.includes(p.category))
+        : baseProducts;
 
-        // Apply custom prices
-        const { data: customPrices } = await supabase
-          .from('retailer_products')
-          .select('product_id, custom_price')
-          .eq('retailer_id', store.id);
+      const { data: customPrices } = await supabase
+        .from('retailer_products')
+        .select('product_id, custom_price')
+        .eq('retailer_id', store.id);
 
-        const mergedProducts = categoryFiltered.map((p) => {
-          const custom = customPrices?.find((cp) => cp.product_id === p.id);
-          return custom ? { ...p, price: custom.custom_price } : p;
-        });
-
-        setProducts(mergedProducts);
-        setFilteredProducts(mergedProducts);
-      } else {
-        setProducts(baseProducts);
-        setFilteredProducts(baseProducts);
-      }
+      finalProducts = categoryFiltered.map((p) => {
+        const custom = customPrices?.find((cp) => cp.product_id === p.id);
+        return custom ? { ...p, price: custom.custom_price } : p;
+      });
     }
+
+    // setProducts only — useEffect handles filtered state, preserving active category
+    setProducts(finalProducts);
+    setCache(cacheKey, finalProducts);
   };
 
   const loadCategories = async () => {
+    const cacheKey = `categories_${store.id ?? 'main'}`;
+
+    const cached = getCached<{ slug: string; name: string; image: string | null }[]>(cacheKey);
+    if (cached) setCategories(cached);
+
     let query = supabase.from('categories').select('slug, name').order('sort_order');
 
-    // For retailer stores, only show their selected categories
     if (store.isRetailer && store.slug) {
       const { data: reg } = await supabase
         .from('retailer_registrations')
@@ -118,9 +138,7 @@ export function useHome({ user }: UseHomeProps) {
         .maybeSingle();
 
       const selectedCats: string[] = reg?.selected_categories ?? [];
-      if (selectedCats.length > 0) {
-        query = query.in('slug', selectedCats);
-      }
+      if (selectedCats.length > 0) query = query.in('slug', selectedCats);
     }
 
     const { data: cats } = await query;
@@ -139,7 +157,9 @@ export function useHome({ user }: UseHomeProps) {
         return { ...cat, image };
       })
     );
+
     setCategories(withImages);
+    setCache(cacheKey, withImages);
   };
 
   const handleSignOut = async () => {
