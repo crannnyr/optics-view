@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
+import { sendEmail } from '../../../lib/email';
 
 export type ViewMode = 'active' | 'verify' | 'history' | 'analytics' | 'withdrawals';
 
@@ -12,15 +13,12 @@ export function useOrders() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [statusLoading, setStatusLoading] = useState<string | null>(null);
 
-  // Filters
   const [searchQuery, setSearchQuery]       = useState('');
   const [dateFilter, setDateFilter]         = useState<'all' | 'today' | 'week' | 'custom'>('all');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter]     = useState('all');
 
   useEffect(() => { fetchOrders(); fetchWithdrawals(); }, []);
-
-  // ── Fetch ─────────────────────────────────────────────────
 
   const fetchOrders = async () => {
     const { data } = await supabase
@@ -37,8 +35,6 @@ export function useOrders() {
       .order('created_at', { ascending: false });
     if (data) setWithdrawals(data);
   };
-
-  // ── Helpers ───────────────────────────────────────────────
 
   const writeNotification = async (
     userId: string,
@@ -65,6 +61,9 @@ export function useOrders() {
     return result;
   };
 
+  const shippingAddress = (order: any) =>
+    `${order.shipping_city}, ${order.shipping_state} · ${order.shipping_area}`;
+
   // ── Status Updates ────────────────────────────────────────
 
   const updateStatus = async (orderId: string, newStatus: string) => {
@@ -73,7 +72,6 @@ export function useOrders() {
 
     try {
       if (newStatus === 'shipped') {
-        // Call edge function — credits retailer wallet
         try {
           await callEdgeFunction('credit-shipped-order', { order_id: orderId });
         } catch (err) {
@@ -83,9 +81,24 @@ export function useOrders() {
             shipped_at: new Date().toISOString(),
           }).eq('id', orderId);
         }
+
         if (order?.user_id) {
           await writeNotification(order.user_id, 'Order Shipped!',
             'Your order is on its way. Expected delivery in 7 business days.', 'success', orderId);
+        }
+
+        // Email customer
+        if (order?.customer_email) {
+          sendEmail({
+            type: 'order_shipped',
+            to_email: order.customer_email,
+            to_name: order.customer_name,
+            data: {
+              customer_name: order.customer_name,
+              order_id: order.id,
+              shipping_address: shippingAddress(order),
+            },
+          });
         }
 
       } else if (newStatus === 'delivered') {
@@ -93,9 +106,23 @@ export function useOrders() {
           status: 'delivered',
           delivered_at: new Date().toISOString(),
         }).eq('id', orderId);
+
         if (order?.user_id) {
           await writeNotification(order.user_id, 'Order Delivered!',
             'Your order has been delivered. Enjoy your purchase!', 'success', orderId);
+        }
+
+        // Email customer
+        if (order?.customer_email) {
+          sendEmail({
+            type: 'order_delivered',
+            to_email: order.customer_email,
+            to_name: order.customer_name,
+            data: {
+              customer_name: order.customer_name,
+              order_id: order.id,
+            },
+          });
         }
 
       } else if (newStatus === 'rejected') {
@@ -104,9 +131,24 @@ export function useOrders() {
           rejected_at: new Date().toISOString(),
           rejection_reason: 'Rejected by admin',
         }).eq('id', orderId);
+
         if (order?.user_id) {
           await writeNotification(order.user_id, 'Order Rejected',
             'Your order has been rejected. Please contact support for assistance.', 'error', orderId);
+        }
+
+        // Email customer
+        if (order?.customer_email) {
+          sendEmail({
+            type: 'order_status_update',
+            to_email: order.customer_email,
+            to_name: order.customer_name,
+            data: {
+              customer_name: order.customer_name,
+              order_id: order.id,
+              status: 'rejected',
+            },
+          });
         }
 
       } else if (newStatus === 'approved') {
@@ -116,9 +158,24 @@ export function useOrders() {
           payment_verified_via: 'admin_manual',
           verified_at: new Date().toISOString(),
         }).eq('id', orderId);
+
         if (order?.user_id) {
           await writeNotification(order.user_id, 'Order Approved!',
             'Your payment has been verified and your order is approved.', 'success', orderId);
+        }
+
+        // Email customer
+        if (order?.customer_email) {
+          sendEmail({
+            type: 'order_status_update',
+            to_email: order.customer_email,
+            to_name: order.customer_name,
+            data: {
+              customer_name: order.customer_name,
+              order_id: order.id,
+              status: 'approved',
+            },
+          });
         }
 
       } else {
@@ -133,7 +190,6 @@ export function useOrders() {
     setStatusLoading(null);
   };
 
-  // Verify manual transfer → auto sets to approved
   const verifyPayment = async (orderId: string, valid: boolean) => {
     if (!confirm(valid
       ? 'Confirm payment received? Order will be approved.'
@@ -149,7 +205,6 @@ export function useOrders() {
     setStatusLoading(null);
   };
 
-  // Mark product unavailable → generate refund code
   const markUnavailable = async (orderId: string) => {
     if (!confirm('Mark as unavailable? A refund code will be generated for the customer.')) return;
     setStatusLoading(orderId);
@@ -168,17 +223,30 @@ export function useOrders() {
       await writeNotification(
         order.user_id,
         'Product No Longer Available',
-        `Unfortunately a product in your order is no longer available. Your refund code is ${refundCode}. Check your orders page for refund instructions.`,
+        `Unfortunately a product in your order is no longer available. Your refund code is ${refundCode}.`,
         'warning',
         orderId
       );
+    }
+
+    // Email customer
+    if (order?.customer_email) {
+      sendEmail({
+        type: 'order_status_update',
+        to_email: order.customer_email,
+        to_name: order.customer_name,
+        data: {
+          customer_name: order.customer_name,
+          order_id: order.id,
+          status: 'unavailable',
+        },
+      });
     }
 
     await fetchOrders();
     setStatusLoading(null);
   };
 
-  // Mark refunded
   const markRefunded = async (orderId: string) => {
     if (!confirm('Confirm you have sent the refund to the customer?')) return;
     setStatusLoading(orderId);
@@ -193,17 +261,30 @@ export function useOrders() {
       await writeNotification(
         order.user_id,
         'Refund Processed',
-        `Your refund of ₦${(order?.refund_amount || 0).toLocaleString()} has been sent. Please allow 1–3 business days.`,
+        `Your refund of ₦${(order?.refund_amount || 0).toLocaleString()} has been sent.`,
         'success',
         orderId
       );
+    }
+
+    // Email customer
+    if (order?.customer_email) {
+      sendEmail({
+        type: 'order_status_update',
+        to_email: order.customer_email,
+        to_name: order.customer_name,
+        data: {
+          customer_name: order.customer_name,
+          order_id: order.id,
+          status: 'refunded',
+        },
+      });
     }
 
     await fetchOrders();
     setStatusLoading(null);
   };
 
-  // Process withdrawal (approve or reject)
   const processWithdrawal = async (
     withdrawalId: string,
     action: 'approve' | 'reject',
@@ -212,6 +293,26 @@ export function useOrders() {
     setStatusLoading(withdrawalId);
     try {
       await callEdgeFunction('approve-withdrawal', { withdrawal_id: withdrawalId, action, admin_note: adminNote });
+
+      // Email retailer if approved
+      if (action === 'approve') {
+        const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+        if (withdrawal?.retailer?.email) {
+          sendEmail({
+            type: 'withdrawal_processed',
+            to_email: withdrawal.retailer.email,
+            to_name: withdrawal.retailer.store_name,
+            data: {
+              store_name: withdrawal.retailer.store_name,
+              amount: withdrawal.amount,
+              bank_name: withdrawal.bank_name,
+              account_number: withdrawal.account_number,
+              new_balance: 0, // will update when balance API is available
+            },
+          });
+        }
+      }
+
       await fetchWithdrawals();
     } catch (err) {
       console.error('Withdrawal error:', err);
