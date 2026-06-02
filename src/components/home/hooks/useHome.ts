@@ -67,7 +67,7 @@ export function useHome({ user }: UseHomeProps) {
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-      if (error) { console.error('Error loading products:', error); return; }
+      if (error) throw error;
       if (!baseProducts) return;
 
       let finalProducts: Product[] = baseProducts;
