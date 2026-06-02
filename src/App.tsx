@@ -70,27 +70,36 @@ function App() {
 
   // 1. Initial Load & Auth — with session timeout
   useEffect(() => {
-    // Start timeout — if session doesn't resolve in time, bail out gracefully
-    sessionTimeoutRef.current = setTimeout(() => {
-      setAuthLoading((prev) => {
-        if (prev) {
-          // Clear the broken auth state so Supabase stops waiting for
-          // a token refresh and immediately serves public queries as anon
-          supabase.auth.signOut();
-          setSessionTimedOut(true);
-          return false;
-        }
-        return prev;
-      });
-    }, SESSION_TIMEOUT_MS);
+    let timedOut = false;
+
+    // Only start a timeout if there is a stored session that might need
+    // refreshing. Non-logged-in users have nothing to restore so getSession()
+    // returns null immediately — no timeout, no false "session lost" toasts.
+    const hasStoredSession = Object.keys(localStorage).some(
+      k => k.startsWith('sb-') && k.endsWith('-auth-token')
+    );
+
+    if (hasStoredSession) {
+      sessionTimeoutRef.current = setTimeout(async () => {
+        timedOut = true;
+        // Await signOut so Supabase client is fully cleared before Home
+        // mounts and loadProducts runs — otherwise queries still hang
+        await supabase.auth.signOut();
+        setUser(null);
+        setSessionTimedOut(true);
+        setAuthLoading(false);
+      }, SESSION_TIMEOUT_MS);
+    }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (timedOut) return;
       if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
       setUser(session?.user ?? null);
       setAuthLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (timedOut) return;
       if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
       setUser(session?.user ?? null);
       setAuthLoading(false);
