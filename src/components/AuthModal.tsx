@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendEmail } from '../lib/email';
 import { X, ArrowLeft, Mail } from 'lucide-react';
 
 interface AuthModalProps {
@@ -11,8 +12,6 @@ interface AuthModalProps {
 
 type AuthView = 'signin' | 'signup' | 'forgot' | 'reset_sent' | 'limit_reached';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const ADMIN_EMAIL = 'opticsview1@gmail.com';
 
 export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy }: AuthModalProps) {
@@ -46,12 +45,21 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     setLoading(true);
     try {
       if (view === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: fullName } },
         });
         if (signUpError) throw signUpError;
+
+        // Send welcome email — warm, cheerful, no await so it doesn't block
+        sendEmail({
+          type: 'welcome',
+          to_email: email,
+          to_name: fullName,
+          data: { name: fullName },
+        });
+
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -70,20 +78,11 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     setLoading(true);
 
     try {
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-        },
-        body: JSON.stringify({
-          type: 'password_reset',
-          to_email: email,
-          data: { email },
-        }),
+      const result = await sendEmail({
+        type: 'password_reset',
+        to_email: email,
+        data: { email },
       });
-
-      const result = await res.json();
 
       if (result.limit_reached) {
         setView('limit_reached');
@@ -176,7 +175,6 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
               </button>
             </form>
 
-            {/* Forgot password link — only on sign in */}
             {view === 'signin' && (
               <div className="mt-4 text-center">
                 <button
@@ -199,7 +197,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
           </>
         )}
 
-        {/* ── Forgot Password Form ──────────────────── */}
+        {/* ── Forgot Password ───────────────────────── */}
         {view === 'forgot' && (
           <>
             <button
@@ -223,9 +221,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   required
                 />
               </div>
-
               {error && <p className="text-red-500 text-xs">{error}</p>}
-
               <button
                 disabled={loading}
                 className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 disabled:opacity-50"
@@ -236,16 +232,14 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
           </>
         )}
 
-        {/* ── Reset Email Sent ──────────────────────── */}
+        {/* ── Reset Sent ────────────────────────────── */}
         {view === 'reset_sent' && (
           <div className="text-center py-4">
             <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
               <Mail size={28} className="text-green-600" />
             </div>
             <h2 className="text-xl font-light text-[#0d2818] mb-2">Check your email</h2>
-            <p className="text-sm text-gray-500 mb-2">
-              We've sent a password reset link to
-            </p>
+            <p className="text-sm text-gray-500 mb-2">We've sent a password reset link to</p>
             <p className="text-sm font-medium text-[#0d2818] mb-6">{email}</p>
             <p className="text-xs text-gray-400 mb-6">
               The link expires in 1 hour. Check your spam folder if you don't see it.
