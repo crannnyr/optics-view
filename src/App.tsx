@@ -74,8 +74,6 @@ function App() {
     sessionTimeoutRef.current = setTimeout(() => {
       setAuthLoading((prev) => {
         if (prev) {
-          // Session stalled — clear product cache so next load fetches fresh
-          try { sessionStorage.clear(); } catch { /* ignore */ }
           setSessionTimedOut(true);
           return false;
         }
