@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { sendEmail } from '../lib/email';
 import { X, ArrowLeft, Mail } from 'lucide-react';
 
 interface AuthModalProps {
@@ -9,7 +10,7 @@ interface AuthModalProps {
   onViewPrivacy: () => void;
 }
 
-type AuthView = 'signin' | 'signup' | 'forgot' | 'reset_sent' | 'new_password';
+type AuthView = 'signin' | 'signup' | 'forgot' | 'reset_sent' | 'limit_reached' | 'new_password';
 
 const ADMIN_EMAIL = 'opticsview1@gmail.com';
 
@@ -62,7 +63,15 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
           options: { data: { full_name: fullName } },
         });
         if (signUpError) throw signUpError;
-        // Welcome email handled by DB trigger handle_new_user — no duplicate call here
+
+        // Send welcome email via Resend
+        sendEmail({
+          type: 'welcome',
+          to_email: email,
+          to_name: fullName,
+          data: { name: fullName },
+        });
+
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
         if (signInError) throw signInError;
@@ -75,16 +84,26 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     }
   };
 
+  // Uses our edge function → Resend (NOT supabase.auth.resetPasswordForEmail)
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/?reset=true`,
+      const result = await sendEmail({
+        type: 'password_reset',
+        to_email: email,
+        data: { email },
       });
-      if (error) throw error;
-      setView('reset_sent');
+
+      if (result.limit_reached) {
+        setView('limit_reached');
+      } else if (result.success) {
+        setView('reset_sent');
+      } else {
+        setError('Something went wrong. Please try again.');
+      }
     } catch (err: any) {
       setError(err.message || 'Something went wrong. Please try again.');
     } finally {
@@ -109,7 +128,6 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      // Clear the hash from URL cleanly
       window.history.replaceState(null, '', window.location.pathname);
       onClose();
     } catch (err: any) {
@@ -242,17 +260,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   required
                 />
               </div>
-              {error && (
-                <>
-                  <p className="text-red-500 text-xs">{error}</p>
-                  <a
-                    href={`mailto:${ADMIN_EMAIL}?subject=Password Reset Request&body=Hi, I need help resetting my password for ${email}`}
-                    className="block text-center text-xs text-[#0d2818] underline"
-                  >
-                    Contact us for help instead
-                  </a>
-                </>
-              )}
+              {error && <p className="text-red-500 text-xs">{error}</p>}
               <button
                 disabled={loading}
                 className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 disabled:opacity-50"
@@ -278,6 +286,32 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
             <button
               onClick={() => { reset(); setView('signin'); }}
               className="text-xs text-gray-500 underline hover:text-[#0d2818]"
+            >
+              Back to sign in
+            </button>
+          </div>
+        )}
+
+        {/* ── Limit Reached ─────────────────────────── */}
+        {view === 'limit_reached' && (
+          <div className="text-center py-4">
+            <div className="w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail size={28} className="text-orange-500" />
+            </div>
+            <h2 className="text-xl font-light text-[#0d2818] mb-2">Unable to send right now</h2>
+            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+              We couldn't send your reset email at the moment. Please contact us directly and we'll assist you right away.
+            </p>
+            <a
+              href={`mailto:${ADMIN_EMAIL}?subject=Password Reset Request&body=Hi, I need help resetting my password for the account: ${email}`}
+              className="inline-block bg-[#0d2818] text-white px-6 py-3 text-xs tracking-widest hover:opacity-90 rounded mb-4"
+            >
+              EMAIL US FOR HELP
+            </a>
+            <br />
+            <button
+              onClick={() => { reset(); setView('signin'); }}
+              className="text-xs text-gray-400 underline hover:text-[#0d2818]"
             >
               Back to sign in
             </button>
@@ -324,6 +358,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
             </form>
           </>
         )}
+
       </div>
     </div>
   );
