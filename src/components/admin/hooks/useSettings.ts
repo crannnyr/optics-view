@@ -49,8 +49,7 @@ export interface Category {
   item_types?: CategoryItemType[];
 }
 
-// ← 'hero' added to the union
-export type SettingsActiveTab = 'delivery' | 'retailers' | 'payments' | 'categories' | 'hero';
+export type SettingsActiveTab = 'delivery' | 'retailers' | 'payments' | 'categories' | 'hero' | 'email';
 
 export function useSettings() {
   const [activeTab, setActiveTab] = useState<SettingsActiveTab>('delivery');
@@ -317,11 +316,8 @@ export function useSettings() {
   };
 
   return {
-    // Tab
     activeTab,
     setActiveTab,
-
-    // Delivery
     deliverySettings,
     editingDelivery,
     setEditingDelivery,
@@ -329,21 +325,15 @@ export function useSettings() {
     setNewDeliveryFee,
     handleUpdateDeliveryFee,
     getDeliveryFee,
-
-    // Retailers
     retailers,
     loadingRetailers,
     fetchRetailers,
-
-    // Payments
     paymentLoading,
     paymentMethods,
     setPaymentMethods,
     transferDetails,
     setTransferDetails,
     handleSavePaymentSettings,
-
-    // Categories
     categories,
     categoriesLoading,
     newCategoryName,
@@ -358,8 +348,6 @@ export function useSettings() {
     handleDeleteItemType,
     handleMoveProduct,
     fetchCategories,
-
-    // Shared
     getStatusBadge,
     formatDate,
   };
