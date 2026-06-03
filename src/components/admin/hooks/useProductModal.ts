@@ -32,6 +32,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
   const [newType, setNewType] = useState('');
   const [reviews, setReviews] = useState<Omit<Review, 'id' | 'created_at' | 'product_id'>[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [newReview, setNewReview] = useState({
     reviewer_name: '',
     rating: 5,
@@ -188,6 +189,8 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       return;
     }
 
+    setSubmitting(true);
+
     const payload = {
       name: formData.name,
       description: formData.description,
@@ -202,29 +205,56 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       product_type: formData.product_type,
       images,
       color_options: colorOptions.length > 0 ? colorOptions : null,
-      type_options: typeOptions.length > 0 ? typeOptions : null
+      type_options: typeOptions.length > 0 ? typeOptions : null,
+      is_active: true,
     };
 
-    let productId = product?.id;
+    try {
+      let productId = product?.id;
 
-    if (product) {
-      await supabase.from('products').update(payload).eq('id', product.id);
-    } else {
-      const { data } = await supabase
-        .from('products')
-        .insert([payload])
-        .select()
-        .single();
-      productId = data?.id;
+      if (product) {
+        const { error } = await supabase
+          .from('products')
+          .update(payload)
+          .eq('id', product.id);
+
+        if (error) {
+          console.error('Update failed:', error);
+          alert(`Failed to update product: ${error.message}`);
+          return;
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('products')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Insert failed:', error);
+          alert(`Failed to save product: ${error.message}`);
+          return;
+        }
+
+        productId = data?.id;
+      }
+
+      if (reviews.length > 0 && productId) {
+        const { error } = await supabase
+          .from('reviews')
+          .insert(reviews.map(r => ({ product_id: productId, ...r })));
+
+        if (error) {
+          // Non-fatal — product is saved, just warn
+          console.error('Reviews insert failed:', error);
+          alert('Product saved but reviews failed to save. You can add them later.');
+        }
+      }
+
+      onSuccess();
+    } finally {
+      setSubmitting(false);
     }
-
-    if (reviews.length > 0 && productId) {
-      await supabase
-        .from('reviews')
-        .insert(reviews.map(r => ({ product_id: productId, ...r })));
-    }
-
-    onSuccess();
   };
 
   const addReview = () => {
@@ -246,6 +276,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     setNewType,
     reviews,
     uploading,
+    submitting,
     newReview,
     setNewReview,
     handleImageUpload,
@@ -262,4 +293,3 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     handleCategoryChange
   };
 }
-
