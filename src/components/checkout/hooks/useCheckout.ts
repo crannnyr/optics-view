@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, CartItem, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
+import { sendEmail } from '../../../lib/email';
 
 export const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
@@ -9,6 +10,8 @@ export const NIGERIAN_STATES = [
   "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", 
   "Taraba", "Yobe", "Zamfara"
 ];
+
+const ADMIN_EMAIL = 'opticsview1@gmail.com';
 
 interface UseCheckoutProps {
   isOpen: boolean;
@@ -74,6 +77,42 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const totalOrderAmount = subtotal + calculateShipping();
   const payableAmount = totalOrderAmount;
 
+  // --- Helpers ---
+  const fireOrderEmails = (order: any, user: any, method: string) => {
+    const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
+    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
+
+    // Customer confirmation
+    sendEmail({
+      type: 'order_confirmation',
+      to_email: user.email,
+      to_name: user.user_metadata?.full_name || 'Customer',
+      data: {
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        order_id: order.id,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+    });
+
+    // Admin new order alert
+    sendEmail({
+      type: 'new_order_alert',
+      to_email: ADMIN_EMAIL,
+      data: {
+        order_id: order.id,
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        customer_email: user.email,
+        customer_phone: contactPhones,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+      bypass_limit: true, // Admin alerts always go through
+    });
+  };
+
   // --- Handlers ---
   const handleShippingNext = () => {
     if (settings.enable_paystack && !settings.enable_transfer) {
@@ -119,7 +158,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         }
       }
 
-      // Build contact phones string for admin visibility
       const contactPhones = [shippingData.phone1, shippingData.phone2]
         .filter(Boolean)
         .join(', ');
@@ -168,6 +206,9 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
+
+      // Fire order emails immediately after order is created
+      fireOrderEmails(order, user, method);
 
       if (method === 'paystack') {
         setPaystackConfig({
