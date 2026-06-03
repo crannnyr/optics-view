@@ -29,6 +29,7 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
     setNewType,
     reviews,
     uploading,
+    submitting,
     newReview,
     setNewReview,
     handleImageUpload,
@@ -49,7 +50,8 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
       <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto p-8 relative shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 hover:bg-gray-100 p-2 rounded-full transition-colors"
+          disabled={submitting}
+          className="absolute top-4 right-4 hover:bg-gray-100 p-2 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <X size={20} />
         </button>
@@ -107,9 +109,10 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
 
             <button
               type="submit"
-              className="w-full bg-[#0d2818] text-white py-4 text-xs tracking-[0.2em] font-medium hover:bg-opacity-90 shadow-lg mt-auto"
+              disabled={submitting || uploading}
+              className="w-full bg-[#0d2818] text-white py-4 text-xs tracking-[0.2em] font-medium hover:bg-opacity-90 shadow-lg mt-auto disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              SAVE PRODUCT
+              {submitting ? 'SAVING...' : 'SAVE PRODUCT'}
             </button>
           </div>
         </form>
