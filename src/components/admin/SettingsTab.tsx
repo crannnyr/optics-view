@@ -5,6 +5,7 @@ import RetailerApplicationsView from './settings/RetailerApplicationsView';
 import PaymentSettingsView from './settings/PaymentSettingsView';
 import CategoriesSettingsView from './settings/CategoriesSettingsView';
 import HeroSettingsView from './settings/HeroSettingsView';
+import EmailSettingsView from './settings/EmailSettingsView';
 
 export default function SettingsTab() {
   const {
@@ -103,6 +104,10 @@ export default function SettingsTab() {
 
       {activeTab === 'hero' && (
         <HeroSettingsView />
+      )}
+
+      {activeTab === 'email' && (
+        <EmailSettingsView />
       )}
     </div>
   );
