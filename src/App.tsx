@@ -326,15 +326,20 @@ function App() {
   if (currentView === 'orders') return <OrderHistory onBack={() => navigateTo('shop', '/')} />;
 
   if (currentView === 'details' && selectedProduct) {
-    return (
-      <ProductDetails
-        product={selectedProduct}
-        onBack={() => navigateTo('shop', '/')}
-        onAddToCart={addToCart}
-      />
-    );
-  }
-
+  return (
+    <ProductDetails
+      product={selectedProduct}
+      onBack={() => navigateTo('shop', '/')}
+      onAddToCart={addToCart}
+      cart={cart}
+      onUpdateQuantity={updateQuantity}
+      onRemoveFromCart={removeFromCart}
+      onClearCart={clearCart}
+      onNavigateToProduct={viewProduct}
+      user={user}
+    />
+  );
+}
   return (
     <>
       {/* Session lost toast — shown on top of whatever page is rendering */}
