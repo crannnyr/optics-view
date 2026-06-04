@@ -1,24 +1,41 @@
-import { useState, useEffect } from 'react';
-import { supabase, Product, Review } from '../lib/supabase';
+import { useState, useEffect, useRef } from 'react';
+import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import Cart from './Cart';
+import Checkout from './Checkout';
 
 interface ProductDetailsProps {
   product: Product;
   onBack: () => void;
   onAddToCart: (product: Product, quantity: number, selectedColor?: string, selectedType?: string) => void;
+  cart: CartItem[];
+  onUpdateQuantity: (id: string, qty: number, selectedColor?: string, selectedType?: string) => void;
+  onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string) => void;
+  onClearCart: () => void;
+  onNavigateToProduct: (product: Product) => void;
+  user: any;
 }
 
-export default function ProductDetails({ product, onBack, onAddToCart }: ProductDetailsProps) {
+export default function ProductDetails({
+  product, onBack, onAddToCart, cart, onUpdateQuantity, onRemoveFromCart,
+  onClearCart, onNavigateToProduct, user
+}: ProductDetailsProps) {
   const { store } = useStore();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [loadingReviews, setLoadingReviews] = useState(true);
   const [showFullDescription, setShowFullDescription] = useState(false);
+  const [selectedColor, setSelectedColor] = useState('');
+  const [selectedType, setSelectedType] = useState('');
+  const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
 
-  const [selectedColor, setSelectedColor] = useState<string>('');
-  const [selectedType, setSelectedType] = useState<string>('');
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   const images = product.images && product.images.length > 0
     ? product.images.slice(0, 5)
@@ -27,11 +44,33 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
   const hasColors = product.color_options && product.color_options.length > 0;
   const hasTypes = product.type_options && product.type_options.length > 0;
 
+  // Reset state and scroll to top whenever product changes
   useEffect(() => {
-    fetchReviews();
+    setCurrentImageIdx(0);
+    setQuantity(1);
+    setShowFullDescription(false);
+    setAddedToCart(false);
+    setLoadingReviews(true);
     if (hasColors && product.color_options) setSelectedColor(product.color_options[0]);
+    else setSelectedColor('');
     if (hasTypes && product.type_options) setSelectedType(product.type_options[0]);
+    else setSelectedType('');
+    fetchReviews();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [product.id]);
+
+  // Fetch all products in same category for swipe + suggestions
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('*')
+      .eq('category', product.category)
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setCategoryProducts(data);
+      });
+  }, [product.category]);
 
   const fetchReviews = async () => {
     const { data } = await supabase
@@ -43,8 +82,27 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
     setLoadingReviews(false);
   };
 
-  const nextImage = () => setCurrentImageIdx((prev) => (prev + 1) % images.length);
-  const prevImage = () => setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length);
+  // Swipe navigation — only fires when horizontal movement dominates vertical
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    const deltaX = touchStartX.current - e.changedTouches[0].clientX;
+    const deltaY = Math.abs(touchStartY.current - e.changedTouches[0].clientY);
+    // Require 80px horizontal movement and horizontal must exceed vertical
+    if (Math.abs(deltaX) < 80 || Math.abs(deltaX) < deltaY * 1.5) return;
+    const currentIdx = categoryProducts.findIndex(p => p.id === product.id);
+    if (deltaX > 0 && currentIdx < categoryProducts.length - 1) {
+      onNavigateToProduct(categoryProducts[currentIdx + 1]);
+    } else if (deltaX < 0 && currentIdx > 0) {
+      onNavigateToProduct(categoryProducts[currentIdx - 1]);
+    }
+  };
+
+  const nextImage = () => setCurrentImageIdx(prev => (prev + 1) % images.length);
+  const prevImage = () => setCurrentImageIdx(prev => (prev - 1 + images.length) % images.length);
 
   const calculateDiscount = () => {
     if (!product.wholesale_price) return 0;
@@ -57,14 +115,33 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
     if (hasColors && !selectedColor) { alert('Please select a color'); return; }
     if (hasTypes && !selectedType) { alert('Please select a type'); return; }
     onAddToCart(product, quantity, selectedColor, selectedType);
-    onBack();
+    setAddedToCart(true);
+    setTimeout(() => setAddedToCart(false), 2000);
+    // Intentionally NOT calling onBack() — user stays on this page
   };
 
+  const handleCheckout = () => {
+    setIsCartOpen(false);
+    if (!user) {
+      onBack(); // Go to home where they can sign in
+    } else {
+      setIsCheckoutOpen(true);
+    }
+  };
+
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   const truncatedDescription = product.description.substring(0, 25);
   const shouldTruncate = product.description.length > 25;
+  const suggestedProducts = categoryProducts.filter(p => p.id !== product.id).slice(0, 6);
+  const currentCategoryIndex = categoryProducts.findIndex(p => p.id === product.id);
+  const totalInCategory = categoryProducts.length;
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div
+      className="min-h-screen bg-white pb-20"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-20 border-b px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
         <button
@@ -72,8 +149,15 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
           className="flex items-center gap-2 text-xs md:text-sm hover:opacity-70"
           style={{ color: store.themeColor }}
         >
-          <ArrowLeft size={18} /> <span className="tracking-widest">BACK TO SHOP</span>
+          <ArrowLeft size={18} />
+          <span className="tracking-widest">BACK TO SHOP</span>
         </button>
+
+        {totalInCategory > 1 && (
+          <span className="text-[10px] text-gray-400 tracking-wider">
+            {currentCategoryIndex + 1} / {totalInCategory} · swipe to browse
+          </span>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-10 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-12">
@@ -85,20 +169,24 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
               alt={product.name}
               className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
             />
-
             <div
               className="absolute bottom-0 right-0 bg-white px-3 py-3.5 text-[8px] tracking-[0.2em] font-light border-l border-t border-gray-200"
               style={{ color: store.themeColor }}
             >
               {store.name.toUpperCase()}
             </div>
-
             {images.length > 1 && (
               <>
-                <button onClick={prevImage} className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 md:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
+                <button
+                  onClick={prevImage}
+                  className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 md:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                >
                   <ChevronLeft size={18} />
                 </button>
-                <button onClick={nextImage} className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 md:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white">
+                <button
+                  onClick={nextImage}
+                  className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 md:p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+                >
                   <ChevronRight size={18} />
                 </button>
                 <div className="absolute bottom-2 left-2 flex gap-1.5">
@@ -119,7 +207,7 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
               <button
                 key={idx}
                 onClick={() => setCurrentImageIdx(idx)}
-                className="w-16 h-16 md:w-20 md:h-20 shrink-0 border-2"
+                className="w-16 h-16 md:w-20 md:h-20 shrink-0 border-2 transition-colors"
                 style={{ borderColor: idx === currentImageIdx ? store.themeColor : 'transparent' }}
               >
                 <img src={img} className="w-full h-full object-cover" alt="" />
@@ -130,10 +218,7 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
 
         {/* Right: Details */}
         <div>
-          <h1
-            className="text-2xl md:text-3xl font-light mb-2"
-            style={{ color: store.themeColor }}
-          >
+          <h1 className="text-2xl md:text-3xl font-light mb-2" style={{ color: store.themeColor }}>
             {product.name}
           </h1>
 
@@ -144,7 +229,6 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
               </span>
             )}
             <span className="text-xl md:text-2xl font-medium">₦{product.price.toLocaleString()}</span>
-
             {!store.isRetailer && product.wholesale_price && (
               <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
                 Buy {wholesaleMinQty}+ get {calculateDiscount()}% OFF (₦{product.wholesale_price.toLocaleString()} ea)
@@ -176,14 +260,14 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
             </p>
           </div>
 
-          {/* Variant Selection */}
+          {/* Variants */}
           {(hasColors || hasTypes) && (
             <div className="border-t border-b border-gray-100 py-4 md:py-6 mb-6 md:mb-8 space-y-4">
               {hasColors && (
                 <div>
                   <label className="block text-xs uppercase tracking-wider text-gray-500 mb-3">Select Color</label>
                   <div className="flex flex-wrap gap-2">
-                    {product.color_options!.map((color) => (
+                    {product.color_options!.map(color => (
                       <button
                         key={color}
                         onClick={() => setSelectedColor(color)}
@@ -191,8 +275,6 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
                           selectedColor === color ? 'text-white' : 'bg-white text-gray-700 border-gray-300'
                         }`}
                         style={selectedColor === color ? { backgroundColor: store.themeColor, borderColor: store.themeColor } : {}}
-                        onMouseEnter={(e) => { if (selectedColor !== color) e.currentTarget.style.borderColor = store.themeColor; }}
-                        onMouseLeave={(e) => { if (selectedColor !== color) e.currentTarget.style.borderColor = '#d1d5db'; }}
                       >
                         {color}
                       </button>
@@ -200,12 +282,11 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
                   </div>
                 </div>
               )}
-
               {hasTypes && (
                 <div>
                   <label className="block text-xs uppercase tracking-wider text-gray-500 mb-3">Select Type</label>
                   <div className="flex flex-wrap gap-2">
-                    {product.type_options!.map((type) => (
+                    {product.type_options!.map(type => (
                       <button
                         key={type}
                         onClick={() => setSelectedType(type)}
@@ -213,8 +294,6 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
                           selectedType === type ? 'text-white' : 'bg-white text-gray-700 border-gray-300'
                         }`}
                         style={selectedType === type ? { backgroundColor: store.themeColor, borderColor: store.themeColor } : {}}
-                        onMouseEnter={(e) => { if (selectedType !== type) e.currentTarget.style.borderColor = store.themeColor; }}
-                        onMouseLeave={(e) => { if (selectedType !== type) e.currentTarget.style.borderColor = '#d1d5db'; }}
                       >
                         {type}
                       </button>
@@ -225,22 +304,28 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
             </div>
           )}
 
+          {/* Quantity + Add to cart */}
           <div className="border-t border-b border-gray-100 py-4 md:py-6 mb-6 md:mb-8">
             <div className="flex items-center gap-4 mb-4">
               <span className="text-xs uppercase tracking-wider text-gray-500">Quantity</span>
               <div className="flex items-center border border-gray-300">
-                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="p-2 hover:bg-gray-100"><Minus size={14} /></button>
+                <button onClick={() => setQuantity(q => Math.max(1, q - 1))} className="p-2 hover:bg-gray-100">
+                  <Minus size={14} />
+                </button>
                 <span className="w-10 text-center text-sm">{quantity}</span>
-                <button onClick={() => setQuantity(q => q + 1)} className="p-2 hover:bg-gray-100"><Plus size={14} /></button>
+                <button onClick={() => setQuantity(q => q + 1)} className="p-2 hover:bg-gray-100">
+                  <Plus size={14} />
+                </button>
               </div>
             </div>
 
             <button
               onClick={handleAddToCart}
-              className="w-full text-white py-3 md:py-4 text-xs tracking-[0.2em] hover:opacity-90 flex items-center justify-center gap-2 transition-opacity"
-              style={{ backgroundColor: store.themeColor }}
+              className="w-full text-white py-3 md:py-4 text-xs tracking-[0.2em] hover:opacity-90 flex items-center justify-center gap-2 transition-all"
+              style={{ backgroundColor: addedToCart ? '#16a34a' : store.themeColor }}
             >
-              <ShoppingBag size={16} /> ADD TO CART
+              <ShoppingBag size={16} />
+              {addedToCart ? 'ADDED TO BAG ✓' : 'ADD TO BAG'}
             </button>
           </div>
 
@@ -273,6 +358,76 @@ export default function ProductDetails({ product, onBack, onAddToCart }: Product
           </div>
         </div>
       </div>
+
+      {/* You might also like */}
+      {suggestedProducts.length > 0 && (
+        <div className="border-t border-gray-100 py-10">
+          <div className="max-w-7xl mx-auto px-4 md:px-6">
+            <h2
+              className="text-xs tracking-[0.25em] uppercase mb-6"
+              style={{ color: store.themeColor }}
+            >
+              You Might Also Like
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {suggestedProducts.map(p => (
+                <div
+                  key={p.id}
+                  onClick={() => onNavigateToProduct(p)}
+                  className="cursor-pointer group"
+                >
+                  <div className="aspect-square bg-gray-100 overflow-hidden mb-2 relative">
+                    <img
+                      src={p.images?.[0] || p.image_url}
+                      alt={p.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                  </div>
+                  <p className="text-xs font-light truncate" style={{ color: store.themeColor }}>
+                    {p.name}
+                  </p>
+                  <p className="text-sm font-medium mt-0.5" style={{ color: store.themeColor }}>
+                    ₦{p.price.toLocaleString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Cart Button */}
+      <button
+        onClick={() => setIsCartOpen(true)}
+        className="fixed bottom-8 right-8 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:opacity-90 transition-transform hover:scale-105 z-40"
+        style={{ backgroundColor: store.themeColor }}
+      >
+        <ShoppingBag size={24} />
+        {cartItemCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full border-2 border-white font-bold">
+            {cartItemCount}
+          </span>
+        )}
+      </button>
+
+      <Cart
+        isOpen={isCartOpen}
+        onClose={() => setIsCartOpen(false)}
+        items={cart}
+        onUpdateQuantity={onUpdateQuantity}
+        onRemove={onRemoveFromCart}
+        onCheckout={handleCheckout}
+      />
+
+      <Checkout
+        isOpen={isCheckoutOpen}
+        onClose={() => setIsCheckoutOpen(false)}
+        items={cart}
+        onSuccess={() => {
+          onClearCart();
+          setIsCheckoutOpen(false);
+        }}
+      />
     </div>
   );
 }
