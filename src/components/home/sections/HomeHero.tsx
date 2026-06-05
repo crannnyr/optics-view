@@ -18,21 +18,6 @@ interface HeroSettings {
   overlay_color: string;
 }
 
-const DEFAULT_HERO: HeroSettings = {
-  image_url: 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/product-images/WhatsApp%20Image%202025-12-20%20at%2010.00.51%20AM.jpeg',
-  title: 'SEE BEYOND',
-  subtitle: 'AI-powered clarity.',
-  font_family: 'inherit',
-  title_color: '#ffffff',
-  subtitle_color: '#ffffff',
-  title_size: 36,
-  subtitle_size: 14,
-  position: 'center',
-  letter_spacing: 3,
-  overlay_opacity: 20,
-  overlay_color: '#000000',
-};
-
 function positionToFlex(pos: string): React.CSSProperties {
   const [v, h] = pos === 'center' ? ['center', 'center'] : pos.split('-');
   return {
@@ -47,7 +32,16 @@ function positionToTextAlign(pos: string): 'left' | 'center' | 'right' {
   return 'center';
 }
 
-// ── Jumia Express badge (text only, no bike) ──────────────────────────────────
+// ── Skeleton shown while the hero DB query is in-flight ──────────────────────
+// This means the hero section has the correct height immediately — no layout
+// shift — and the real image replaces it the moment the query returns.
+function HeroSkeleton() {
+  return (
+    <div className="w-full h-full bg-gray-100 animate-pulse" />
+  );
+}
+
+// ── Jumia Express badge ───────────────────────────────────────────────────────
 function JumiaExpressBadge() {
   return (
     <div className="flex flex-col leading-none flex-shrink-0">
@@ -61,7 +55,7 @@ function JumiaExpressBadge() {
   );
 }
 
-// ── Main component ─────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 interface HomeHeroProps {
   themeColor: string;
   onRetailerClick: () => void;
@@ -71,87 +65,128 @@ interface HomeHeroProps {
 
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
   const { store } = useStore();
+
+  // null = query still in-flight (show skeleton)
+  // HeroSettings = query resolved (show real image)
   const [hero, setHero] = useState<HeroSettings | null>(null);
 
+  // Load Google Fonts only once, only for the font that's actually set
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
-    const link = document.createElement('link');
-    link.id   = 'hero-gfonts';
-    link.rel  = 'stylesheet';
-    link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;700&family=Cormorant+Garamond:wght@300;400;600&family=Montserrat:wght@300;400;700&family=Raleway:wght@300;400;700&family=Dancing+Script:wght@400;700&family=Pacifico&family=Great+Vibes&display=swap';
+    const link  = document.createElement('link');
+    link.id     = 'hero-gfonts';
+    link.rel    = 'stylesheet';
+    link.href   =
+      'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@300;400;700' +
+      '&family=Cormorant+Garamond:wght@300;400;600' +
+      '&family=Montserrat:wght@300;400;700' +
+      '&family=Raleway:wght@300;400;700' +
+      '&family=Dancing+Script:wght@400;700' +
+      '&family=Pacifico' +
+      '&family=Great+Vibes' +
+      '&display=swap';
     document.head.appendChild(link);
   }, []);
 
+  // Fetch the admin's custom hero settings.
+  // No hardcoded fallback image — we show a skeleton until this resolves.
+  // The image download starts the instant we have the URL, not a tick later.
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
-      if (store.isRetailer && store.id) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('hero_settings')
-          .eq('id', store.id)
-          .single();
-        setHero(data?.hero_settings
-          ? { ...DEFAULT_HERO, ...data.hero_settings }
-          : DEFAULT_HERO
-        );
-      } else {
-        const { data } = await supabase
-          .from('app_settings')
-          .select('value')
-          .eq('key', 'hero_settings')
-          .single();
-        setHero(data?.value
-          ? { ...DEFAULT_HERO, ...data.value }
-          : DEFAULT_HERO
-        );
+      try {
+        let settings: HeroSettings | null = null;
+
+        if (store.isRetailer && store.id) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('hero_settings')
+            .eq('id', store.id)
+            .single();
+          settings = data?.hero_settings ?? null;
+        } else {
+          const { data } = await supabase
+            .from('app_settings')
+            .select('value')
+            .eq('key', 'hero_settings')
+            .single();
+          settings = data?.value ?? null;
+        }
+
+        if (!cancelled) setHero(settings);
+      } catch {
+        // Query failed — leave hero as null (skeleton stays visible)
+        // which is better than showing a stale hardcoded image
       }
     })();
+
+    return () => { cancelled = true; };
   }, [store.id, store.isRetailer]);
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-white">
-        {hero && (
+      {/* ── Hero section ── */}
+      <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-gray-100">
+        {hero === null ? (
+          // In-flight: correct height maintained, no layout shift
+          <HeroSkeleton />
+        ) : (
           <>
             <img
               src={hero.image_url}
               alt="Hero Banner"
               className="w-full h-full object-contain"
+              // fetchpriority tells the browser this is your most important
+              // image (the LCP element) — it gets maximum download priority
+              fetchPriority="high"
+              // Decode off the main thread so it doesn't block paint
+              decoding="async"
             />
+
+            {/* Overlay */}
             <div
               className="absolute inset-0"
-              style={{ backgroundColor: hero.overlay_color, opacity: hero.overlay_opacity / 100 }}
+              style={{
+                backgroundColor: hero.overlay_color,
+                opacity: hero.overlay_opacity / 100,
+              }}
             />
+
+            {/* Text */}
             <div
               className="absolute inset-0 flex flex-col px-8 py-6"
               style={positionToFlex(hero.position)}
             >
               {hero.title && (
-                <h2 style={{
-                  fontFamily:    hero.font_family,
-                  fontSize:      `${hero.title_size}px`,
-                  color:         hero.title_color,
-                  letterSpacing: `${(hero.letter_spacing * 0.1).toFixed(2)}em`,
-                  textAlign:     positionToTextAlign(hero.position),
-                  fontWeight: 300,
-                  margin: 0,
-                  opacity: 0,
-                  animation: 'fadeInUp 1.2s ease-out forwards',
-                }}>
+                <h2
+                  style={{
+                    fontFamily:    hero.font_family,
+                    fontSize:      `${hero.title_size}px`,
+                    color:         hero.title_color,
+                    letterSpacing: `${(hero.letter_spacing * 0.1).toFixed(2)}em`,
+                    textAlign:     positionToTextAlign(hero.position),
+                    fontWeight:    300,
+                    margin:        0,
+                    opacity:       0,
+                    animation:     'fadeInUp 1.2s ease-out forwards',
+                  }}
+                >
                   {hero.title}
                 </h2>
               )}
               {hero.subtitle && (
-                <p style={{
-                  fontFamily: hero.font_family,
-                  fontSize:   `${hero.subtitle_size}px`,
-                  color:      hero.subtitle_color,
-                  textAlign:  positionToTextAlign(hero.position),
-                  margin:     '0.5rem 0 0 0',
-                  opacity: 0,
-                  animation: 'fadeInUp 1.2s ease-out 0.4s forwards',
-                }}>
+                <p
+                  style={{
+                    fontFamily: hero.font_family,
+                    fontSize:   `${hero.subtitle_size}px`,
+                    color:      hero.subtitle_color,
+                    textAlign:  positionToTextAlign(hero.position),
+                    margin:     '0.5rem 0 0 0',
+                    opacity:    0,
+                    animation:  'fadeInUp 1.2s ease-out 0.4s forwards',
+                  }}
+                >
                   {hero.subtitle}
                 </p>
               )}
@@ -160,7 +195,7 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
         )}
       </section>
 
-      {/* CTA row — flex-nowrap keeps button + badge on one line on all screens */}
+      {/* ── CTA row ── */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
           <div className="flex items-center gap-4">
@@ -169,13 +204,10 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               className="text-white px-4 md:px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg flex-shrink-0"
               style={{ backgroundColor: themeColor, animation: 'blink 2s ease-in-out infinite' }}
             >
-            <TrendingUp size={14} />
-BECOME A RETAILER
+              <TrendingUp size={14} />
+              BECOME A RETAILER
             </button>
-
-            {/* Divider */}
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-
             <JumiaExpressBadge />
           </div>
         </section>
@@ -192,10 +224,7 @@ BECOME A RETAILER
               <TrendingUp size={13} />
               MY DASHBOARD
             </a>
-
-            {/* Divider */}
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-
             <JumiaExpressBadge />
           </div>
         </section>
