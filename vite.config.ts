@@ -69,7 +69,25 @@ export default defineConfig({
       },
     }),
   ],
-  optimizeDeps: {
-    exclude: ['lucide-react'],
+
+  build: {
+    rollupOptions: {
+      output: {
+        // Split vendor libraries into separate cached chunks.
+        // React, Supabase, and Lucide rarely change — once cached by the
+        // browser they are never re-downloaded, even across deployments.
+        // Only your app code chunk gets re-downloaded when you push updates.
+        manualChunks: {
+          'vendor-react':    ['react', 'react-dom'],
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-icons':    ['lucide-react'],
+        },
+      },
+    },
   },
+
+  // Removed: optimizeDeps.exclude: ['lucide-react']
+  // Excluding lucide-react was preventing Vite from pre-bundling it,
+  // which caused it to be merged into the app chunk and not cached
+  // independently. Removing this lets Vite handle it correctly.
 });
