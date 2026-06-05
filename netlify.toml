@@ -1,3 +1,20 @@
+# ── Build config ───────────────────────────────────────────────────────────────
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# ── Cache headers ──────────────────────────────────────────────────────────────
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# ── Content-Type headers ───────────────────────────────────────────────────────
 [[headers]]
   for = "/*.js"
   [headers.values]
@@ -13,11 +30,8 @@
   [headers.values]
     Content-Type = "application/wasm"
 
+# ── SPA redirect ───────────────────────────────────────────────────────────────
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-  [build]
-  command = "npm run build"
-  publish = "dist"
