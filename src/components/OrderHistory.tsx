@@ -94,8 +94,6 @@ export default function OrderHistory({ onBack }: Props) {
   }
 
   // ── Error — network or Supabase failure ───────────────────────────────────
-  // User sees a clear explanation and a retry button instead of a
-  // confusingly empty list that looks like they have no orders.
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -209,6 +207,20 @@ export default function OrderHistory({ onBack }: Props) {
                       <div>
                         <p className="text-sm font-medium">{item.products?.name}</p>
                         <p className="text-xs text-gray-400">Qty: {item.quantity} · ₦{item.price?.toLocaleString()}</p>
+                        {(item.selected_color || item.selected_type) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {item.selected_color && (
+                              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200">
+                                {item.selected_color}
+                              </span>
+                            )}
+                            {item.selected_type && (
+                              <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border border-gray-200">
+                                {item.selected_type}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
