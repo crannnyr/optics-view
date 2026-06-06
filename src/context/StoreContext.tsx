@@ -14,6 +14,7 @@ interface StoreContextType {
   store: Store;
   loading: boolean;
   storeNotFound: boolean;
+  storeError: boolean;
 }
 
 const defaultStore: Store = {
@@ -21,15 +22,15 @@ const defaultStore: Store = {
   name: 'OpticsView',
   slug: null,
   themeColor: '#0d2818',
-  // Main store logo — shown in header for non-retailer stores
   logoUrl: 'https://dpioixansygkjdbphfdj.supabase.co/storage/v1/object/public/hero-images/IMG-20260516-WA0000.jpg',
-  isRetailer: false
+  isRetailer: false,
 };
 
 const StoreContext = createContext<StoreContextType>({
   store: defaultStore,
   loading: true,
-  storeNotFound: false
+  storeNotFound: false,
+  storeError: false,
 });
 
 export function useStore() {
@@ -37,90 +38,108 @@ export function useStore() {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [store, setStore] = useState<Store>(defaultStore);
-  const [loading, setLoading] = useState(true);
+  const [store, setStore]               = useState<Store>(defaultStore);
+  const [loading, setLoading]           = useState(true);
   const [storeNotFound, setStoreNotFound] = useState(false);
+  // True when identifyStore() fails due to network or Supabase error.
+  // App.tsx reads this to show a recoverable error screen instead of
+  // spinning forever.
+  const [storeError, setStoreError]     = useState(false);
 
   useEffect(() => {
     const identifyStore = async () => {
-      const hostname    = window.location.hostname;
-      const pathname    = window.location.pathname;
-      const pathSegment = pathname.split('/')[1];
+      try {
+        const hostname    = window.location.hostname;
+        const pathname    = window.location.pathname;
+        const pathSegment = pathname.split('/')[1];
 
-      const reservedPaths = [
-        'admin', 'retailer', 'login', 'auth',
-        'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions'
-      ];
+        const reservedPaths = [
+          'admin', 'retailer', 'login', 'auth',
+          'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions',
+        ];
 
-      const isMainDomain =
-        hostname === 'opticsview.store' ||
-        hostname === 'localhost' ||
-        hostname.includes('vercel.app') ||
-        hostname.includes('bolt.host') ||
-        hostname.includes('netlify.app') ||
-        hostname.includes('lovableproject.com');
+        const isMainDomain =
+          hostname === 'opticsview.store' ||
+          hostname === 'localhost' ||
+          hostname.includes('vercel.app') ||
+          hostname.includes('bolt.host') ||
+          hostname.includes('netlify.app') ||
+          hostname.includes('lovableproject.com');
 
-      let profile = null;
-      let isLookingForStore = false;
+        let profile = null;
+        let isLookingForStore = false;
 
-      // 1. Check Custom Domain
-      if (!isMainDomain) {
-        isLookingForStore = true;
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, store_name, store_slug, theme_color, logo_url')
-          .eq('custom_domain', hostname)
-          .eq('role', 'retailer')
-          .maybeSingle();
-        profile = data;
-      }
-
-      // 2. Check Slug path
-      else if (pathSegment && !reservedPaths.includes(pathSegment)) {
-        isLookingForStore = true;
-        const { data } = await supabase
-          .from('profiles')
-          .select('id, store_name, store_slug, theme_color, logo_url')
-          .eq('store_slug', pathSegment)
-          .eq('role', 'retailer')
-          .maybeSingle();
-        profile = data;
-
-        if (profile) {
-          const { data: reg } = await supabase
-            .from('retailer_registrations')
-            .select('is_blocked')
-            .eq('store_slug', pathSegment)
+        // 1. Check custom domain
+        if (!isMainDomain) {
+          isLookingForStore = true;
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, store_name, store_slug, theme_color, logo_url')
+            .eq('custom_domain', hostname)
+            .eq('role', 'retailer')
             .maybeSingle();
-          if (reg?.is_blocked) {
-            setStoreNotFound(true);
-            setLoading(false);
-            return;
+          if (error) throw error;
+          profile = data;
+        }
+
+        // 2. Check slug path
+        else if (pathSegment && !reservedPaths.includes(pathSegment)) {
+          isLookingForStore = true;
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, store_name, store_slug, theme_color, logo_url')
+            .eq('store_slug', pathSegment)
+            .eq('role', 'retailer')
+            .maybeSingle();
+          if (error) throw error;
+          profile = data;
+
+          if (profile) {
+            const { data: reg, error: regError } = await supabase
+              .from('retailer_registrations')
+              .select('is_blocked')
+              .eq('store_slug', pathSegment)
+              .maybeSingle();
+            if (regError) throw regError;
+            if (reg?.is_blocked) {
+              setStoreNotFound(true);
+              setLoading(false);
+              return;
+            }
           }
         }
-      }
 
-      if (profile) {
-        setStore({
-          id: profile.id,
-          name: profile.store_name || 'Retailer Store',
-          slug: profile.store_slug,
-          themeColor: profile.theme_color || '#0d2818',
-          logoUrl: profile.logo_url,
-          isRetailer: true,
-        });
-      } else if (isLookingForStore) {
-        setStoreNotFound(true);
-      }
+        if (profile) {
+          setStore({
+            id: profile.id,
+            name: profile.store_name || 'Retailer Store',
+            slug: profile.store_slug,
+            themeColor: profile.theme_color || '#0d2818',
+            logoUrl: profile.logo_url,
+            isRetailer: true,
+          });
+        } else if (isLookingForStore) {
+          setStoreNotFound(true);
+        }
 
-      setLoading(false);
+      } catch (err) {
+        // Network failure or Supabase error — surface it so the user
+        // sees a clear message with a retry option instead of an
+        // infinite spinner.
+        console.error('Store identification failed:', err);
+        setStoreError(true);
+      } finally {
+        // Always clears the spinner — no matter what happens above,
+        // the user is never left on an infinite loading screen.
+        setLoading(false);
+      }
     };
 
     identifyStore();
   }, []);
 
   return (
-    <StoreContext.Provider value={{ store, loading, storeNotFound }}>
+    <StoreContext.Provider value={{ store, loading, storeNotFound, storeError }}>
       {children}
     </StoreContext.Provider>
   );
