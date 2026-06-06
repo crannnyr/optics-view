@@ -3,79 +3,106 @@ import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard, Package, ShoppingBag, Wallet,
   Loader2, ExternalLink, Copy, Check, Store,
-  Clock, RefreshCw, AlertTriangle, BookOpen, LayoutTemplate, CreditCard
+  Clock, RefreshCw, AlertTriangle, BookOpen,
+  LayoutTemplate, CreditCard, WifiOff
 } from 'lucide-react';
-import RetailerOverview from './retailer/RetailerOverview';
-import RetailerProductsTab from './retailer/RetailerProductsTab';
-import RetailerOrdersTab from './retailer/RetailerOrdersTab';
-import RetailerWalletTab from './retailer/RetailerWalletTab';
-import RetailerHeroTab from './retailer/RetailerHeroTab';
+import RetailerOverview      from './retailer/RetailerOverview';
+import RetailerProductsTab   from './retailer/RetailerProductsTab';
+import RetailerOrdersTab     from './retailer/RetailerOrdersTab';
+import RetailerWalletTab     from './retailer/RetailerWalletTab';
+import RetailerHeroTab       from './retailer/RetailerHeroTab';
 import RetailerSubscriptionTab from './retailer/RetailerSubscriptionTab';
 
 type ActiveTab = 'overview' | 'catalog' | 'orders' | 'wallet' | 'store' | 'subscription';
 
 export default function RetailerDashboard() {
-  const [profile, setProfile]           = useState<any>(null);
+  const [profile,      setProfile]      = useState<any>(null);
   const [registration, setRegistration] = useState<any>(null);
-  const [wallet, setWallet]             = useState<any>({ balance: 0, total_earned: 0 });
-  const [loading, setLoading]           = useState(true);
-  const [activeTab, setActiveTab]       = useState<ActiveTab>('overview');
-  const [copiedUrl, setCopiedUrl]       = useState(false);
-  const [checking, setChecking]         = useState(false);
-  const [statusMsg, setStatusMsg]       = useState('');
+  const [wallet,       setWallet]       = useState<any>({ balance: 0, total_earned: 0 });
+  const [loading,      setLoading]      = useState(true);
+  const [error,        setError]        = useState(false);
+  const [activeTab,    setActiveTab]    = useState<ActiveTab>('overview');
+  const [copiedUrl,    setCopiedUrl]    = useState(false);
+  const [checking,     setChecking]     = useState(false);
+  const [statusMsg,    setStatusMsg]    = useState('');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+    setLoading(true);
+    setError(false);
 
-    const [{ data: prof }, { data: reg }, { data: wal }] = await Promise.all([
-      supabase.from('profiles').select('*').eq('id', user.id).single(),
-      supabase
-        .from('retailer_registrations')
-        .select('*')
-        .eq('email', user.email)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single(),
-      supabase
-        .from('retailer_wallets')
-        .select('*')
-        .eq('retailer_id', user.id)
-        .maybeSingle(),
-    ]);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!user) { setLoading(false); return; }
 
-    if (prof) setProfile(prof);
-    if (reg)  setRegistration(reg);
-    setWallet(wal ?? { balance: 0, total_earned: 0 });
-    setLoading(false);
+      const [
+        { data: prof, error: profErr },
+        { data: reg,  error: regErr  },
+        { data: wal },
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).single(),
+        supabase
+          .from('retailer_registrations')
+          .select('*')
+          .eq('email', user.email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single(),
+        supabase
+          .from('retailer_wallets')
+          .select('*')
+          .eq('retailer_id', user.id)
+          .maybeSingle(),
+      ]);
+
+      if (profErr) throw profErr;
+      if (regErr)  throw regErr;
+
+      if (prof) setProfile(prof);
+      if (reg)  setRegistration(reg);
+      setWallet(wal ?? { balance: 0, total_earned: 0 });
+
+    } catch (err) {
+      console.error('Retailer dashboard load failed:', err);
+      setError(true);
+    } finally {
+      // Always clears the spinner — retailer never stuck loading forever
+      setLoading(false);
+    }
   };
 
   const handleCheckStatus = async () => {
     setChecking(true);
     setStatusMsg('');
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setChecking(false); return; }
 
-    const { data } = await supabase
-      .from('retailer_registrations')
-      .select('payment_status, is_blocked')
-      .eq('email', user.email)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setChecking(false); return; }
 
-    if (data?.payment_status === 'verified' && !data?.is_blocked) {
-      window.location.reload();
-    } else if (data?.is_blocked) {
-      setStatusMsg('Your store has been suspended. Please contact support.');
-    } else {
-      setStatusMsg('Payment not confirmed yet. Please wait and try again shortly.');
+      const { data, error: checkErr } = await supabase
+        .from('retailer_registrations')
+        .select('payment_status, is_blocked')
+        .eq('email', user.email)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (checkErr) throw checkErr;
+
+      if (data?.payment_status === 'verified' && !data?.is_blocked) {
+        window.location.reload();
+      } else if (data?.is_blocked) {
+        setStatusMsg('Your store has been suspended. Please contact support.');
+      } else {
+        setStatusMsg('Payment not confirmed yet. Please wait and try again shortly.');
+      }
+    } catch (err) {
+      setStatusMsg('Could not check status. Please check your connection and try again.');
+    } finally {
+      setChecking(false);
     }
-    setChecking(false);
   };
 
   const getStoreUrl = () => {
@@ -92,7 +119,7 @@ export default function RetailerDashboard() {
     setTimeout(() => setCopiedUrl(false), 2000);
   };
 
-  // ── Loading ───────────────────────────────────────────────
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -101,7 +128,37 @@ export default function RetailerDashboard() {
     );
   }
 
-  // ── Blocked ───────────────────────────────────────────────
+  // ── Network / Supabase error ──────────────────────────────────────────────
+  // Retailer sees a clear message and a retry button instead of a
+  // permanent spinner or a silent blank dashboard.
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
+        <div className="bg-white border-t-4 border-amber-400 rounded-lg p-8 max-w-md w-full text-center shadow-lg">
+          <div className="bg-amber-50 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
+            <WifiOff size={24} className="text-amber-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Couldn't Load Dashboard</h2>
+          <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+            There was a problem reaching the server. Your store data is safe —
+            check your connection and try again.
+          </p>
+          <button
+            onClick={loadData}
+            className="w-full bg-[#0d2818] text-white py-3 text-sm rounded hover:opacity-90 flex items-center justify-center gap-2 mb-3"
+          >
+            <RefreshCw size={14} />
+            TRY AGAIN
+          </button>
+          <a href="/" className="block text-xs text-gray-400 hover:text-gray-600 underline">
+            Return to Store
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Blocked ───────────────────────────────────────────────────────────────
   if (registration?.is_blocked) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -119,7 +176,7 @@ export default function RetailerDashboard() {
     );
   }
 
-  // ── Pending Payment Gate ──────────────────────────────────
+  // ── Pending payment gate ──────────────────────────────────────────────────
   if (!registration || registration.payment_status !== 'verified') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -138,7 +195,8 @@ export default function RetailerDashboard() {
             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-sm text-blue-800">
               <p className="font-medium mb-1">Bank Transfer Selected</p>
               <p className="text-xs">
-                Our team is reviewing your transfer. This usually takes <strong>under 5 minutes</strong> during business hours.
+                Our team is reviewing your transfer. This usually takes{' '}
+                <strong>under 5 minutes</strong> during business hours.
               </p>
             </div>
           )}
@@ -168,17 +226,17 @@ export default function RetailerDashboard() {
     );
   }
 
-  // ── Full Dashboard ────────────────────────────────────────
+  // ── Full dashboard ────────────────────────────────────────────────────────
   const isCustomDomainPending =
     registration?.domain_type === 'custom' && !registration?.domain_confirmed;
 
   const tabs = [
-    { key: 'overview',      icon: <LayoutDashboard size={15} />, label: 'Overview' },
-    { key: 'catalog',       icon: <BookOpen size={15} />,        label: 'Catalog' },
-    { key: 'orders',        icon: <ShoppingBag size={15} />,     label: 'Orders' },
-    { key: 'wallet',        icon: <Wallet size={15} />,          label: 'Wallet' },
-    { key: 'store',         icon: <LayoutTemplate size={15} />,  label: 'My Banner' },
-    { key: 'subscription',  icon: <CreditCard size={15} />,      label: 'Subscription' },
+    { key: 'overview',     icon: <LayoutDashboard size={15} />, label: 'Overview'     },
+    { key: 'catalog',      icon: <BookOpen size={15} />,        label: 'Catalog'      },
+    { key: 'orders',       icon: <ShoppingBag size={15} />,     label: 'Orders'       },
+    { key: 'wallet',       icon: <Wallet size={15} />,          label: 'Wallet'       },
+    { key: 'store',        icon: <LayoutTemplate size={15} />,  label: 'My Banner'    },
+    { key: 'subscription', icon: <CreditCard size={15} />,      label: 'Subscription' },
   ] as const;
 
   return (
@@ -194,12 +252,12 @@ export default function RetailerDashboard() {
               <p className="text-xs opacity-50">Retailer Dashboard · {profile?.email}</p>
             </div>
 
-            {/* Store URL */}
             {isCustomDomainPending ? (
               <div className="bg-amber-500/20 border border-amber-400/30 rounded-lg px-4 py-3 text-sm">
                 <p className="text-amber-200 font-medium text-xs">Custom Domain Pending</p>
                 <p className="text-white/70 text-xs mt-0.5">
-                  You'll be notified once <span className="font-mono">{registration.custom_domain}</span> is connected.
+                  You'll be notified once{' '}
+                  <span className="font-mono">{registration.custom_domain}</span> is connected.
                 </p>
               </div>
             ) : (
@@ -227,7 +285,6 @@ export default function RetailerDashboard() {
             )}
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 mt-6 border-b border-white/10 overflow-x-auto">
             {tabs.map(tab => (
               <button
@@ -250,19 +307,14 @@ export default function RetailerDashboard() {
         {activeTab === 'overview' && (
           <RetailerOverview profile={profile} wallet={wallet} registration={registration} />
         )}
-
         {activeTab === 'catalog' && (
           <RetailerProductsTab profile={profile} registration={registration} />
         )}
-
         {activeTab === 'orders' && <RetailerOrdersTab profile={profile} />}
-
         {activeTab === 'wallet' && (
           <RetailerWalletTab profile={profile} wallet={wallet} onWalletUpdate={loadData} />
         )}
-
         {activeTab === 'store' && <RetailerHeroTab profile={profile} />}
-
         {activeTab === 'subscription' && (
           <RetailerSubscriptionTab
             profile={profile}
