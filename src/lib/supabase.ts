@@ -12,6 +12,31 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // Paystack configuration
 export const PAYSTACK_PUBLIC_KEY = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || 'pk_test_40fcd5db1faf26904bc078a6691e2ed71f6a0901';
 
+// ── Session management utilities ──────────────────────────────────────────────
+
+// Removes all Supabase auth tokens from localStorage.
+// Called when a session expires unexpectedly so the next auth
+// attempt starts from a clean state — no stale or corrupted tokens.
+export function clearAuthTokens() {
+  Object.keys(localStorage)
+    .filter(key => key.startsWith('sb-'))
+    .forEach(key => localStorage.removeItem(key));
+}
+
+// Module-level flag that distinguishes a user-initiated sign-out
+// (clicking "Sign Out") from an unexpected session expiry.
+// Without this, App.tsx cannot tell the difference when Supabase
+// emits SIGNED_OUT — it fires for both cases.
+//
+// Usage: call markIntentionalSignOut() immediately before supabase.auth.signOut()
+// in any user-facing sign-out action. App.tsx reads this flag in
+// onAuthStateChange to decide whether to show the "session expired" toast.
+let _intentionalSignOut = false;
+
+export const markIntentionalSignOut = () => { _intentionalSignOut = true; };
+export const wasIntentionalSignOut  = () => _intentionalSignOut;
+export const resetSignOutFlag       = () => { _intentionalSignOut = false; };
+
 // --- Database Types ---
 
 export interface Product {
@@ -27,13 +52,13 @@ export interface Product {
   images: string[];
   stock: number;
   category: string;
-  product_type?: 'video' | 'audio_only' | 'combo'; // NEW: For category filtering
-  
+  product_type?: 'video' | 'audio_only' | 'combo';
+
   // Product variants
   color_options?: string[];
   type_options?: string[];
   custom_delivery_fee?: number;
-  
+
   created_at: string;
 }
 
@@ -72,12 +97,12 @@ export interface Order {
   amount_paid?: number;
   remaining_balance?: number;
   is_fully_paid?: boolean;
-  
+
   // Paystack integration
   paystack_reference?: string;
   paystack_access_code?: string;
   payment_verified_via?: 'manual' | 'paystack';
-  
+
   created_at: string;
   verified_at?: string;
   shipped_at?: string;
@@ -94,11 +119,11 @@ export interface Payment {
   status: 'pending' | 'verified' | 'rejected';
   payment_number?: number;
   is_balance_payment?: boolean;
-  
+
   // Paystack integration
   paystack_reference?: string;
   paystack_authorization_code?: string;
-  
+
   created_at: string;
   verified_at?: string;
 }
@@ -119,18 +144,18 @@ export interface OrderItem {
   product_id: string;
   quantity: number;
   price: number;
-  
+
   // Variant selection
   selected_color?: string;
   selected_type?: string;
-  
+
   created_at: string;
 }
 
 export interface CartItem {
   product: Product;
   quantity: number;
-  
+
   // Variant selection in cart
   selectedColor?: string;
   selectedType?: string;
@@ -166,7 +191,6 @@ export interface RetailerSubscription {
   created_at: string;
 }
 
-// NEW: Combo Product type
 export interface ComboProduct {
   id: string;
   name: string;
@@ -189,7 +213,7 @@ export const initializePaystack = (email: string, amount: number, reference: str
   return {
     key: PAYSTACK_PUBLIC_KEY,
     email,
-    amount: amount * 100, // Convert to kobo
+    amount: amount * 100,
     ref: reference,
     metadata: metadata || {},
     currency: 'NGN',
