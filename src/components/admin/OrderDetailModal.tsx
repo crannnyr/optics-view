@@ -188,7 +188,19 @@ export default function OrderDetailModal({
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{item.products?.name}</p>
-                      <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <span className="text-xs text-gray-400">Qty: {item.quantity}</span>
+                        {item.selected_color && (
+                          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                            {item.selected_color}
+                          </span>
+                        )}
+                        {item.selected_type && (
+                          <span className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded border border-gray-200">
+                            {item.selected_type}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <p className="text-sm font-mono text-gray-600">₦{(item.quantity * item.price).toLocaleString()}</p>
                   </div>
