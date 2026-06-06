@@ -23,6 +23,10 @@ interface HomeProps {
   onViewProduct: (product: Product) => void;
   onNavigateToPrivacy: () => void;
   onNavigateToTerms: () => void;
+  // Passed from App.tsx when a session expires — causes the auth modal
+  // to open automatically so the user can sign back in immediately.
+  autoOpenAuth?: boolean;
+  onAutoAuthHandled?: () => void;
 }
 
 function ProductSkeleton() {
@@ -37,7 +41,8 @@ function ProductSkeleton() {
 
 export default function Home({
   user, cart, onAddToCart, onUpdateQuantity, onRemoveFromCart, onClearCart,
-  onNavigateToOrders, onViewProduct, onNavigateToPrivacy, onNavigateToTerms
+  onNavigateToOrders, onViewProduct, onNavigateToPrivacy, onNavigateToTerms,
+  autoOpenAuth, onAutoAuthHandled,
 }: HomeProps) {
 
   const {
@@ -47,7 +52,7 @@ export default function Home({
     isAuthOpen, setIsAuthOpen, isUserMenuOpen, setIsUserMenuOpen,
     isRetailerModalOpen, setIsRetailerModalOpen, orderSuccess, setOrderSuccess,
     handleSignOut, handleCheckout, categories, hasApplied,
-  } = useHome({ user });
+  } = useHome({ user, autoOpenAuth, onAutoAuthHandled });
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
