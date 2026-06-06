@@ -2,42 +2,65 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   ArrowLeft, MapPin, Edit2, Package, Truck,
-  CheckCircle, XCircle, Clock, AlertCircle, Loader2, AlertTriangle, RotateCcw, Store
+  CheckCircle, XCircle, Clock, AlertCircle, Loader2,
+  AlertTriangle, RotateCcw, Store, WifiOff, RefreshCw
 } from 'lucide-react';
 
 interface Props { onBack: () => void; }
 
 const STATUS_CONFIG: Record<string, { color: string; icon: any; label: string }> = {
-  pending:     { color: 'bg-yellow-100 text-yellow-800', icon: Clock,         label: 'Pending' },
-  approved:    { color: 'bg-blue-100 text-blue-800',    icon: CheckCircle,    label: 'Approved' },
-  shipped:     { color: 'bg-purple-100 text-purple-800',icon: Truck,          label: 'Shipped' },
-  delivered:   { color: 'bg-green-100 text-green-800',  icon: CheckCircle,    label: 'Delivered' },
-  rejected:    { color: 'bg-red-100 text-red-800',      icon: XCircle,        label: 'Rejected' },
-  unavailable: { color: 'bg-orange-100 text-orange-800',icon: AlertTriangle,  label: 'Unavailable' },
-  refunded:    { color: 'bg-gray-100 text-gray-600',    icon: RotateCcw,      label: 'Refunded' },
+  pending:     { color: 'bg-yellow-100 text-yellow-800',  icon: Clock,          label: 'Pending'     },
+  approved:    { color: 'bg-blue-100 text-blue-800',      icon: CheckCircle,    label: 'Approved'    },
+  shipped:     { color: 'bg-purple-100 text-purple-800',  icon: Truck,          label: 'Shipped'     },
+  delivered:   { color: 'bg-green-100 text-green-800',    icon: CheckCircle,    label: 'Delivered'   },
+  rejected:    { color: 'bg-red-100 text-red-800',        icon: XCircle,        label: 'Rejected'    },
+  unavailable: { color: 'bg-orange-100 text-orange-800',  icon: AlertTriangle,  label: 'Unavailable' },
+  refunded:    { color: 'bg-gray-100 text-gray-600',      icon: RotateCcw,      label: 'Refunded'    },
 };
 
 const SUPPORT_EMAIL = 'support@opticsview.store';
 
 export default function OrderHistory({ onBack }: Props) {
-  const [orders, setOrders]   = useState<any[]>([]);
-  const [filter, setFilter]   = useState('all');
-  const [loading, setLoading] = useState(true);
+  const [orders,    setOrders]    = useState<any[]>([]);
+  const [filter,    setFilter]    = useState('all');
+  const [loading,   setLoading]   = useState(true);
+  const [error,     setError]     = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm]   = useState({ state: '', city: '', area: '' });
+  const [editForm,  setEditForm]  = useState({ state: '', city: '', area: '' });
 
   useEffect(() => { fetchOrders(); }, []);
 
   const fetchOrders = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from('orders')
-      .select('*, items:order_items(*, products(name, images, image_url))')
-      .eq('customer_email', user.email)
-      .order('created_at', { ascending: false });
-    if (data) setOrders(data);
-    setLoading(false);
+    setLoading(true);
+    setError(false);
+
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError) throw authError;
+
+      // No session — nothing to show, stop cleanly
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      const { data, error: fetchError } = await supabase
+        .from('orders')
+        .select('*, items:order_items(*, products(name, images, image_url))')
+        .eq('customer_email', user.email)
+        .order('created_at', { ascending: false });
+
+      if (fetchError) throw fetchError;
+
+      setOrders(data ?? []);
+
+    } catch (err) {
+      console.error('Orders fetch failed:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpdateLocation = async (orderId: string) => {
@@ -61,12 +84,53 @@ export default function OrderHistory({ onBack }: Props) {
   const tabs = ['all', 'pending', 'approved', 'shipped', 'delivered', 'rejected', 'unavailable'];
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
-  if (loading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Loader2 size={24} className="animate-spin text-gray-300" />
-    </div>
-  );
+  // ── Loading ───────────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-gray-300" />
+      </div>
+    );
+  }
 
+  // ── Error — network or Supabase failure ───────────────────────────────────
+  // User sees a clear explanation and a retry button instead of a
+  // confusingly empty list that looks like they have no orders.
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
+          <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-4">
+            <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
+              <ArrowLeft size={20} />
+            </button>
+            <h1 className="text-lg font-light tracking-wide text-[#0d2818]">My Purchases</h1>
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
+          <div className="bg-white p-10 rounded-lg shadow-sm max-w-sm w-full border-t-4 border-amber-400">
+            <div className="bg-amber-50 w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4">
+              <WifiOff size={24} className="text-amber-500" />
+            </div>
+            <h2 className="text-base font-medium text-gray-800 mb-2">Couldn't Load Orders</h2>
+            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+              There was a problem reaching the server. Your orders are safe — check your
+              connection and try again.
+            </p>
+            <button
+              onClick={fetchOrders}
+              className="w-full bg-[#0d2818] text-white py-3 text-xs tracking-widest hover:opacity-90 transition-opacity rounded flex items-center justify-center gap-2"
+            >
+              <RefreshCw size={13} />
+              TRY AGAIN
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Orders list ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
       {/* Header */}
@@ -84,7 +148,9 @@ export default function OrderHistory({ onBack }: Props) {
                 key={t}
                 onClick={() => setFilter(t)}
                 className={`py-3 text-xs tracking-widest border-b-2 transition-colors ${
-                  filter === t ? 'border-[#0d2818] text-[#0d2818] font-medium' : 'border-transparent text-gray-400'
+                  filter === t
+                    ? 'border-[#0d2818] text-[#0d2818] font-medium'
+                    : 'border-transparent text-gray-400'
                 }`}
               >
                 {t.toUpperCase()}
@@ -103,7 +169,7 @@ export default function OrderHistory({ onBack }: Props) {
         )}
 
         {filtered.map(order => {
-          const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+          const cfg  = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
           const Icon = cfg.icon;
 
           return (
@@ -136,7 +202,9 @@ export default function OrderHistory({ onBack }: Props) {
                   return (
                     <div key={item.id} className="flex gap-3">
                       <div className="w-12 h-12 bg-gray-100 rounded border shrink-0 overflow-hidden">
-                        {img ? <img src={img} alt="" className="w-full h-full object-cover" /> : <Package size={14} className="m-auto mt-3 text-gray-300" />}
+                        {img
+                          ? <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" />
+                          : <Package size={14} className="m-auto mt-3 text-gray-300" />}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{item.products?.name}</p>
@@ -199,13 +267,38 @@ export default function OrderHistory({ onBack }: Props) {
                 {editingId === order.id ? (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
-                      <input placeholder="State" value={editForm.state} onChange={e => setEditForm({...editForm, state: e.target.value})} className="border p-2 text-xs rounded outline-none focus:border-[#0d2818]" />
-                      <input placeholder="City" value={editForm.city} onChange={e => setEditForm({...editForm, city: e.target.value})} className="border p-2 text-xs rounded outline-none focus:border-[#0d2818]" />
+                      <input
+                        placeholder="State"
+                        value={editForm.state}
+                        onChange={e => setEditForm({ ...editForm, state: e.target.value })}
+                        className="border p-2 text-xs rounded outline-none focus:border-[#0d2818]"
+                      />
+                      <input
+                        placeholder="City"
+                        value={editForm.city}
+                        onChange={e => setEditForm({ ...editForm, city: e.target.value })}
+                        className="border p-2 text-xs rounded outline-none focus:border-[#0d2818]"
+                      />
                     </div>
-                    <input placeholder="Area" value={editForm.area} onChange={e => setEditForm({...editForm, area: e.target.value})} className="w-full border p-2 text-xs rounded outline-none focus:border-[#0d2818]" />
+                    <input
+                      placeholder="Area"
+                      value={editForm.area}
+                      onChange={e => setEditForm({ ...editForm, area: e.target.value })}
+                      className="w-full border p-2 text-xs rounded outline-none focus:border-[#0d2818]"
+                    />
                     <div className="flex gap-2">
-                      <button onClick={() => handleUpdateLocation(order.id)} className="flex-1 bg-[#0d2818] text-white py-2 text-xs rounded">Save</button>
-                      <button onClick={() => setEditingId(null)} className="px-4 border text-xs rounded">Cancel</button>
+                      <button
+                        onClick={() => handleUpdateLocation(order.id)}
+                        className="flex-1 bg-[#0d2818] text-white py-2 text-xs rounded"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="px-4 border text-xs rounded"
+                      >
+                        Cancel
+                      </button>
                     </div>
                   </div>
                 ) : (
@@ -216,7 +309,14 @@ export default function OrderHistory({ onBack }: Props) {
                     </div>
                     {order.status === 'pending' && (
                       <button
-                        onClick={() => { setEditForm({ state: order.shipping_state || '', city: order.shipping_city || '', area: order.shipping_area || '' }); setEditingId(order.id); }}
+                        onClick={() => {
+                          setEditForm({
+                            state: order.shipping_state || '',
+                            city:  order.shipping_city  || '',
+                            area:  order.shipping_area  || '',
+                          });
+                          setEditingId(order.id);
+                        }}
                         className="flex items-center gap-1 text-[#0d2818] text-xs hover:underline ml-3 shrink-0"
                       >
                         <Edit2 size={11} /> Edit
