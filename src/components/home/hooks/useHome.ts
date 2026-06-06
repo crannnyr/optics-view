@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { supabase, Product } from '../../../lib/supabase';
+import { supabase, Product, markIntentionalSignOut } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
 
 interface UseHomeProps {
   user: any;
+  // When true, open the auth modal automatically — set by App.tsx after
+  // any session expiry so the user can sign back in without hunting for the button.
+  autoOpenAuth?: boolean;
+  onAutoAuthHandled?: () => void;
 }
 
-export function useHome({ user }: UseHomeProps) {
+export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps) {
   const { store } = useStore();
   const [products, setProducts]                 = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -20,9 +24,20 @@ export function useHome({ user }: UseHomeProps) {
   const [isUserMenuOpen,      setIsUserMenuOpen]      = useState(false);
   const [isRetailerModalOpen, setIsRetailerModalOpen] = useState(false);
 
-  const [orderSuccess,     setOrderSuccess]     = useState(false);
-  const [pendingCheckout,  setPendingCheckout]  = useState(false);
-  const [hasApplied,       setHasApplied]       = useState(false);
+  const [orderSuccess,    setOrderSuccess]    = useState(false);
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [hasApplied,      setHasApplied]      = useState(false);
+
+  // ── Auto-open auth modal after session expiry ─────────────────────────────
+  // App.tsx sets autoOpenAuth=true when a session expires unexpectedly.
+  // We open the modal, then call onAutoAuthHandled to reset the flag so it
+  // doesn't re-trigger if the component re-renders.
+  useEffect(() => {
+    if (autoOpenAuth) {
+      setIsAuthOpen(true);
+      onAutoAuthHandled?.();
+    }
+  }, [autoOpenAuth]);
 
   useEffect(() => {
     loadProducts();
@@ -59,45 +74,28 @@ export function useHome({ user }: UseHomeProps) {
   }, [selectedCategory, products]);
 
   // ── 1C: Parallelized product loading ─────────────────────────────────────
-  // For retailer stores: all 3 queries fire simultaneously instead of waiting
-  // in a sequential chain. Total wait = slowest query, not sum of all queries.
   const loadProducts = async () => {
     setProductsLoading(true);
     try {
       if (store.isRetailer && store.id) {
-        // All three queries fire at the same time — no sequential waiting
         const [
           { data: baseProducts, error },
           { data: reg },
           { data: customPrices },
         ] = await Promise.all([
-          supabase
-            .from('products')
-            .select('*')
-            .eq('is_active', true)
-            .order('created_at', { ascending: false }),
-          supabase
-            .from('retailer_registrations')
-            .select('selected_categories')
-            .eq('store_slug', store.slug)
-            .maybeSingle(),
-          supabase
-            .from('retailer_products')
-            .select('product_id, custom_price')
-            .eq('retailer_id', store.id),
+          supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }),
+          supabase.from('retailer_registrations').select('selected_categories').eq('store_slug', store.slug).maybeSingle(),
+          supabase.from('retailer_products').select('product_id, custom_price').eq('retailer_id', store.id),
         ]);
 
         if (error) throw error;
         if (!baseProducts) return;
 
-        // Filter by selected categories (client-side, instant)
         const selectedCats: string[] = reg?.selected_categories ?? [];
-        const categoryFiltered =
-          selectedCats.length > 0
-            ? baseProducts.filter(p => selectedCats.includes(p.category))
-            : baseProducts;
+        const categoryFiltered = selectedCats.length > 0
+          ? baseProducts.filter(p => selectedCats.includes(p.category))
+          : baseProducts;
 
-        // Apply custom pricing (client-side, instant)
         const finalProducts: Product[] = categoryFiltered.map(p => {
           const custom = customPrices?.find(cp => cp.product_id === p.id);
           return custom ? { ...p, price: custom.custom_price } : p;
@@ -105,7 +103,6 @@ export function useHome({ user }: UseHomeProps) {
 
         setProducts(finalProducts);
       } else {
-        // Main store — single clean query
         const { data: baseProducts, error } = await supabase
           .from('products')
           .select('*')
@@ -122,16 +119,11 @@ export function useHome({ user }: UseHomeProps) {
     }
   };
 
-  // ── 1D: N+1 category image fix ────────────────────────────────────────────
-  // Old approach: 1 categories query + 1 query PER category = N+1 round-trips.
-  // New approach: 1 categories query + 1 products query, grouped client-side.
-  // Total is always 2 queries (or 3 for retailer stores) regardless of how
-  // many categories exist.
+  // ── 1D: N+1 fix — 2 parallel queries instead of 1+N ─────────────────────
   const loadCategories = async () => {
     try {
       let catSlugs: string[] = [];
 
-      // For retailer stores, find which categories they carry first
       if (store.isRetailer && store.slug) {
         const { data: reg } = await supabase
           .from('retailer_registrations')
@@ -141,22 +133,17 @@ export function useHome({ user }: UseHomeProps) {
         catSlugs = reg?.selected_categories ?? [];
       }
 
-      // Fire categories + all product images in parallel — 2 queries at once
       const [catsRes, imagesRes] = await Promise.all([
         (() => {
           let q = supabase.from('categories').select('slug, name').order('sort_order');
           if (catSlugs.length > 0) q = q.in('slug', catSlugs);
           return q;
         })(),
-        supabase
-          .from('products')
-          .select('category, images, image_url')
-          .eq('is_active', true),
+        supabase.from('products').select('category, images, image_url').eq('is_active', true),
       ]);
 
       if (!catsRes.data) return;
 
-      // Build a category → first image map in JS — O(n), runs in microseconds
       const imageBySlug = new Map<string, string | null>();
       for (const p of imagesRes.data ?? []) {
         if (!imageBySlug.has(p.category)) {
@@ -165,17 +152,18 @@ export function useHome({ user }: UseHomeProps) {
       }
 
       setCategories(
-        catsRes.data.map(cat => ({
-          ...cat,
-          image: imageBySlug.get(cat.slug) ?? null,
-        })),
+        catsRes.data.map(cat => ({ ...cat, image: imageBySlug.get(cat.slug) ?? null }))
       );
     } catch (err) {
       console.error('Categories fetch failed:', err);
     }
   };
 
+  // ── Sign out ──────────────────────────────────────────────────────────────
+  // markIntentionalSignOut() flags this as a deliberate user action so
+  // App.tsx does NOT treat the resulting SIGNED_OUT event as a session expiry.
   const handleSignOut = async () => {
+    markIntentionalSignOut();
     await supabase.auth.signOut();
     setIsUserMenuOpen(false);
   };
