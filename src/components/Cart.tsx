@@ -34,17 +34,6 @@ export default function Cart({
 
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  const calculateShipping = (count: number) => {
-    if (count === 0) return 0;
-    if (count <= 5) return 4950;
-    if (count <= 30) return 7800;
-    if (count <= 100) return 10000;
-    return 15000;
-  };
-
-  const shippingFee = calculateShipping(totalItems);
-  const total = subtotal + shippingFee;
-
   return (
     <div className="fixed inset-0 z-50">
       <div
@@ -150,16 +139,20 @@ export default function Cart({
                 <span>Subtotal</span>
                 <span>₦{subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Shipping ({totalItems} items)</span>
-                <span>₦{shippingFee.toLocaleString()}</span>
+              <div className="flex justify-between items-center">
+                <span>Shipping</span>
+                <span className="text-xs text-gray-400 italic">calculated at checkout</span>
               </div>
             </div>
 
             <div className="flex justify-between text-lg font-medium text-[#0d2818] pt-4 border-t border-gray-200">
               <span>Total</span>
-              <span>₦{total.toLocaleString()}</span>
+              <span>₦{subtotal.toLocaleString()}</span>
             </div>
+
+            <p className="text-[10px] text-gray-400 text-center -mt-2">
+              Shipping fee added at checkout based on your location
+            </p>
 
             <button
               onClick={onCheckout}
