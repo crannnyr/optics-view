@@ -78,11 +78,14 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const payableAmount = totalOrderAmount;
 
   // --- Helpers ---
+  // For transfer: fires immediately after order creation since the customer
+  // has committed to paying manually.
+  // For Paystack: MUST only fire inside handlePaystackSuccess — never before
+  // the payment is confirmed, to prevent confirmation emails for cancelled orders.
   const fireOrderEmails = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
 
-    // Customer confirmation
     sendEmail({
       type: 'order_confirmation',
       to_email: user.email,
@@ -96,7 +99,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       },
     });
 
-    // Admin new order alert
     sendEmail({
       type: 'new_order_alert',
       to_email: ADMIN_EMAIL,
@@ -109,7 +111,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         payment_method: method,
         shipping_address: shippingAddress,
       },
-      bypass_limit: true, // Admin alerts always go through
+      bypass_limit: true,
     });
   };
 
@@ -207,8 +209,12 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // Fire order emails immediately after order is created
-      fireOrderEmails(order, user, method);
+      // Transfer: fire emails immediately — customer has committed to pay manually.
+      // Paystack: emails fire in handlePaystackSuccess only, never here,
+      // so cancelled/failed payments don't trigger confirmation emails.
+      if (method === 'transfer') {
+        fireOrderEmails(order, user, method);
+      }
 
       if (method === 'paystack') {
         setPaystackConfig({
@@ -266,6 +272,9 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     setProcessingMessage('Verifying payment...');
 
     try {
+      // Retrieve the user for email firing
+      const { data: { user } } = await supabase.auth.getUser();
+
       await supabase.from('payments').insert({
         order_id: currentOrderId,
         amount: payableAmount,
@@ -275,7 +284,21 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         is_balance_payment: false
       });
 
-      await supabase.from('orders').update({ payment_verified_via: 'paystack' }).eq('id', currentOrderId);
+      await supabase.from('orders')
+        .update({ payment_verified_via: 'paystack' })
+        .eq('id', currentOrderId);
+
+      // Fire emails only on confirmed Paystack payment
+      if (user) {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('id, customer_name, customer_email')
+          .eq('id', currentOrderId)
+          .single();
+        if (order) {
+          fireOrderEmails(order, user, 'paystack');
+        }
+      }
 
       setProcessingMessage('Payment successful! 🎉');
       setTimeout(() => {
@@ -285,8 +308,33 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
     } catch (error) {
       console.error('Payment record error:', error);
+      // Even if DB write fails, Paystack confirmed — still call onSuccess
       onSuccess();
     }
+  };
+
+  // Paystack was cancelled or failed.
+  // Delete the orphaned pending order and its items, then step back to
+  // payment method selection so the user can retry cleanly without
+  // creating a duplicate order.
+  const handlePaystackClose = async () => {
+    if (!currentOrderId) {
+      setStep(2);
+      return;
+    }
+
+    try {
+      // Delete items first (foreign key constraint)
+      await supabase.from('order_items').delete().eq('order_id', currentOrderId);
+      await supabase.from('orders').delete().eq('id', currentOrderId);
+    } catch (err) {
+      // Non-critical — log but don't block the retry flow
+      console.error('Failed to clean up cancelled order:', err);
+    }
+
+    setCurrentOrderId(null);
+    setPaystackConfig(null);
+    setStep(2);
   };
 
   return {
@@ -312,6 +360,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     handleCopyAccount,
     createOrder,
     handleTransferComplete,
-    handlePaystackSuccess
+    handlePaystackSuccess,
+    handlePaystackClose,
   };
 }
