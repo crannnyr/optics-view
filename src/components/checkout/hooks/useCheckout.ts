@@ -39,6 +39,9 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     name: "Optics View Store"
   });
 
+  // Keyed by state name for O(1) lookup — populated on fetchSettings
+  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
+
   useEffect(() => {
     if (isOpen) {
       setStep(1);
@@ -54,16 +57,27 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
     const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
     if (transferData?.value) setTransferDetails(transferData.value);
+
+    // Load all per-state delivery fees in one query and key by state name
+    const { data: deliveryData } = await supabase
+      .from('delivery_settings')
+      .select('state, delivery_fee');
+    if (deliveryData) {
+      const map: Record<string, number> = {};
+      deliveryData.forEach(row => { map[row.state] = row.delivery_fee; });
+      setDeliveryFees(map);
+    }
   };
 
   // --- Calculations ---
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Returns the admin-configured fee for the selected state.
+  // Falls back to 4950 only if the state hasn't been configured yet,
+  // which should not happen since all 37 states have fees set.
   const calculateShipping = () => {
-    if (totalItems <= 5) return 4950;
-    if (totalItems <= 30) return 7800;
-    if (totalItems <= 100) return 10000;
-    return 15000;
+    if (!shippingData.state) return 0; // No state selected yet — shown as 0 on step 1
+    return deliveryFees[shippingData.state] ?? 4950;
   };
 
   const subtotal = items.reduce((sum, item) => {
