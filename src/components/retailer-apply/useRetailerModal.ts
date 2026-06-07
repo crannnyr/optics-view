@@ -22,6 +22,14 @@ export const DOMAIN_COSTS: Record<DomainType, number> = {
 
 export const CATEGORY_RATE = 5000;
 
+// Typed application status — drives what the modal renders
+export type ApplicationStatus =
+  | { state: 'none' }                         // No row — fresh apply
+  | { state: 'pending_paystack'; reg: any }   // Row exists, Paystack was cancelled — resume to step 6
+  | { state: 'pending_transfer' }             // Transfer submitted — user should check /retailer dashboard
+  | { state: 'verified' }                     // Paid and verified — go to dashboard
+  | { state: 'blocked' };                     // Admin blocked this application
+
 const RESERVED_SLUGS = [
   'admin','api','auth','dashboard','checkout','cart',
   'login','signup','retailer','account','settings'
@@ -31,7 +39,7 @@ export function useRetailerModal(referringRetailerId?: string | null) {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-  const [hasApplied, setHasApplied] = useState(false);
+  const [applicationStatus, setApplicationStatus] = useState<ApplicationStatus>({ state: 'none' });
   const [checkingApplication, setCheckingApplication] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -55,29 +63,26 @@ export function useRetailerModal(referringRetailerId?: string | null) {
 
   // ── Auth listener — re-checks application on every auth change ──
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u?.email) {
         setFormData(p => ({ ...p, email: u.email! }));
-        checkExistingApplication(u.email!);
+        checkApplicationStatus(u.email!);
       } else {
-        setHasApplied(false);
+        setApplicationStatus({ state: 'none' });
         setCheckingApplication(false);
       }
     });
 
-    // Listen for auth changes (login, logout, account switch)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
       setUser(u);
       if (u?.email) {
         setFormData(p => ({ ...p, email: u.email! }));
-        checkExistingApplication(u.email!);
+        checkApplicationStatus(u.email!);
       } else {
-        // Logged out — reset everything
-        setHasApplied(false);
+        setApplicationStatus({ state: 'none' });
         setCheckingApplication(false);
         setStep(1);
         setFormData({ storeName: '', email: '', phone: '', domainType: 'subdomain', customDomainName: '' });
@@ -93,16 +98,57 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     fetchPaymentSettings();
   }, []);
 
-  const checkExistingApplication = async (email: string) => {
+  // ── Smart application status check ──────────────────────────────
+  // Returns a typed status so the modal can render the correct screen
+  // rather than a blunt "already applied" wall.
+  const checkApplicationStatus = async (email: string) => {
     setCheckingApplication(true);
-    const { data } = await supabase
-      .from('retailer_registrations')
-      .select('id')
-      .eq('email', email)
-      .limit(1)
-      .maybeSingle();
-    setHasApplied(!!data);
-    setCheckingApplication(false);
+    try {
+      const { data } = await supabase
+        .from('retailer_registrations')
+        .select('id, payment_status, payment_method, paystack_reference, registration_fee, is_blocked')
+        .eq('email', email)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (!data) {
+        setApplicationStatus({ state: 'none' });
+        return;
+      }
+
+      if (data.is_blocked) {
+        setApplicationStatus({ state: 'blocked' });
+        return;
+      }
+
+      if (data.payment_status === 'verified') {
+        setApplicationStatus({ state: 'verified' });
+        return;
+      }
+
+      // payment_status === 'pending'
+      if (data.payment_method === 'transfer') {
+        // Transfer already submitted — dashboard has the waiting screen
+        setApplicationStatus({ state: 'pending_transfer' });
+        return;
+      }
+
+      // payment_method === 'paystack' or null — Paystack was cancelled/never completed
+      // Rehydrate paystackConfig from the saved row so the user can retry
+      // without a new row being inserted
+      setApplicationStatus({ state: 'pending_paystack', reg: data });
+      setPaystackConfig({
+        reference: data.paystack_reference,
+        email,
+        amount: data.registration_fee * 100,
+        publicKey: PAYSTACK_PUBLIC_KEY,
+        metadata: { registration_id: data.id },
+      });
+
+    } finally {
+      setCheckingApplication(false);
+    }
   };
 
   const fetchCategories = async () => {
@@ -124,7 +170,7 @@ export function useRetailerModal(referringRetailerId?: string | null) {
       prev.includes(slug) ? prev.filter(s => s !== slug) : [...prev, slug]
     );
 
-  // ── Pricing ────────────────────────────────────────────────
+  // ── Pricing ────────────────────────────────────────────────────
   const catCount = selectedCategories.length;
   const monthlyRate = catCount * CATEGORY_RATE;
   const hasFreeMonth = catCount === 1 && plan === 'monthly';
@@ -135,7 +181,7 @@ export function useRetailerModal(referringRetailerId?: string | null) {
 
   const isCustomDomain = formData.domainType !== 'subdomain';
 
-  // ── Helpers ────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────
   const generateSlug = (name: string) => {
     const slug = name.toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '').trim()
@@ -148,24 +194,37 @@ export function useRetailerModal(referringRetailerId?: string | null) {
       ? `opticsview.store/${generateSlug(formData.storeName || 'your-store')}`
       : `${formData.customDomainName || 'yourbrand'}.${formData.domainType}`;
 
-  // ── Submit ─────────────────────────────────────────────────
+  // ── Submit ─────────────────────────────────────────────────────
   const handleSubmitDetails = async () => {
     if (!user) return;
 
-    const { data: existing } = await supabase
-      .from('retailer_registrations')
-      .select('id')
-      .eq('email', formData.email)
-      .limit(1)
-      .maybeSingle();
-
-    if (existing) {
-      setHasApplied(true);
-      return;
-    }
-
     setLoading(true);
     try {
+      // Belt-and-suspenders: check one more time before inserting to
+      // prevent duplicate rows if UI state check somehow failed
+      const { data: existing } = await supabase
+        .from('retailer_registrations')
+        .select('id, paystack_reference, registration_fee, payment_status, payment_method')
+        .eq('email', formData.email)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        // Row already exists — resume to payment with existing reference
+        // instead of blocking or inserting a duplicate
+        setPaystackConfig({
+          reference: existing.paystack_reference,
+          email: formData.email,
+          amount: existing.registration_fee * 100,
+          publicKey: PAYSTACK_PUBLIC_KEY,
+          metadata: { registration_id: existing.id },
+        });
+        setStep(6);
+        setLoading(false);
+        return;
+      }
+
       const reference = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       const customDomain = isCustomDomain
         ? `${formData.customDomainName}.${formData.domainType}`
@@ -184,6 +243,7 @@ export function useRetailerModal(referringRetailerId?: string | null) {
           domain_cost: domainCost,
           paystack_reference: reference,
           payment_status: 'pending',
+          payment_method: 'paystack', // Always written on insert so pending rows are identifiable
           subscription_status: 'pending',
           subscription_plan: plan,
           selected_categories: selectedCategories,
@@ -246,15 +306,15 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     window.location.href = '/retailer';
   };
 
-  const handlePaystackClose = () => {
-    alert('Payment cancelled. Your registration is saved — return to complete payment.');
-  };
+  // No alert — just a clean no-op. The modal stays on step 6 so the user
+  // can try again. Their registration row is already saved.
+  const handlePaystackClose = () => {};
 
   return {
     step, setStep,
     user,
     loading,
-    hasApplied,
+    applicationStatus,
     checkingApplication,
     categories,
     selectedCategories, toggleCategory,
@@ -272,5 +332,6 @@ export function useRetailerModal(referringRetailerId?: string | null) {
     handleSubmitDetails,
     handlePaystackSuccess,
     handlePaystackClose,
+    checkApplicationStatus,
   };
 }
