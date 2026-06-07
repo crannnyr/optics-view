@@ -36,7 +36,8 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
     handleCopyAccount,
     createOrder,
     handleTransferComplete,
-    handlePaystackSuccess
+    handlePaystackSuccess,
+    handlePaystackClose,
   } = useCheckout({ isOpen, items, onSuccess });
 
   if (!isOpen) return null;
@@ -44,13 +45,13 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
       <div className="bg-white w-full max-w-lg relative max-h-[90vh] overflow-y-auto rounded-lg shadow-2xl">
-        
-        <CheckoutHeader 
-          step={step} 
-          paymentMethod={paymentMethod} 
-          themeColor={store?.themeColor} 
-          loading={loading} 
-          onClose={onClose} 
+
+        <CheckoutHeader
+          step={step}
+          paymentMethod={paymentMethod}
+          themeColor={store?.themeColor}
+          loading={loading}
+          onClose={onClose}
         />
 
         <div className="p-8">
@@ -88,6 +89,7 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
               loading={loading}
               themeColor={store?.themeColor}
               handlePaystackSuccess={handlePaystackSuccess}
+              handlePaystackClose={handlePaystackClose}
               handleCopyAccount={handleCopyAccount}
               handleTransferComplete={handleTransferComplete}
             />
