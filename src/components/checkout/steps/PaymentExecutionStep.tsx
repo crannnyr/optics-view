@@ -10,6 +10,7 @@ interface PaymentExecutionStepProps {
   loading: boolean;
   themeColor?: string;
   handlePaystackSuccess: (reference: any) => void;
+  handlePaystackClose: () => void;
   handleCopyAccount: () => void;
   handleTransferComplete: () => void;
 }
@@ -23,6 +24,7 @@ export default function PaymentExecutionStep({
   loading,
   themeColor = '#0d2818',
   handlePaystackSuccess,
+  handlePaystackClose,
   handleCopyAccount,
   handleTransferComplete
 }: PaymentExecutionStepProps) {
@@ -35,7 +37,12 @@ export default function PaymentExecutionStep({
           </div>
           <div>
             <h3 className="text-lg font-medium">Complete Card Payment</h3>
-            <p className="text-sm text-gray-500 mt-1">Click the button below to launch the secure payment window.</p>
+            <p className="text-sm text-gray-500 mt-1">
+              Click the button below to launch the secure payment window.
+            </p>
+            <p className="text-xs text-amber-600 mt-2">
+              If you close the payment window your order will be cancelled — you can retry from this screen.
+            </p>
           </div>
 
           {/* Wrapper forces correct styles since PaystackButton strips custom style prop */}
@@ -46,7 +53,7 @@ export default function PaymentExecutionStep({
             <PaystackButton
               {...paystackConfig}
               onSuccess={handlePaystackSuccess}
-              onClose={() => alert("Payment cancelled")}
+              onClose={handlePaystackClose}
               className="w-full py-4 text-sm font-bold tracking-widest hover:opacity-90 transition-opacity"
               style={{ backgroundColor: 'transparent', color: '#ffffff', width: '100%', border: 'none', cursor: 'pointer' }}
               text={`PAY NOW — ₦${payableAmount.toLocaleString()}`}
@@ -85,8 +92,14 @@ export default function PaymentExecutionStep({
                 <p className="text-[10px] text-gray-400">ACCOUNT NUMBER</p>
                 <div className="flex items-center gap-3">
                   <p className="text-2xl font-mono font-bold tracking-wider">{transferDetails.number}</p>
-                  <button onClick={handleCopyAccount} className="p-2 bg-white/10 rounded hover:bg-white/20 transition-colors">
-                    {copied ? <CheckCircle size={16} className="text-green-400"/> : <Copy size={16} />}
+                  <button
+                    onClick={handleCopyAccount}
+                    className="p-2 bg-white/10 rounded hover:bg-white/20 transition-colors"
+                  >
+                    {copied
+                      ? <CheckCircle size={16} className="text-green-400" />
+                      : <Copy size={16} />
+                    }
                   </button>
                 </div>
               </div>
@@ -110,7 +123,10 @@ export default function PaymentExecutionStep({
             className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 rounded flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ backgroundColor: themeColor }}
           >
-            {loading ? <Loader2 className="animate-spin" /> : <CheckCircle size={16} />}
+            {loading
+              ? <Loader2 className="animate-spin" size={16} />
+              : <CheckCircle size={16} />
+            }
             I HAVE MADE THE TRANSFER
           </button>
         </div>
