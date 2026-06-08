@@ -73,8 +73,7 @@ function StoreErrorScreen() {
     </div>
   );
 }
-
-const SESSION_TIMEOUT_MS = 6000;
+const SESSION_TIMEOUT_MS = 15 * 1000; // 15 seconds — enough for slow mobile connections
 
 function App() {
   const { store, loading: storeLoading, storeNotFound, storeError } = useStore();
