@@ -11,7 +11,7 @@ interface SendEmailParams {
 
 export async function sendEmail({ type, to_email, to_name, data = {}, bypass_limit = false }: SendEmailParams) {
   try {
-    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-email`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/send-emails`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
