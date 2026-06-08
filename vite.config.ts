@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['pwa-icon.jpg'],
       manifest: {
         name: 'OpticsView',
@@ -49,7 +49,7 @@ export default defineConfig({
               networkTimeoutSeconds: 10,
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24, // 1 day
+                maxAgeSeconds: 60 * 60, // 1 hour
               },
             },
           },
@@ -73,6 +73,9 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash][extname]',
         // Split vendor libraries into separate cached chunks.
         // React, Supabase, and Lucide rarely change — once cached by the
         // browser they are never re-downloaded, even across deployments.
