@@ -1,20 +1,22 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store } from 'lucide-react';
+import { Package, Settings, Upload, Store, Users } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
 import RetailersTab from './admin/RetailersTab';
+import UsersTab from './admin/UsersTab';
 
-type TabType = 'products' | 'orders' | 'retailers' | 'settings';
+type TabType = 'products' | 'orders' | 'retailers' | 'users' | 'settings';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
 
   const navItems = [
-    { id: 'products' as const, label: 'Products', icon: Upload },
-    { id: 'orders' as const, label: 'Orders', icon: Package },
+    { id: 'products'  as const, label: 'Products',  icon: Upload },
+    { id: 'orders'    as const, label: 'Orders',    icon: Package },
     { id: 'retailers' as const, label: 'Retailers', icon: Store },
-    { id: 'settings' as const, label: 'Settings', icon: Settings },
+    { id: 'users'     as const, label: 'Users',     icon: Users },
+    { id: 'settings'  as const, label: 'Settings',  icon: Settings },
   ];
 
   return (
@@ -64,10 +66,11 @@ export default function Admin() {
       {/* Main Content */}
       <main className="flex-1 md:ml-64 p-6 md:p-12 mt-12 md:mt-0">
         <div className="max-w-7xl mx-auto">
-          {activeTab === 'products' && <ProductsTab />}
-          {activeTab === 'orders' && <OrdersTab />}
+          {activeTab === 'products'  && <ProductsTab />}
+          {activeTab === 'orders'    && <OrdersTab />}
           {activeTab === 'retailers' && <RetailersTab />}
-          {activeTab === 'settings' && <SettingsTab />}
+          {activeTab === 'users'     && <UsersTab />}
+          {activeTab === 'settings'  && <SettingsTab />}
         </div>
       </main>
     </div>
