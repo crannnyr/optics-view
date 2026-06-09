@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, Product, markIntentionalSignOut } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
 
 interface UseHomeProps {
   user: any;
-  // When true, open the auth modal automatically — set by App.tsx after
-  // any session expiry so the user can sign back in without hunting for the button.
   autoOpenAuth?: boolean;
   onAutoAuthHandled?: () => void;
 }
+
+const PAGE_SIZE = 12;
+const HERO_CACHE_KEY = 'ov_hero_settings';
 
 export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps) {
   const { store } = useStore();
@@ -17,6 +18,16 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [categories, setCategories]             = useState<{ slug: string; name: string; image: string | null }[]>([]);
   const [productsLoading, setProductsLoading]   = useState(true);
+
+  // Pagination state
+  const [page, setPage]               = useState(1);
+  const [hasMore, setHasMore]         = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [totalCount, setTotalCount]   = useState(0);
+
+  // For retailer stores we fetch all (usually small filtered set).
+  // For the main store we paginate.
+  const isRetailerStore = store.isRetailer && !!store.id;
 
   const [isCartOpen,          setIsCartOpen]          = useState(false);
   const [isCheckoutOpen,      setIsCheckoutOpen]      = useState(false);
@@ -28,10 +39,11 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [hasApplied,      setHasApplied]      = useState(false);
 
-  // ── Auto-open auth modal after session expiry ─────────────────────────────
-  // App.tsx sets autoOpenAuth=true when a session expires unexpectedly.
-  // We open the modal, then call onAutoAuthHandled to reset the flag so it
-  // doesn't re-trigger if the component re-renders.
+  // Retailer category whitelist — fetched once and reused
+  const retailerCatsRef = useRef<string[]>([]);
+  const customPricesRef = useRef<{ product_id: string; custom_price: number }[]>([]);
+
+  // ── Auto-open auth after session expiry ───────────────────────────────────
   useEffect(() => {
     if (autoOpenAuth) {
       setIsAuthOpen(true);
@@ -39,11 +51,16 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   }, [autoOpenAuth]);
 
+  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
-    loadProducts();
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
+    loadProducts(1, 'all', true);
     loadCategories();
   }, [store.id]);
 
+  // ── Retailer application check ────────────────────────────────────────────
   useEffect(() => {
     if (user?.email) {
       supabase
@@ -58,6 +75,7 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   }, [user]);
 
+  // ── Pending checkout after auth ───────────────────────────────────────────
   useEffect(() => {
     if (user && pendingCheckout) {
       setPendingCheckout(false);
@@ -65,61 +83,121 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   }, [user, pendingCheckout]);
 
+  // ── Category filter ───────────────────────────────────────────────────────
+  // When category changes reset pagination and re-fetch
   useEffect(() => {
-    if (selectedCategory === 'all') {
-      setFilteredProducts(products);
+    setPage(1);
+    setProducts([]);
+    setHasMore(true);
+    loadProducts(1, selectedCategory, true);
+  }, [selectedCategory]);
+
+  // ── Product loader ────────────────────────────────────────────────────────
+  const loadProducts = useCallback(async (
+    pageNum: number,
+    category: string,
+    isReset: boolean
+  ) => {
+    if (pageNum === 1) {
+      setProductsLoading(true);
     } else {
-      setFilteredProducts(products.filter(p => p.category === selectedCategory));
+      setLoadingMore(true);
     }
-  }, [selectedCategory, products]);
 
-  // ── 1C: Parallelized product loading ─────────────────────────────────────
-  const loadProducts = async () => {
-    setProductsLoading(true);
     try {
-      if (store.isRetailer && store.id) {
-        const [
-          { data: baseProducts, error },
-          { data: reg },
-          { data: customPrices },
-        ] = await Promise.all([
-          supabase.from('products').select('*').eq('is_active', true).order('created_at', { ascending: false }),
-          supabase.from('retailer_registrations').select('selected_categories').eq('store_slug', store.slug).maybeSingle(),
-          supabase.from('retailer_products').select('product_id, custom_price').eq('retailer_id', store.id),
-        ]);
+      const from = (pageNum - 1) * PAGE_SIZE;
+      const to   = from + PAGE_SIZE - 1;
 
+      if (isRetailerStore) {
+        // Retailer: fetch supporting data once on reset
+        if (isReset) {
+          const [{ data: reg }, { data: customPrices }] = await Promise.all([
+            supabase
+              .from('retailer_registrations')
+              .select('selected_categories')
+              .eq('store_slug', store.slug)
+              .maybeSingle(),
+            supabase
+              .from('retailer_products')
+              .select('product_id, custom_price')
+              .eq('retailer_id', store.id),
+          ]);
+          retailerCatsRef.current  = reg?.selected_categories ?? [];
+          customPricesRef.current  = customPrices ?? [];
+        }
+
+        const catSlugs = retailerCatsRef.current;
+
+        let query = supabase
+          .from('products')
+          .select('*', { count: 'exact' })
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (category !== 'all') {
+          query = query.eq('category', category);
+        } else if (catSlugs.length > 0) {
+          query = query.in('category', catSlugs);
+        }
+
+        const { data: baseProducts, count, error } = await query;
         if (error) throw error;
         if (!baseProducts) return;
 
-        const selectedCats: string[] = reg?.selected_categories ?? [];
-        const categoryFiltered = selectedCats.length > 0
-          ? baseProducts.filter(p => selectedCats.includes(p.category))
-          : baseProducts;
+        setTotalCount(count ?? 0);
+        setHasMore(to < (count ?? 0) - 1);
 
-        const finalProducts: Product[] = categoryFiltered.map(p => {
-          const custom = customPrices?.find(cp => cp.product_id === p.id);
+        const finalProducts: Product[] = baseProducts.map(p => {
+          const custom = customPricesRef.current.find(cp => cp.product_id === p.id);
           return custom ? { ...p, price: custom.custom_price } : p;
         });
 
-        setProducts(finalProducts);
-      } else {
-        const { data: baseProducts, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false });
+        setProducts(prev => isReset ? finalProducts : [...prev, ...finalProducts]);
 
+      } else {
+        // Main store: paginated fetch
+        let query = supabase
+          .from('products')
+          .select('*', { count: 'exact' })
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .range(from, to);
+
+        if (category !== 'all') {
+          query = query.eq('category', category);
+        }
+
+        const { data: baseProducts, count, error } = await query;
         if (error) throw error;
-        setProducts(baseProducts ?? []);
+
+        setTotalCount(count ?? 0);
+        setHasMore(to < (count ?? 0) - 1);
+        setProducts(prev => isReset ? (baseProducts ?? []) : [...prev, ...(baseProducts ?? [])]);
       }
+
     } catch (err) {
       console.error('Products fetch failed:', err);
     } finally {
       setProductsLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [store.id, store.slug, store.isRetailer, isRetailerStore]);
 
-  // ── 1D: N+1 fix — 2 parallel queries instead of 1+N ─────────────────────
+  // filteredProducts is just products — filtering is now done server-side
+  useEffect(() => {
+    setFilteredProducts(products);
+  }, [products]);
+
+  // ── Load more (called by infinite scroll sentinel) ────────────────────────
+  const loadMore = useCallback(() => {
+    if (loadingMore || !hasMore) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadProducts(nextPage, selectedCategory, false);
+  }, [page, loadingMore, hasMore, selectedCategory, loadProducts]);
+
+  // ── Categories ────────────────────────────────────────────────────────────
   const loadCategories = async () => {
     try {
       let catSlugs: string[] = [];
@@ -159,9 +237,7 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   };
 
-  // ── Sign out ──────────────────────────────────────────────────────────────
-  // markIntentionalSignOut() flags this as a deliberate user action so
-  // App.tsx does NOT treat the resulting SIGNED_OUT event as a session expiry.
+  // ── Auth ──────────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
     markIntentionalSignOut();
     await supabase.auth.signOut();
@@ -183,6 +259,10 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     products,
     filteredProducts,
     productsLoading,
+    loadingMore,
+    hasMore,
+    loadMore,
+    totalCount,
     selectedCategory,
     setSelectedCategory,
     categories,
