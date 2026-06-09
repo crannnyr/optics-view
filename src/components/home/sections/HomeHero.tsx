@@ -32,16 +32,10 @@ function positionToTextAlign(pos: string): 'left' | 'center' | 'right' {
   return 'center';
 }
 
-// ── Skeleton shown while the hero DB query is in-flight ──────────────────────
-// This means the hero section has the correct height immediately — no layout
-// shift — and the real image replaces it the moment the query returns.
 function HeroSkeleton() {
-  return (
-    <div className="w-full h-full bg-gray-100 animate-pulse" />
-  );
+  return <div className="w-full h-full bg-gray-100 animate-pulse" />;
 }
 
-// ── Jumia Express badge ───────────────────────────────────────────────────────
 function JumiaExpressBadge() {
   return (
     <div className="flex flex-col leading-none flex-shrink-0">
@@ -55,7 +49,6 @@ function JumiaExpressBadge() {
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
 interface HomeHeroProps {
   themeColor: string;
   onRetailerClick: () => void;
@@ -65,12 +58,9 @@ interface HomeHeroProps {
 
 export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user }: HomeHeroProps) {
   const { store } = useStore();
-
-  // null = query still in-flight (show skeleton)
-  // HeroSettings = query resolved (show real image)
   const [hero, setHero] = useState<HeroSettings | null>(null);
 
-  // Load Google Fonts only once, only for the font that's actually set
+  // Load Google Fonts once
   useEffect(() => {
     if (document.getElementById('hero-gfonts')) return;
     const link  = document.createElement('link');
@@ -88,13 +78,29 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
     document.head.appendChild(link);
   }, []);
 
-  // Fetch the admin's custom hero settings.
-  // No hardcoded fallback image — we show a skeleton until this resolves.
-  // The image download starts the instant we have the URL, not a tick later.
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    // Cache key is store-specific so retailer stores don't share the main store's hero
+    const cacheKey = `ov_hero_${store.id || 'main'}`;
+
+    const loadHero = async () => {
+      // ── 1. Try sessionStorage first ──────────────────────────────────────
+      // sessionStorage lives for the browser tab's lifetime.
+      // Same-session revisits (e.g. back button) get instant hero with zero DB queries.
+      // New tab or new session always fetches fresh from DB.
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached) as HeroSettings;
+          if (!cancelled) setHero(parsed);
+          return; // Skip DB query entirely
+        }
+      } catch {
+        // sessionStorage unavailable (private browsing edge case) — fall through to DB
+      }
+
+      // ── 2. Fetch from DB and cache result ────────────────────────────────
       try {
         let settings: HeroSettings | null = null;
 
@@ -114,13 +120,23 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
           settings = data?.value ?? null;
         }
 
-        if (!cancelled) setHero(settings);
+        if (!cancelled) {
+          setHero(settings);
+          // Cache for this session so back-navigation is instant
+          if (settings) {
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify(settings));
+            } catch {
+              // sessionStorage full or unavailable — not critical
+            }
+          }
+        }
       } catch {
-        // Query failed — leave hero as null (skeleton stays visible)
-        // which is better than showing a stale hardcoded image
+        // Query failed — skeleton stays visible, no crash
       }
-    })();
+    };
 
+    loadHero();
     return () => { cancelled = true; };
   }, [store.id, store.isRetailer]);
 
@@ -129,7 +145,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
       {/* ── Hero section ── */}
       <section className="relative w-full h-[260px] md:h-[600px] overflow-hidden bg-gray-100">
         {hero === null ? (
-          // In-flight: correct height maintained, no layout shift
           <HeroSkeleton />
         ) : (
           <>
@@ -137,14 +152,10 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               src={hero.image_url}
               alt="Hero Banner"
               className="w-full h-full object-contain"
-              // fetchpriority tells the browser this is your most important
-              // image (the LCP element) — it gets maximum download priority
               fetchPriority="high"
-              // Decode off the main thread so it doesn't block paint
               decoding="async"
             />
 
-            {/* Overlay */}
             <div
               className="absolute inset-0"
               style={{
@@ -153,7 +164,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               }}
             />
 
-            {/* Text */}
             <div
               className="absolute inset-0 flex flex-col px-8 py-6"
               style={positionToFlex(hero.position)}
