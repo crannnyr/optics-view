@@ -11,10 +11,79 @@ const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 
+// ── Session timeout ───────────────────────────────────────────────────────────
+// Guards against getSession() never resolving on a dead connection.
+// 15 seconds is enough for slow mobile (3G resolves well within it).
+// This is NOT the user's session duration — Supabase manages that separately.
+const SESSION_TIMEOUT_MS = 15 * 1000;
+
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
       <Loader2 size={32} className="animate-spin text-gray-300" />
+    </div>
+  );
+}
+
+// ── PWA Update Prompt ─────────────────────────────────────────────────────────
+// Shown when a new service worker is waiting to activate.
+// vite.config.ts uses registerType: 'prompt' so we control when the update applies.
+// Without this component the new SW would never activate (user stays on old version).
+function PWAUpdatePrompt() {
+  const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
+
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.ready.then(reg => {
+      // Already waiting (page loaded after SW installed)
+      if (reg.waiting) { setWaiting(reg.waiting); return; }
+
+      // New SW installs while page is open
+      reg.addEventListener('updatefound', () => {
+        const newSW = reg.installing;
+        if (!newSW) return;
+        newSW.addEventListener('statechange', () => {
+          if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+            setWaiting(newSW);
+          }
+        });
+      });
+    });
+
+    // When SW activates, reload to serve new assets
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  }, []);
+
+  const applyUpdate = () => {
+    if (!waiting) return;
+    waiting.postMessage({ type: 'SKIP_WAITING' });
+  };
+
+  if (!waiting) return null;
+
+  return (
+    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-[#0d2818] text-white p-4 rounded-lg shadow-xl z-[9998]">
+      <div className="flex items-start gap-3">
+        <RefreshCw size={16} className="mt-0.5 shrink-0 text-white/70" />
+        <div className="flex-1">
+          <p className="text-xs font-semibold tracking-wider">Update Available</p>
+          <p className="text-[11px] text-white/60 mt-1 leading-relaxed">
+            A new version of the app is ready.
+          </p>
+        </div>
+        <button
+          onClick={applyUpdate}
+          className="shrink-0 text-[10px] bg-white text-[#0d2818] px-3 py-1.5 rounded font-semibold tracking-wider hover:bg-gray-100 transition-colors"
+        >
+          UPDATE
+        </button>
+      </div>
     </div>
   );
 }
@@ -47,9 +116,6 @@ function SessionToast({ onDismiss, showSignIn }: { onDismiss: () => void; showSi
 }
 
 // ── Store error screen ────────────────────────────────────────────────────────
-// Shown when StoreContext fails to load due to network or Supabase error.
-// Gives the user a clear explanation and a one-tap retry instead of
-// an infinite spinner with no way out.
 function StoreErrorScreen() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -73,7 +139,6 @@ function StoreErrorScreen() {
     </div>
   );
 }
-const SESSION_TIMEOUT_MS = 15 * 1000; // 15 seconds — enough for slow mobile connections
 
 function App() {
   const { store, loading: storeLoading, storeNotFound, storeError } = useStore();
@@ -85,6 +150,9 @@ function App() {
   const [sessionTimedOut, setSessionTimedOut] = useState(false);
   const [autoOpenAuth, setAutoOpenAuth]       = useState(false);
   const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Badge 4 — debounce cart saves so we don't write localStorage on every keystroke
+  const cartSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [adminEmail,    setAdminEmail]    = useState('');
   const [adminPassword, setAdminPassword] = useState('');
@@ -141,6 +209,17 @@ function App() {
       if (timedOut) return;
       if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
 
+      // ── last_seen_at ──────────────────────────────────────────────────────
+      // Update last_seen_at on every sign-in so the Users admin tab can show
+      // "Active Today" and track recent sign-in activity.
+      if (event === 'SIGNED_IN' && session?.user) {
+        supabase
+          .from('profiles')
+          .update({ last_seen_at: new Date().toISOString() })
+          .eq('id', session.user.id)
+          .then(() => {});  // fire and forget — non-critical
+      }
+
       if (
         initialized &&
         event === 'SIGNED_OUT' &&
@@ -196,8 +275,17 @@ function App() {
     };
   }, []);
 
+  // ── Badge 4: Debounced cart persistence ───────────────────────────────────
+  // Previously wrote to localStorage on every single cart change.
+  // Now waits 500ms after last change before saving — smoother on slow devices.
   useEffect(() => {
-    localStorage.setItem('optics_cart', JSON.stringify(cart));
+    if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
+    cartSaveTimerRef.current = setTimeout(() => {
+      localStorage.setItem('optics_cart', JSON.stringify(cart));
+    }, 500);
+    return () => {
+      if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
+    };
   }, [cart]);
 
   useEffect(() => {
@@ -264,8 +352,6 @@ function App() {
     if (error) { setAdminError('Invalid credentials'); return; }
     if (data.user?.user_metadata?.role !== 'admin') {
       setAdminError('Access Denied: Not an administrator');
-      // Mark as intentional so the SIGNED_OUT event from this failure
-      // does not trigger the session expiry toast.
       import('./lib/supabase').then(({ markIntentionalSignOut }) => markIntentionalSignOut());
       await supabase.auth.signOut();
     }
@@ -273,7 +359,6 @@ function App() {
 
   // ── Render guards ─────────────────────────────────────────────────────────
 
-  // Still loading — show spinner
   if (authLoading || storeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
@@ -282,10 +367,7 @@ function App() {
     );
   }
 
-  // Network/Supabase failure on startup — show recovery screen
-  if (storeError) {
-    return <StoreErrorScreen />;
-  }
+  if (storeError) return <StoreErrorScreen />;
 
   if (storeNotFound) {
     return (
@@ -428,6 +510,9 @@ function App() {
 
   return (
     <>
+      {/* PWA update banner — appears when a new version is deployed */}
+      <PWAUpdatePrompt />
+
       {sessionTimedOut && (
         <SessionToast
           showSignIn={autoOpenAuth}
