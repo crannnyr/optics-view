@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { Product, CartItem } from '../lib/supabase';
 
@@ -23,8 +24,6 @@ interface HomeProps {
   onViewProduct: (product: Product) => void;
   onNavigateToPrivacy: () => void;
   onNavigateToTerms: () => void;
-  // Passed from App.tsx when a session expires — causes the auth modal
-  // to open automatically so the user can sign back in immediately.
   autoOpenAuth?: boolean;
   onAutoAuthHandled?: () => void;
 }
@@ -32,7 +31,7 @@ interface HomeProps {
 function ProductSkeleton() {
   return (
     <div className="group animate-pulse">
-      <div className="bg-gray-200 aspect-square mb-4 rounded-sm" />
+      <div className="bg-gradient-to-br from-gray-200 to-gray-100 aspect-square mb-4 rounded-sm" />
       <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
       <div className="h-4 bg-gray-200 rounded w-1/3" />
     </div>
@@ -47,6 +46,7 @@ export default function Home({
 
   const {
     store, filteredProducts, productsLoading,
+    loadingMore, hasMore, loadMore,
     selectedCategory, setSelectedCategory,
     isCartOpen, setIsCartOpen, isCheckoutOpen, setIsCheckoutOpen,
     isAuthOpen, setIsAuthOpen, isUserMenuOpen, setIsUserMenuOpen,
@@ -55,6 +55,28 @@ export default function Home({
   } = useHome({ user, autoOpenAuth, onAutoAuthHandled });
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+
+  // ── Infinite scroll sentinel ──────────────────────────────────────────────
+  // A tiny invisible div at the bottom of the product grid.
+  // When it enters the viewport, loadMore() fires automatically.
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: '200px' } // Start loading 200px before user hits bottom
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, loadMore]);
 
   return (
     <div className="min-h-screen bg-white relative flex flex-col">
@@ -91,7 +113,7 @@ export default function Home({
         <section className="max-w-7xl mx-auto px-6 pb-20">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
             {productsLoading
-              ? Array.from({ length: 6 }).map((_, i) => <ProductSkeleton key={i} />)
+              ? Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)
               : filteredProducts.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -102,6 +124,30 @@ export default function Home({
                 ))
             }
           </div>
+
+          {/* Infinite scroll sentinel — invisible, sits below the grid */}
+          <div ref={sentinelRef} className="h-1 w-full" />
+
+          {/* Loading more spinner */}
+          {loadingMore && (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
+            </div>
+          )}
+
+          {/* End of catalog */}
+          {!hasMore && !productsLoading && filteredProducts.length > 0 && (
+            <p className="text-center text-xs text-gray-300 tracking-widest uppercase py-8">
+              All products loaded
+            </p>
+          )}
+
+          {/* Empty state */}
+          {!productsLoading && filteredProducts.length === 0 && (
+            <div className="text-center py-20">
+              <p className="text-sm text-gray-400 tracking-wider">No products found</p>
+            </div>
+          )}
         </section>
       </main>
 
