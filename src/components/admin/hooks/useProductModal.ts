@@ -111,7 +111,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
   // Derived: item types for currently selected category
   const availableItemTypes = categories.find(c => c.slug === formData.category)?.item_types || [];
 
-  const compressImage = (file: File, maxWidth = 1000, quality = 0.7): Promise<File> =>
+  // Compresses image to WebP, max 800px wide, iteratively reducing quality
+  // until the file is at or under 65KB. Stops at quality 0.1 to avoid
+  // making images unrecognisably bad on very large source files.
+  const compressImage = (file: File, maxWidth = 800, targetSizeKB = 65): Promise<File> =>
     new Promise(resolve => {
       const img = new Image();
       const url = URL.createObjectURL(file);
@@ -121,11 +124,24 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
         canvas.width = img.width * scale;
         canvas.height = img.height * scale;
         canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(
-          blob => resolve(new File([blob!], file.name, { type: 'image/webp' })),
-          'image/webp',
-          quality
-        );
+
+        let quality = 0.75;
+        const attempt = () => {
+          canvas.toBlob(
+            blob => {
+              if (!blob) return resolve(new File([], file.name, { type: 'image/webp' }));
+              if (blob.size / 1024 <= targetSizeKB || quality <= 0.1) {
+                resolve(new File([blob], file.name, { type: 'image/webp' }));
+              } else {
+                quality -= 0.05;
+                attempt();
+              }
+            },
+            'image/webp',
+            quality
+          );
+        };
+        attempt();
         URL.revokeObjectURL(url);
       };
       img.src = url;
@@ -201,7 +217,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       dropship_price: formData.dropship_price ? parseFloat(formData.dropship_price) : null,
       wholesale_min_qty: parseInt(formData.wholesale_min_qty) || 7,
       stock: parseInt(formData.stock),
-      category: formData.category,
+      category: product?.category ?? formData.category,
       product_type: formData.product_type,
       images,
       color_options: colorOptions.length > 0 ? colorOptions : null,
