@@ -92,10 +92,34 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const payableAmount = totalOrderAmount;
 
   // --- Helpers ---
-  // For transfer: fires immediately after order creation since the customer
-  // has committed to paying manually.
-  // For Paystack: MUST only fire inside handlePaystackSuccess — never before
-  // the payment is confirmed, to prevent confirmation emails for cancelled orders.
+
+  // Sends the admin new-order alert only.
+  // Used for transfer orders at creation time — the customer confirmation
+  // email (order_confirmation) is intentionally withheld until the admin
+  // manually verifies and approves the payment.
+  const fireAdminAlert = (order: any, user: any, method: string) => {
+    const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
+    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
+
+    sendEmail({
+      type: 'new_order_alert',
+      to_email: ADMIN_EMAIL,
+      data: {
+        order_id: order.id,
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        customer_email: user.email,
+        customer_phone: contactPhones,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+      bypass_limit: true,
+    });
+  };
+
+  // Sends both the customer confirmation and the admin alert.
+  // Only called after a payment is fully confirmed (Paystack success).
+  // Never called for transfer orders at creation — those go through fireAdminAlert only.
   const fireOrderEmails = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
@@ -223,11 +247,11 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
       if (itemsError) throw itemsError;
 
-      // Transfer: fire emails immediately — customer has committed to pay manually.
+      // Transfer: only alert admin — order_confirmation is sent by admin on approval.
       // Paystack: emails fire in handlePaystackSuccess only, never here,
       // so cancelled/failed payments don't trigger confirmation emails.
       if (method === 'transfer') {
-        fireOrderEmails(order, user, method);
+        fireAdminAlert(order, user, method);
       }
 
       if (method === 'paystack') {
@@ -302,7 +326,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         .update({ payment_verified_via: 'paystack' })
         .eq('id', currentOrderId);
 
-      // Fire emails only on confirmed Paystack payment
+      // Fire both emails only on confirmed Paystack payment
       if (user) {
         const { data: order } = await supabase
           .from('orders')
