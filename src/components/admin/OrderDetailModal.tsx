@@ -3,8 +3,8 @@ import {
   X, Package, Truck, CheckCircle, Loader2,
   AlertTriangle, RotateCcw, Ban, Copy, Check, ExternalLink
 } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
-import { sendEmail } from '../../../lib/email';
+import { supabase } from '../../lib/supabase';
+import { sendEmail } from '../../lib/email';
 
 interface Props {
   order: any;
