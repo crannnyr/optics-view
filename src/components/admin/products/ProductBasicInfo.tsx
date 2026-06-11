@@ -16,6 +16,7 @@ interface ProductBasicInfoProps {
     wholesale_min_qty: string;
     product_type: string;
     category: string;
+    supplier: string;
     [key: string]: any;
   };
   setFormData: (data: any) => void;
@@ -24,6 +25,12 @@ interface ProductBasicInfoProps {
   availableItemTypes: CategoryItemType[];
   handleCategoryChange: (slug: string) => void;
 }
+
+const SUPPLIERS = [
+  { value: 'jumia', label: '🟠 Jumia' },
+  { value: 'shein', label: '🟣 Shein' },
+  { value: 'own',   label: '🟢 Own Stock' },
+];
 
 export default function ProductBasicInfo({
   formData,
@@ -79,7 +86,7 @@ export default function ProductBasicInfo({
         )}
       </div>
 
-      {/* Item Type — filtered by selected category */}
+      {/* Item Type */}
       <div>
         <label className="block text-[10px] uppercase text-gray-500 mb-2">Item Type</label>
         {availableItemTypes.length === 0 ? (
@@ -99,6 +106,23 @@ export default function ProductBasicInfo({
         )}
         <p className="text-[10px] text-gray-400 mt-1">
           Item types are managed in Settings → Categories
+        </p>
+      </div>
+
+      {/* Supplier */}
+      <div>
+        <label className="block text-[10px] uppercase text-gray-500 mb-2">Supplier</label>
+        <select
+          value={formData.supplier || 'jumia'}
+          onChange={e => setFormData({ ...formData, supplier: e.target.value })}
+          className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
+        >
+          {SUPPLIERS.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+        <p className="text-[10px] text-gray-400 mt-1">
+          Used to generate tracking links when order is shipped.
         </p>
       </div>
 
