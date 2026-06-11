@@ -1,73 +1,63 @@
 import { useState, useEffect } from 'react';
-import { supabase, Product } from '../../lib/supabase';
-import { Plus, Trash2, Loader2, AlertTriangle, CheckCircle, Image, ArrowUpDown } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { Plus, Trash2, Loader2, AlertTriangle, CheckCircle, Image } from 'lucide-react';
 import ProductModal from './ProductModal';
 
-interface ProductWithSize extends Product {
-  image_size_kb: number | null;
+interface ProductWithSize {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  cost_price: number | null;
+  compare_at_price: number | null;
+  wholesale_price: number | null;
+  wholesale_min_qty: number | null;
+  dropship_price: number | null;
+  custom_delivery_fee: number | null;
+  stock: number;
+  category: string;
+  product_type: string | null;
+  images: string[] | null;
+  image_url: string | null;
+  color_options: string[] | null;
+  type_options: string[] | null;
+  is_active: boolean;
+  created_at: string;
+  image_size_bytes: number | null;
 }
 
 type SortMode = 'size_desc' | 'size_asc' | 'newest' | 'name';
 
 export default function ProductsTab() {
-  const [products, setProducts]       = useState<ProductWithSize[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [sortMode, setSortMode]       = useState<SortMode>('size_desc');
-  const [search, setSearch]           = useState('');
+  const [products, setProducts]             = useState<ProductWithSize[]>([]);
+  const [loading, setLoading]               = useState(true);
+  const [isModalOpen, setIsModalOpen]       = useState(false);
+  const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [sortMode, setSortMode]             = useState<SortMode>('size_desc');
+  const [search, setSearch]                 = useState('');
 
   useEffect(() => { loadProducts(); }, []);
 
   const loadProducts = async () => {
     setLoading(true);
-
-    // Fetch products + their primary image size in one query via RPC-style join
-    const { data: prods } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!prods) { setLoading(false); return; }
-
-    // Get storage sizes for all primary images in one query
-    const filenames = prods
-      .map(p => {
-        const url = p.images?.[0] || p.image_url || '';
-        return url.split('/product-images/')[1] || null;
-      })
-      .filter(Boolean) as string[];
-
-    const { data: storageObjects } = await supabase
-      .from('storage.objects')
-      .select('name, metadata')
-      .eq('bucket_id', 'product-images')
-      .in('name', filenames);
-
-    // Build a size map keyed by filename
-    const sizeMap = new Map<string, number>();
-    for (const obj of storageObjects || []) {
-      const kb = obj.metadata?.size ? Math.round(obj.metadata.size / 1024) : 0;
-      sizeMap.set(obj.name, kb);
+    const { data, error } = await supabase.rpc('get_products_with_image_sizes');
+    if (error) {
+      console.error('loadProducts RPC error:', error);
+      setLoading(false);
+      return;
     }
-
-    const withSizes: ProductWithSize[] = prods.map(p => {
-      const url = p.images?.[0] || p.image_url || '';
-      const filename = url.split('/product-images/')[1] || '';
-      return { ...p, image_size_kb: sizeMap.get(filename) ?? null };
-    });
-
-    setProducts(withSizes);
+    setProducts(data || []);
     setLoading(false);
   };
 
   const sorted = [...products]
     .filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()))
     .sort((a, b) => {
-      if (sortMode === 'size_desc') return (b.image_size_kb ?? 0) - (a.image_size_kb ?? 0);
-      if (sortMode === 'size_asc')  return (a.image_size_kb ?? 0) - (b.image_size_kb ?? 0);
+      if (sortMode === 'size_desc') return (b.image_size_bytes ?? 0) - (a.image_size_bytes ?? 0);
+      if (sortMode === 'size_asc')  return (a.image_size_bytes ?? 0) - (b.image_size_bytes ?? 0);
       if (sortMode === 'name')      return a.name.localeCompare(b.name);
-      return 0; // newest — already ordered from DB
+      // newest
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
   const handleDelete = async (id: string) => {
@@ -76,31 +66,24 @@ export default function ProductsTab() {
     loadProducts();
   };
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    setIsModalOpen(true);
-  };
+  const sizeKb = (bytes: number | null) =>
+    bytes !== null ? Math.round(bytes / 1024) : null;
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
-    setEditingProduct(null);
-  };
-
-  const sizeColor = (kb: number | null) => {
-    if (kb === null) return 'text-gray-300';
-    if (kb > 500)  return 'text-red-500';
-    if (kb > 100)  return 'text-orange-400';
+  const sizeColor = (bytes: number | null) => {
+    if (bytes === null) return 'text-gray-300';
+    if (bytes > 500 * 1024) return 'text-red-500';
+    if (bytes > 100 * 1024) return 'text-orange-400';
     return 'text-green-500';
   };
 
-  const sizeIcon = (kb: number | null) => {
-    if (kb === null) return null;
-    if (kb > 500)  return <AlertTriangle size={11} className="text-red-400" />;
-    if (kb > 100)  return <AlertTriangle size={11} className="text-orange-400" />;
+  const sizeIcon = (bytes: number | null) => {
+    if (bytes === null) return null;
+    if (bytes > 500 * 1024) return <AlertTriangle size={11} className="text-red-400" />;
+    if (bytes > 100 * 1024) return <AlertTriangle size={11} className="text-orange-400" />;
     return <CheckCircle size={11} className="text-green-400" />;
   };
 
-  const heavyCount = products.filter(p => (p.image_size_kb ?? 0) > 100).length;
+  const heavyCount = products.filter(p => (p.image_size_bytes ?? 0) > 100 * 1024).length;
 
   return (
     <div>
@@ -116,7 +99,7 @@ export default function ProductsTab() {
           </p>
         </div>
         <button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => { setEditingProduct(null); setIsModalOpen(true); }}
           className="flex items-center gap-2 bg-[#0d2818] text-white px-5 py-2 text-xs tracking-widest hover:opacity-90"
         >
           <Plus size={13} /> ADD
@@ -125,13 +108,19 @@ export default function ProductsTab() {
 
       {/* Legend */}
       <div className="flex items-center gap-4 mb-4 text-[10px] text-gray-400">
-        <span className="flex items-center gap-1"><CheckCircle size={10} className="text-green-400" /> Under 100KB — good</span>
-        <span className="flex items-center gap-1"><AlertTriangle size={10} className="text-orange-400" /> 100–500KB — re-upload</span>
-        <span className="flex items-center gap-1"><AlertTriangle size={10} className="text-red-400" /> Over 500KB — urgent</span>
+        <span className="flex items-center gap-1">
+          <CheckCircle size={10} className="text-green-400" /> Under 100KB — good
+        </span>
+        <span className="flex items-center gap-1">
+          <AlertTriangle size={10} className="text-orange-400" /> 100–500KB — re-upload
+        </span>
+        <span className="flex items-center gap-1">
+          <AlertTriangle size={10} className="text-red-400" /> Over 500KB — urgent
+        </span>
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
         <input
           type="text"
           placeholder="Search products..."
@@ -139,12 +128,12 @@ export default function ProductsTab() {
           onChange={e => setSearch(e.target.value)}
           className="border border-gray-200 px-3 py-2 text-xs outline-none focus:border-[#0d2818] rounded w-48"
         />
-        <div className="flex items-center gap-1 border border-gray-200 rounded overflow-hidden">
+        <div className="flex items-center border border-gray-200 rounded overflow-hidden">
           {([
             { key: 'size_desc', label: 'Heaviest' },
             { key: 'size_asc',  label: 'Lightest' },
-            { key: 'newest',    label: 'Newest' },
-            { key: 'name',      label: 'Name' },
+            { key: 'newest',    label: 'Newest'   },
+            { key: 'name',      label: 'Name'     },
           ] as const).map(s => (
             <button
               key={s.key}
@@ -191,9 +180,9 @@ export default function ProductsTab() {
                 >
                   {/* Thumbnail */}
                   <div className="col-span-1">
-                    <div className="w-9 h-9 bg-gray-100 rounded overflow-hidden shrink-0">
+                    <div className="w-9 h-9 bg-gray-100 rounded overflow-hidden">
                       <img
-                        src={product.images?.[0] || product.image_url}
+                        src={product.images?.[0] || product.image_url || ''}
                         alt={product.name}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -209,7 +198,7 @@ export default function ProductsTab() {
 
                   {/* Price */}
                   <div className="col-span-2">
-                    <p className="text-xs text-gray-700">₦{product.price.toLocaleString()}</p>
+                    <p className="text-xs text-gray-700">₦{Number(product.price).toLocaleString()}</p>
                   </div>
 
                   {/* Stock */}
@@ -222,9 +211,11 @@ export default function ProductsTab() {
                   {/* Image size */}
                   <div className="col-span-2">
                     <div className="flex items-center gap-1">
-                      {sizeIcon(product.image_size_kb)}
-                      <span className={`text-[10px] font-medium ${sizeColor(product.image_size_kb)}`}>
-                        {product.image_size_kb !== null ? `${product.image_size_kb}KB` : '—'}
+                      {sizeIcon(product.image_size_bytes)}
+                      <span className={`text-[10px] font-medium ${sizeColor(product.image_size_bytes)}`}>
+                        {sizeKb(product.image_size_bytes) !== null
+                          ? `${sizeKb(product.image_size_bytes)}KB`
+                          : '—'}
                       </span>
                     </div>
                   </div>
@@ -232,7 +223,7 @@ export default function ProductsTab() {
                   {/* Actions */}
                   <div className="col-span-2 flex items-center justify-end gap-2">
                     <button
-                      onClick={() => handleEdit(product)}
+                      onClick={() => { setEditingProduct(product); setIsModalOpen(true); }}
                       className="text-[10px] tracking-wider border border-[#0d2818] text-[#0d2818] px-3 py-1.5 hover:bg-[#0d2818] hover:text-white transition-colors rounded"
                     >
                       EDIT
@@ -254,8 +245,8 @@ export default function ProductsTab() {
       {isModalOpen && (
         <ProductModal
           product={editingProduct}
-          onClose={handleCloseModal}
-          onSuccess={() => { handleCloseModal(); loadProducts(); }}
+          onClose={() => { setIsModalOpen(false); setEditingProduct(null); }}
+          onSuccess={() => { setIsModalOpen(false); setEditingProduct(null); loadProducts(); }}
         />
       )}
     </div>
