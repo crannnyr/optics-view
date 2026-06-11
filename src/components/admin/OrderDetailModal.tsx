@@ -32,8 +32,8 @@ const SUPPLIER_LABELS: Record<string, string> = {
 };
 
 function getTrackingUrl(supplier: string, trackingId: string): string | null {
-  if (supplier === 'jumia') return `https://www.jumia.com.ng/order/tracking/?orderNo=${trackingId}`;
-  if (supplier === 'shein') return `https://www.shein.com/track/index?page=track&logistics_no=${trackingId}`;
+  if (supplier === 'jumia') return `https://packagetracker-services.jumia.com/?orderNo=${trackingId}`;
+  if (supplier === 'shein') return `https://www.17track.net/en/track#nums=${trackingId}`;
   return null;
 }
 
