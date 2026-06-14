@@ -22,8 +22,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     dropship_price: '',
     stock: '',
     category: '',
-    product_type: '',
-    supplier: 'jumia',
+    product_type: ''
   });
 
   const [images, setImages] = useState<string[]>([]);
@@ -94,8 +93,7 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
         dropship_price: String(product.dropship_price || ''),
         stock: String(product.stock),
         category: product.category,
-        product_type: product.product_type || '',
-        supplier: product.supplier || 'jumia',
+        product_type: product.product_type || ''
       });
       setImages(product.images || [product.image_url]);
       setColorOptions(product.color_options || []);
@@ -224,7 +222,6 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       images,
       color_options: colorOptions.length > 0 ? colorOptions : null,
       type_options: typeOptions.length > 0 ? typeOptions : null,
-      supplier: formData.supplier || 'jumia',
       is_active: true,
     };
 
