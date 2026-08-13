@@ -49,6 +49,22 @@ function JumiaExpressBadge() {
   );
 }
 
+const JUMIA_STORE_URL = 'https://www.jumia.com.ng/opticsview';
+
+function PurchaseFromJumiaButton() {
+  return (
+    <a
+      href={JUMIA_STORE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#f68b1e] text-[#f68b1e] text-[10px] font-black italic tracking-wide whitespace-nowrap hover:bg-[#f68b1e] hover:text-white transition-colors flex-shrink-0"
+      style={{ animation: 'blink 1.8s ease-in-out infinite' }}
+    >
+      Purchase from JUMIA<span className="not-italic">★</span> Instead
+    </a>
+  );
+}
+
 interface HomeHeroProps {
   themeColor: string;
   onRetailerClick: () => void;
@@ -208,7 +224,7 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
       {/* ── CTA row ── */}
       {!hasApplied && (
         <section className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={onRetailerClick}
               className="text-white px-4 md:px-6 py-2.5 text-xs tracking-[0.15em] hover:opacity-90 transition-opacity flex items-center gap-2 shadow-lg flex-shrink-0"
@@ -219,13 +235,15 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
             </button>
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
             <JumiaExpressBadge />
+            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
+            <PurchaseFromJumiaButton />
           </div>
         </section>
       )}
 
       {hasApplied && user && (
         <section className="max-w-7xl mx-auto px-6 py-8">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-wrap">
             <a
               href="/retailer"
               className="text-xs tracking-widest border px-4 md:px-5 py-2 flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity"
@@ -236,6 +254,8 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
             </a>
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
             <JumiaExpressBadge />
+            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
+            <PurchaseFromJumiaButton />
           </div>
         </section>
       )}
