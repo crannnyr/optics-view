@@ -217,7 +217,15 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
           if (catSlugs.length > 0) q = q.in('slug', catSlugs);
           return q;
         })(),
-        supabase.from('products').select('category, images, image_url').eq('is_active', true),
+        // Capped and ordered by newest — enough rows to cover a thumbnail for
+        // every category without pulling the entire active product table on
+        // every home page load. No caching layer, just a sane row limit.
+        supabase
+          .from('products')
+          .select('category, images, image_url')
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(80),
       ]);
 
       if (!catsRes.data) return;
