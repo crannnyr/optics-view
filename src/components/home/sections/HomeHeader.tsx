@@ -63,12 +63,13 @@ export default function HomeHeader({
 
   return (
     <>
+      {/* Header height reduced ~15% (py-4 -> py-[13.6px]) */}
       <header className="border-b border-gray-200 sticky top-0 bg-white z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-6 py-[13.6px] flex justify-between items-center gap-4">
 
-          {/* Logo / Store name */}
+          {/* Logo / Store name — logo size reduced ~10% (h-10/w-10 -> h-9/w-9) */}
           {store.logoUrl ? (
-            <img src={store.logoUrl} alt={store.name} className="h-10 w-10 rounded-full object-cover flex-shrink-0" />
+            <img src={store.logoUrl} alt={store.name} className="h-9 w-9 rounded-full object-cover flex-shrink-0" />
           ) : (
             <h1 className="text-lg font-light tracking-[0.3em]" style={{ color: store.themeColor }}>
               {store.name.toUpperCase()}
