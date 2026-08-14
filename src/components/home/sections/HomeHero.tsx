@@ -51,14 +51,17 @@ function JumiaExpressBadge() {
 
 const JUMIA_STORE_URL = 'https://www.jumia.com.ng/opticsview';
 
-function PurchaseFromJumiaButton() {
+// Floats subtly in the corner of the hero image — frosted-glass pill instead
+// of a bold outlined button, so it reads as a quiet secondary option rather
+// than competing with the hero content or the primary CTA row below it.
+function PurchaseFromJumiaFloatingButton() {
   return (
     <a
       href={JUMIA_STORE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-[#f68b1e] text-[#f68b1e] text-[10px] font-black italic tracking-wide whitespace-nowrap hover:bg-[#f68b1e] hover:text-white transition-colors flex-shrink-0"
-      style={{ animation: 'blink 1.8s ease-in-out infinite' }}
+      className="absolute bottom-3 right-3 md:bottom-5 md:right-5 z-10 flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/70 backdrop-blur-sm border border-white/40 text-[#f68b1e] text-[9px] md:text-[10px] font-black italic tracking-wide whitespace-nowrap shadow-sm hover:bg-white/90 transition-colors"
+      style={{ animation: 'blink 2.5s ease-in-out infinite' }}
     >
       Purchase from JUMIA<span className="not-italic">★</span> Instead
     </a>
@@ -219,6 +222,10 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
             </div>
           </>
         )}
+
+        {/* Floats subtly in the corner of the hero image rather than sitting
+            in the CTA row — a quiet secondary option, not a competing button */}
+        <PurchaseFromJumiaFloatingButton />
       </section>
 
       {/* ── CTA row ── */}
@@ -235,8 +242,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
             </button>
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
             <JumiaExpressBadge />
-            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-            <PurchaseFromJumiaButton />
           </div>
         </section>
       )}
@@ -254,8 +259,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
             </a>
             <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
             <JumiaExpressBadge />
-            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-            <PurchaseFromJumiaButton />
           </div>
         </section>
       )}
