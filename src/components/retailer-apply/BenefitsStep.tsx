@@ -1,4 +1,5 @@
 import { Store, Check, TrendingUp, Users } from 'lucide-react';
+import ContactUsButton from './ContactUsButton';
 
 interface Props {
   user: any;
@@ -18,12 +19,19 @@ export default function BenefitsStep({ user, onClose, onNext }: Props) {
         <button onClick={onClose} className="w-full bg-[#0d2818] text-white py-4 font-medium hover:opacity-90 rounded">
           CLOSE & LOGIN
         </button>
+        <div className="mt-4">
+          <ContactUsButton />
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-6 md:p-8">
+      <div className="flex justify-end mb-2">
+        <ContactUsButton />
+      </div>
+
       <div className="text-center mb-8">
         <Store size={44} className="mx-auto text-[#0d2818] mb-3" />
         <h2 className="text-2xl md:text-3xl font-light text-[#0d2818] mb-2">Get Your Own Store — Just Like This One</h2>
