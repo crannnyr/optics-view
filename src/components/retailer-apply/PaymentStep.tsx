@@ -1,9 +1,14 @@
 import { useState } from 'react';
-import { Loader2, Building2, Copy, CheckCircle, AlertTriangle, ArrowLeft, Clock, RefreshCw } from 'lucide-react';
+import { Loader2, Building2, Copy, CheckCircle, AlertTriangle, ArrowLeft, Clock, RefreshCw, Zap } from 'lucide-react';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../../lib/supabase';
 
 type ManualState = 'warning' | 'details' | 'sent';
+
+// The bank account name on file sometimes displays differently depending on
+// the sender's banking app cache — both of these are valid and correspond
+// to the same business account.
+const VALID_ACCOUNT_NAMES = ['OpticsView', 'Nnebedum Joshua'];
 
 interface Props {
   paystackConfig: any;
@@ -91,17 +96,24 @@ export default function PaymentStep({
         </div>
       </div>
 
-      {/* Payment mode toggle */}
+      {/* Payment mode toggle — Paystack flagged as the fastest option */}
       {bothEnabled && (
-        <div className="flex gap-3 mb-6">
+        <div className="flex gap-3 mb-2">
           <button
             onClick={() => { setPaymentMode('paystack'); setManualState('warning'); }}
-            className={`flex-1 py-3 text-sm font-medium rounded-lg border-2 transition-all ${
+            className={`relative flex-1 py-3 text-sm font-medium rounded-lg border-2 transition-all ${
               paymentMode === 'paystack'
                 ? 'border-[#0d2818] bg-[#0d2818] text-white'
                 : 'border-gray-200 text-gray-600 hover:border-gray-300'
             }`}
           >
+            <span
+              className={`absolute -top-2.5 left-1/2 -translate-x-1/2 flex items-center gap-1 text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full ${
+                paymentMode === 'paystack' ? 'bg-amber-400 text-[#0d2818]' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              <Zap size={9} className="fill-current" /> FASTEST
+            </span>
             Card / Paystack
           </button>
           <button
@@ -116,6 +128,12 @@ export default function PaymentStep({
           </button>
         </div>
       )}
+      {bothEnabled && (
+        <p className="text-[11px] text-gray-400 text-center mb-6">
+          Card payment activates your store instantly. Bank transfer requires manual review.
+        </p>
+      )}
+      {!bothEnabled && <div className="mb-6" />}
 
       {/* ── PAYSTACK ─────────────────────────────────────────── */}
       {paymentMode === 'paystack' && paymentSettings.enable_paystack && paystackConfig && (
@@ -199,6 +217,19 @@ export default function PaymentStep({
                     </div>
                   </div>
                 ))}
+              </div>
+
+              {/* Account name mismatch warning — bank apps can show either name */}
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-red-700 leading-relaxed">
+                    The account name on your banking app may show as either{' '}
+                    <strong>{VALID_ACCOUNT_NAMES[0]}</strong> or <strong>{VALID_ACCOUNT_NAMES[1]}</strong> —
+                    both are correct and belong to us. <strong>Do not send</strong> if the name shown
+                    doesn't match either of these.
+                  </p>
+                </div>
               </div>
 
               <div>
