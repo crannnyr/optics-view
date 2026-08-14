@@ -27,6 +27,8 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
     settings,
     copied,
     transferDetails,
+    senderName,
+    setSenderName,
     totalItems,
     subtotal,
     totalOrderAmount,
@@ -85,6 +87,8 @@ export default function Checkout({ isOpen, onClose, items, onSuccess }: Checkout
               paystackConfig={paystackConfig}
               payableAmount={payableAmount}
               transferDetails={transferDetails}
+              senderName={senderName}
+              setSenderName={setSenderName}
               copied={copied}
               loading={loading}
               themeColor={store?.themeColor}
