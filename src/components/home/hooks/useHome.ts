@@ -61,15 +61,32 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
   }, [store.id]);
 
   // ── Retailer application check ────────────────────────────────────────────
+  // "MY DASHBOARD" only replaces "BECOME A RETAILER" once payment is verified,
+  // a manual transfer has been submitted (dashboard shows pending-approval
+  // screen), or the account is blocked (dashboard explains the suspension).
+  // A cancelled/failed Paystack attempt keeps showing "BECOME A RETAILER" so
+  // the person can retry — clicking it resumes them at the last step before
+  // payment, it does not restart the whole application.
   useEffect(() => {
     if (user?.email) {
       supabase
         .from('retailer_registrations')
-        .select('id')
+        .select('payment_status, payment_method, is_blocked')
         .eq('email', user.email)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => setHasApplied(!!data));
+        .then(({ data }) => {
+          if (!data) {
+            setHasApplied(false);
+            return;
+          }
+          const showDashboard =
+            data.is_blocked === true ||
+            data.payment_status === 'verified' ||
+            data.payment_method === 'transfer';
+          setHasApplied(showDashboard);
+        });
     } else {
       setHasApplied(false);
     }
