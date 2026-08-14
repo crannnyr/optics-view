@@ -25,7 +25,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
   const [shippingData, setShippingData] = useState({
-    state: '', city: '', area: '', phone1: '', phone2: ''
+    state: '', city: '', lga: '', landmark: '', area: '', phone1: '', phone2: ''
   });
   const [processingMessage, setProcessingMessage] = useState('');
   const [paystackConfig, setPaystackConfig] = useState<any>(null);
@@ -39,6 +39,10 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     name: "Optics View Store"
   });
 
+  // Sender name for manual transfer — matches the retailer registration flow.
+  // Saved to orders.payment_sender_name on transfer completion.
+  const [senderName, setSenderName] = useState('');
+
   // Keyed by state name for O(1) lookup — populated on fetchSettings
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
 
@@ -47,6 +51,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
       setStep(1);
       setPaystackConfig(null);
       setCurrentOrderId(null);
+      setSenderName('');
       fetchSettings();
     }
   }, [isOpen]);
@@ -73,11 +78,11 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Returns the admin-configured fee for the selected state.
-  // Falls back to 4950 only if the state hasn't been configured yet,
-  // which should not happen since all 37 states have fees set.
+  // Falls back to 1000 (the current flat rate) only if a state somehow isn't
+  // configured yet — this should not happen since all 37 states are set.
   const calculateShipping = () => {
     if (!shippingData.state) return 0; // No state selected yet — shown as 0 on step 1
-    return deliveryFees[shippingData.state] ?? 4950;
+    return deliveryFees[shippingData.state] ?? 1000;
   };
 
   const subtotal = items.reduce((sum, item) => {
@@ -98,7 +103,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   // email (order_confirmation) is intentionally withheld until the admin
   // manually verifies and approves the payment.
   const fireAdminAlert = (order: any, user: any, method: string) => {
-    const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
+    const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
 
     sendEmail({
@@ -121,7 +126,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   // Only called after a payment is fully confirmed (Paystack success).
   // Never called for transfer orders at creation — those go through fireAdminAlert only.
   const fireOrderEmails = (order: any, user: any, method: string) => {
-    const shippingAddress = `${shippingData.city}, ${shippingData.state} · ${shippingData.area}`;
+    const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
 
     sendEmail({
@@ -211,10 +216,12 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           customer_phone: contactPhones,
           customer_phone_1: shippingData.phone1,
           customer_phone_2: shippingData.phone2 || null,
-          customer_address: `${shippingData.city}, ${shippingData.state} (${shippingData.area})`,
+          customer_address: `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`,
           shipping_state: shippingData.state,
           shipping_city: shippingData.city,
           shipping_area: shippingData.area,
+          shipping_lga: shippingData.lga,
+          shipping_landmark: shippingData.landmark || null,
           total_amount: totalOrderAmount,
           status: 'pending',
           payment_method: method,
@@ -291,6 +298,13 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         payment_number: 1,
         is_balance_payment: false
       });
+
+      // Save the sender name the customer typed so admin can match it against
+      // the bank alert — same pattern as the retailer registration flow.
+      await supabase
+        .from('orders')
+        .update({ payment_sender_name: senderName.trim() || null })
+        .eq('id', currentOrderId);
 
       setProcessingMessage('Order placed! Awaiting verification.');
       setTimeout(() => {
@@ -388,6 +402,8 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     settings,
     copied,
     transferDetails,
+    senderName,
+    setSenderName,
     totalItems,
     subtotal,
     totalOrderAmount,
