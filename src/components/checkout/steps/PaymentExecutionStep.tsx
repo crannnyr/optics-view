@@ -1,11 +1,18 @@
 import { PaystackButton } from 'react-paystack';
 import { CreditCard, ShieldCheck, AlertTriangle, Smartphone, CheckCircle, Copy, Loader2 } from 'lucide-react';
 
+// The bank account name on file sometimes displays differently depending on
+// the sender's banking app cache — both of these are valid and correspond
+// to the same business account. Same warning used in the retailer flow.
+const VALID_ACCOUNT_NAMES = ['OpticsView', 'Nnebedum Joshua'];
+
 interface PaymentExecutionStepProps {
   paymentMethod: 'paystack' | 'transfer';
   paystackConfig: any;
   payableAmount: number;
   transferDetails: { bank: string; number: string; name: string };
+  senderName: string;
+  setSenderName: (name: string) => void;
   copied: boolean;
   loading: boolean;
   themeColor?: string;
@@ -20,6 +27,8 @@ export default function PaymentExecutionStep({
   paystackConfig,
   payableAmount,
   transferDetails,
+  senderName,
+  setSenderName,
   copied,
   loading,
   themeColor = '#0d2818',
@@ -110,6 +119,32 @@ export default function PaymentExecutionStep({
             </div>
           </div>
 
+          {/* Account name mismatch warning — bank apps can show either name */}
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-red-700 leading-relaxed">
+                The account name on your banking app may show as either{' '}
+                <strong>{VALID_ACCOUNT_NAMES[0]}</strong> or <strong>{VALID_ACCOUNT_NAMES[1]}</strong> —
+                both are correct and belong to us. <strong>Do not send</strong> if the name shown
+                doesn't match either of these.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs uppercase text-gray-500 mb-2">
+              Sender Name (name on your bank account) *
+            </label>
+            <input
+              type="text"
+              value={senderName}
+              onChange={e => setSenderName(e.target.value)}
+              placeholder="e.g. John Doe"
+              className="w-full border p-3 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black"
+            />
+          </div>
+
           <div className="text-center">
             <p className="text-sm font-bold mb-2">Amount to Transfer</p>
             <p className="text-3xl font-light" style={{ color: themeColor }}>
@@ -119,8 +154,8 @@ export default function PaymentExecutionStep({
 
           <button
             onClick={handleTransferComplete}
-            disabled={loading}
-            className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 rounded flex items-center justify-center gap-2 disabled:opacity-50"
+            disabled={loading || !senderName.trim()}
+            className="w-full text-white py-4 text-xs tracking-widest font-bold hover:opacity-90 rounded flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ backgroundColor: themeColor }}
           >
             {loading
