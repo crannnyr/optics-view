@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Building2, Copy, CheckCircle, AlertTriangle, ArrowLeft, Clock, RefreshCw, Zap } from 'lucide-react';
+import { Loader2, Building2, Copy, CheckCircle, AlertTriangle, ArrowLeft, Clock, RefreshCw, Zap, XCircle } from 'lucide-react';
 import { PaystackButton } from 'react-paystack';
 import { supabase } from '../../lib/supabase';
 
@@ -36,10 +36,22 @@ export default function PaymentStep({
   const [checking, setChecking] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
 
+  // Paystack's popup calls onClose whenever it closes without a successful
+  // charge — declined card, cancelled, network drop, etc. It doesn't tell us
+  // which, so we show one clear, non-alarming message either way. The
+  // registration row is untouched (still pending), so retrying just re-opens
+  // the same reference.
+  const [paymentFailed, setPaymentFailed] = useState(false);
+
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePaystackPopupClosed = () => {
+    setPaymentFailed(true);
+    onPaystackClose();
   };
 
   const handleSent = async () => {
@@ -138,11 +150,23 @@ export default function PaymentStep({
       {/* ── PAYSTACK ─────────────────────────────────────────── */}
       {paymentMode === 'paystack' && paymentSettings.enable_paystack && paystackConfig && (
         <>
+          {paymentFailed && (
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-4 flex items-start gap-2.5">
+              <XCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Payment didn't go through</p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  Your registration is still saved — nothing was charged. Please try again below.
+                </p>
+              </div>
+            </div>
+          )}
+
           <PaystackButton
             {...paystackConfig}
             text={loading ? 'PROCESSING...' : `PAY ₦${totalDue.toLocaleString()}`}
-            onSuccess={(ref: any) => onPaystackSuccess(ref)}
-            onClose={onPaystackClose}
+            onSuccess={(ref: any) => { setPaymentFailed(false); onPaystackSuccess(ref); }}
+            onClose={handlePaystackPopupClosed}
             className="w-full bg-[#0d2818] text-white py-4 text-sm font-medium tracking-wide hover:opacity-90 rounded-lg transition-opacity disabled:opacity-50 mb-3"
             disabled={loading}
           />
