@@ -57,12 +57,33 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     setLoading(true);
     try {
       if (view === 'signup') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: { data: { full_name: fullName } },
         });
         if (signUpError) throw signUpError;
+
+        // There is no database trigger that creates a `profiles` row on
+        // signup — this insert is the ONLY thing that creates it. Without
+        // this, the auth account exists but every feature that reads from
+        // `profiles` (orders, retailer checks, dashboards) silently breaks
+        // for that user. Upsert on id so a retry never errors on duplicate.
+        if (signUpData.user) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert(
+              { id: signUpData.user.id, email, full_name: fullName },
+              { onConflict: 'id' }
+            );
+          if (profileError) {
+            // Don't block the person's signup over this — the auth account
+            // is already created and they can still sign in. Log loudly so
+            // it surfaces instead of silently producing another orphaned
+            // account like the ones we just backfilled.
+            console.error('Failed to create profile row on signup:', profileError);
+          }
+        }
 
         // Send welcome email via Resend
         sendEmail({
