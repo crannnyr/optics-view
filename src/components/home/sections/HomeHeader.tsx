@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, Package, LogOut, Download, MessageCircle, Store } from 'lucide-react';
+import { Menu, Package, LogOut, Download, MessageCircle, Store, Rocket, Globe } from 'lucide-react';
 import CustomerNotifications from '../../CustomerNotifications';
 import SellWithUsModal from './SellWithUsModal';
 
@@ -48,6 +48,7 @@ interface HomeHeaderProps {
 }
 
 const WHATSAPP_NUMBER = '447404707531';
+const QAFRICA_STORE_URL = 'https://qafrica.store';
 
 export default function HomeHeader({
   user, store, isUserMenuOpen, setIsUserMenuOpen,
@@ -108,7 +109,7 @@ export default function HomeHeader({
                   {isUserMenuOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)} />
-                      <div className="absolute right-0 top-full mt-2 w-56 bg-white border shadow-lg z-50 py-2">
+                      <div className="absolute right-0 top-full mt-2 w-64 bg-white border shadow-lg z-50 py-2">
                         <div className="px-4 py-3 border-b mb-2">
                           <p className="text-xs text-gray-500">Signed in as</p>
                           <p className="text-sm font-medium truncate">{user.email}</p>
@@ -126,6 +127,32 @@ export default function HomeHeader({
                         >
                           <Store size={16} /> Sell My Product
                         </button>
+                        <a
+                          href={QAFRICA_STORE_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Rocket size={16} className="text-amber-600" />
+                          Start Dropshipping
+                          <span className="ml-auto text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                            NEW
+                          </span>
+                        </a>
+                        <a
+                          href={QAFRICA_STORE_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
+                        >
+                          <Globe size={16} className="text-green-700" />
+                          Get a Website — ₦5,000
+                          <span className="ml-auto text-[9px] font-extrabold tracking-wider px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">
+                            NEW
+                          </span>
+                        </a>
                         <button
                           onClick={handleCustomerService}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 text-green-600"
