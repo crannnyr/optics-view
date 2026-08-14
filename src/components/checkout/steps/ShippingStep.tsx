@@ -1,8 +1,8 @@
 import { NIGERIAN_STATES } from '../hooks/useCheckout';
 
 interface ShippingStepProps {
-  shippingData: { state: string; city: string; area: string; phone1: string; phone2: string };
-  setShippingData: (data: { state: string; city: string; area: string; phone1: string; phone2: string }) => void;
+  shippingData: { state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string };
+  setShippingData: (data: { state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string }) => void;
   totalItems: number;
   subtotal: number;
   calculateShipping: () => number;
@@ -50,6 +50,20 @@ export default function ShippingStep({
       </div>
 
       <div>
+        <label className="block text-xs uppercase text-gray-500 mb-2">
+          LGA <span className="text-gray-400 normal-case text-[10px]">(Local Government Area)</span>
+        </label>
+        <input
+          required
+          type="text"
+          value={shippingData.lga}
+          onChange={e => setShippingData({ ...shippingData, lga: e.target.value })}
+          className="w-full border p-3 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black"
+          placeholder="e.g. Eti-Osa"
+        />
+      </div>
+
+      <div>
         <label className="block text-xs uppercase text-gray-500 mb-2">Closest Bus Stop / Area</label>
         <input
           required
@@ -58,6 +72,19 @@ export default function ShippingStep({
           onChange={e => setShippingData({ ...shippingData, area: e.target.value })}
           className="w-full border p-3 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black"
           placeholder="e.g. Chevron Drive, Lekki Phase 1"
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase text-gray-500 mb-2">
+          Popular Place Close to You <span className="text-gray-400 normal-case text-[10px]">(optional, helps the rider find you)</span>
+        </label>
+        <input
+          type="text"
+          value={shippingData.landmark}
+          onChange={e => setShippingData({ ...shippingData, landmark: e.target.value })}
+          className="w-full border p-3 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black"
+          placeholder="e.g. Opposite Shoprite, near Total filling station"
         />
       </div>
 
