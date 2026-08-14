@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Loader2 } from 'lucide-react';
 import { Category } from '../admin/hooks/useSettings';
 import { Plan, CATEGORY_RATE } from './useRetailerModal';
+import ContactUsButton from './ContactUsButton';
 
 interface Props {
   categories: Category[];
@@ -20,9 +21,12 @@ export default function CategoriesStep({
 
   return (
     <div className="p-6 md:p-8">
-      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-[#0d2818] text-sm mb-6">
-        <ArrowLeft size={16} /> Back
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-[#0d2818] text-sm">
+          <ArrowLeft size={16} /> Back
+        </button>
+        <ContactUsButton />
+      </div>
 
       <div className="mb-6">
         <h2 className="text-2xl font-light text-[#0d2818] mb-1">What Do You Want to Sell?</h2>
@@ -70,7 +74,7 @@ export default function CategoriesStep({
               🎉 1 month free! Your store opens at no cost — renewal at ₦{CATEGORY_RATE.toLocaleString()}/month after.
             </p>
           ) : (
-            <p classsName="text-gray-700">
+            <p className="text-gray-700">
               {count} {count === 1 ? 'category' : 'categories'} · ₦{monthlyTotal.toLocaleString()}/month
               {plan === 'yearly' && (
                 <span className="text-green-700 ml-1">
