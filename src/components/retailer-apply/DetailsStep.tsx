@@ -1,5 +1,6 @@
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { RetailerFormData } from './useRetailerModal';
+import ContactUsButton from './ContactUsButton';
 
 interface Props {
   formData: RetailerFormData;
@@ -23,9 +24,12 @@ export default function DetailsStep({
 
   return (
     <div className="p-6 md:p-8">
-      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-[#0d2818] text-sm mb-6">
-        <ArrowLeft size={16} /> Back
-      </button>
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-[#0d2818] text-sm">
+          <ArrowLeft size={16} /> Back
+        </button>
+        <ContactUsButton />
+      </div>
 
       <h2 className="text-2xl font-light text-[#0d2818] mb-6">Registration Details</h2>
 
