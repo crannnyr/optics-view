@@ -28,8 +28,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
   const [images, setImages] = useState<string[]>([]);
   const [colorOptions, setColorOptions] = useState<string[]>([]);
   const [typeOptions, setTypeOptions] = useState<string[]>([]);
+  const [sizeOptions, setSizeOptions] = useState<string[]>([]);
   const [newColor, setNewColor] = useState('');
   const [newType, setNewType] = useState('');
+  const [newSize, setNewSize] = useState('');
   const [reviews, setReviews] = useState<Omit<Review, 'id' | 'created_at' | 'product_id'>[]>([]);
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -197,6 +199,15 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
 
   const removeType = (type: string) => setTypeOptions(typeOptions.filter(t => t !== type));
 
+  const addSize = () => {
+    if (!newSize.trim()) return;
+    if (sizeOptions.includes(newSize.trim())) { alert('This size already exists'); return; }
+    setSizeOptions([...sizeOptions, newSize.trim()]);
+    setNewSize('');
+  };
+
+  const removeSize = (size: string) => setSizeOptions(sizeOptions.filter(s => s !== size));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -286,10 +297,13 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     setImages,
     colorOptions,
     typeOptions,
+    sizeOptions,
     newColor,
     setNewColor,
     newType,
     setNewType,
+    newSize,
+    setNewSize,
     reviews,
     uploading,
     submitting,
@@ -300,6 +314,8 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     removeColor,
     addType,
     removeType,
+    addSize,
+    removeSize,
     handleSubmit,
     addReview,
     // Category data for ProductBasicInfo
