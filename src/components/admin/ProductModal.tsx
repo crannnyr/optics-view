@@ -23,10 +23,13 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
     setImages,
     colorOptions,
     typeOptions,
+    sizeOptions,
     newColor,
     setNewColor,
     newType,
     setNewType,
+    newSize,
+    setNewSize,
     reviews,
     uploading,
     submitting,
@@ -37,6 +40,8 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
     removeColor,
     addType,
     removeType,
+    addSize,
+    removeSize,
     handleSubmit,
     addReview,
     categories,
@@ -80,14 +85,19 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
             <ProductVariants
               colorOptions={colorOptions}
               typeOptions={typeOptions}
+              sizeOptions={sizeOptions}
               newColor={newColor}
               setNewColor={setNewColor}
               newType={newType}
               setNewType={setNewType}
+              newSize={newSize}
+              setNewSize={setNewSize}
               addColor={addColor}
               removeColor={removeColor}
               addType={addType}
               removeType={removeType}
+              addSize={addSize}
+              removeSize={removeSize}
             />
           </div>
 
