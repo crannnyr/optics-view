@@ -55,6 +55,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         const reservedPaths = [
           'admin', 'retailer', 'login', 'auth',
+          // Add top-level app routes here to avoid interpreting them as
+          // retailer store slugs. Missing entries (e.g. `checkout`) caused
+          // /checkout to be treated as a retailer slug and produced the
+          // "store not found" page.
+          'checkout', 'orders', 'cart', 'product',
           'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions',
         ];
 
