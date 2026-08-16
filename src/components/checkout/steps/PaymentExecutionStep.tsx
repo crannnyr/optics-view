@@ -1,9 +1,6 @@
 import { PaystackButton } from 'react-paystack';
 import { CreditCard, ShieldCheck, AlertTriangle, Smartphone, CheckCircle, Copy, Loader2 } from 'lucide-react';
 
-// The bank account name on file sometimes displays differently depending on
-// the sender's banking app cache — both of these are valid and correspond
-// to the same business account. Same warning used in the retailer flow.
 const VALID_ACCOUNT_NAMES = ['OpticsView', 'Nnebedum Joshua'];
 
 interface PaymentExecutionStepProps {
@@ -49,12 +46,11 @@ export default function PaymentExecutionStep({
             <p className="text-sm text-gray-500 mt-1">
               Click the button below to launch the secure payment window.
             </p>
-            <p className="text-xs text-amber-600 mt-2">
-              If you close the payment window your order will be cancelled — you can retry from this screen.
+            <p className="text-xs text-gray-400 mt-2">
+              If you close the payment window, your order is saved as pending — you can pick up where you left off any time from My Purchases.
             </p>
           </div>
 
-          {/* Wrapper forces correct styles since PaystackButton strips custom style prop */}
           <div
             className="w-full rounded shadow-lg overflow-hidden"
             style={{ backgroundColor: themeColor }}
@@ -119,7 +115,6 @@ export default function PaymentExecutionStep({
             </div>
           </div>
 
-          {/* Account name mismatch warning — bank apps can show either name */}
           <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4">
             <div className="flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
