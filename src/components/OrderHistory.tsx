@@ -6,7 +6,10 @@ import {
   AlertTriangle, RotateCcw, Store, WifiOff, RefreshCw
 } from 'lucide-react';
 
-interface Props { onBack: () => void; }
+interface Props {
+  onBack: () => void;
+  onRetryPayment: (orderId: string) => void;
+}
 
 const STATUS_CONFIG: Record<string, { color: string; icon: any; label: string }> = {
   pending:     { color: 'bg-yellow-100 text-yellow-800',  icon: Clock,          label: 'Pending'     },
@@ -20,7 +23,7 @@ const STATUS_CONFIG: Record<string, { color: string; icon: any; label: string }>
 
 const SUPPORT_EMAIL = 'support@opticsview.store';
 
-export default function OrderHistory({ onBack }: Props) {
+export default function OrderHistory({ onBack, onRetryPayment }: Props) {
   const [orders,    setOrders]    = useState<any[]>([]);
   const [filter,    setFilter]    = useState('all');
   const [loading,   setLoading]   = useState(true);
@@ -39,15 +42,17 @@ export default function OrderHistory({ onBack }: Props) {
 
       if (authError) throw authError;
 
-      // No session — nothing to show, stop cleanly
       if (!user) {
         setLoading(false);
         return;
       }
 
+      // Pull payments alongside each order — used to tell an abandoned
+      // checkout (no payment row at all) apart from one that's awaiting
+      // manual verification (a pending payment row already exists).
       const { data, error: fetchError } = await supabase
         .from('orders')
-        .select('*, items:order_items(*, products(name, images, image_url))')
+        .select('*, items:order_items(*, products(name, images, image_url)), payments(id, status)')
         .eq('customer_email', user.email)
         .order('created_at', { ascending: false });
 
@@ -81,10 +86,16 @@ export default function OrderHistory({ onBack }: Props) {
     return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
   };
 
+  // An order can be retried only if it's still pending AND no payment
+  // attempt has been recorded yet — a payment row means either it's
+  // awaiting manual verification (transfer) or already succeeded, and
+  // shouldn't be retried.
+  const canRetryPayment = (order: any) =>
+    order.status === 'pending' && (!order.payments || order.payments.length === 0);
+
   const tabs = ['all', 'pending', 'approved', 'shipped', 'delivered', 'rejected', 'unavailable'];
   const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -93,7 +104,6 @@ export default function OrderHistory({ onBack }: Props) {
     );
   }
 
-  // ── Error — network or Supabase failure ───────────────────────────────────
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -128,10 +138,8 @@ export default function OrderHistory({ onBack }: Props) {
     );
   }
 
-  // ── Orders list ───────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-50 pb-16">
-      {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10 shadow-sm">
         <div className="max-w-3xl mx-auto px-6 py-4 flex items-center gap-4">
           <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-full">
@@ -169,10 +177,10 @@ export default function OrderHistory({ onBack }: Props) {
         {filtered.map(order => {
           const cfg  = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
           const Icon = cfg.icon;
+          const retryable = canRetryPayment(order);
 
           return (
             <div key={order.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-              {/* Header row */}
               <div className="p-5 pb-4 border-b border-gray-50 flex justify-between items-start">
                 <div>
                   <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase font-bold ${cfg.color}`}>
@@ -193,7 +201,6 @@ export default function OrderHistory({ onBack }: Props) {
                 </div>
               </div>
 
-              {/* Items */}
               <div className="p-5 space-y-3">
                 {order.items?.map((item: any) => {
                   const img = item.products?.images?.[0] || item.products?.image_url;
@@ -227,7 +234,28 @@ export default function OrderHistory({ onBack }: Props) {
                 })}
               </div>
 
-              {/* Unavailable — refund instructions */}
+              {/* Retry payment — only for pending orders with no payment attempt recorded yet */}
+              {retryable && (
+                <div className="mx-5 mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">Payment Not Completed</p>
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        It looks like your payment didn't go through. You can pick up where you left off.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onRetryPayment(order.id)}
+                    className="flex items-center justify-center gap-2 w-full bg-[#0d2818] text-white py-3 text-xs font-medium rounded-lg hover:opacity-90 transition-opacity"
+                  >
+                    <RotateCcw size={13} />
+                    Try Payment Again
+                  </button>
+                </div>
+              )}
+
               {order.status === 'unavailable' && (
                 <div className="mx-5 mb-4 bg-orange-50 border border-orange-200 rounded-lg p-4 space-y-3">
                   <div className="flex items-start gap-2">
@@ -256,7 +284,6 @@ export default function OrderHistory({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Refunded */}
               {order.status === 'refunded' && (
                 <div className="mx-5 mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
                   <RotateCcw size={14} className="text-green-600" />
@@ -266,7 +293,6 @@ export default function OrderHistory({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Delivery info */}
               {['pending', 'approved'].includes(order.status) && (
                 <div className="mx-5 mb-4 bg-blue-50 border border-blue-100 rounded p-3 flex items-start gap-2 text-[10px] text-blue-800">
                   <AlertCircle size={12} className="mt-0.5 shrink-0" />
@@ -274,7 +300,6 @@ export default function OrderHistory({ onBack }: Props) {
                 </div>
               )}
 
-              {/* Location */}
               <div className="bg-gray-50 p-4 border-t">
                 {editingId === order.id ? (
                   <div className="space-y-2">
