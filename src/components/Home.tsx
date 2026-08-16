@@ -9,7 +9,6 @@ import HomeHero from './home/sections/HomeHero';
 import CategoryFilter from './home/sections/CategoryFilter';
 import HomeFooter from './home/sections/HomeFooter';
 import Cart from './Cart';
-import Checkout from './Checkout';
 import AuthModal from './AuthModal';
 import RetailerModal from './RetailerModal';
 
@@ -21,6 +20,7 @@ interface HomeProps {
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string) => void;
   onClearCart: () => void;
   onNavigateToOrders: () => void;
+  onNavigateToCheckout: () => void;
   onViewProduct: (product: Product) => void;
   onNavigateToPrivacy: () => void;
   onNavigateToTerms: () => void;
@@ -40,7 +40,7 @@ function ProductSkeleton() {
 
 export default function Home({
   user, cart, onAddToCart, onUpdateQuantity, onRemoveFromCart, onClearCart,
-  onNavigateToOrders, onViewProduct, onNavigateToPrivacy, onNavigateToTerms,
+  onNavigateToOrders, onNavigateToCheckout, onViewProduct, onNavigateToPrivacy, onNavigateToTerms,
   autoOpenAuth, onAutoAuthHandled,
 }: HomeProps) {
 
@@ -48,17 +48,14 @@ export default function Home({
     store, filteredProducts, productsLoading,
     loadingMore, hasMore, loadMore,
     selectedCategory, setSelectedCategory,
-    isCartOpen, setIsCartOpen, isCheckoutOpen, setIsCheckoutOpen,
+    isCartOpen, setIsCartOpen,
     isAuthOpen, setIsAuthOpen, isUserMenuOpen, setIsUserMenuOpen,
-    isRetailerModalOpen, setIsRetailerModalOpen, orderSuccess, setOrderSuccess,
+    isRetailerModalOpen, setIsRetailerModalOpen,
     handleSignOut, handleCheckout, categories, hasApplied,
-  } = useHome({ user, autoOpenAuth, onAutoAuthHandled });
+  } = useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToCheckout });
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  // ── Infinite scroll sentinel ──────────────────────────────────────────────
-  // A tiny invisible div at the bottom of the product grid.
-  // When it enters the viewport, loadMore() fires automatically.
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,7 +68,7 @@ export default function Home({
           loadMore();
         }
       },
-      { rootMargin: '200px' } // Start loading 200px before user hits bottom
+      { rootMargin: '200px' }
     );
 
     observer.observe(sentinel);
@@ -102,14 +99,6 @@ export default function Home({
           themeColor={store.themeColor}
         />
 
-        {orderSuccess && (
-          <div className="max-w-7xl mx-auto px-6 mb-8">
-            <div className="p-4 bg-green-50 border border-green-200 text-center animate-in fade-in zoom-in duration-300">
-              <p className="text-xs tracking-wider text-green-800 uppercase font-medium">Order placed successfully</p>
-            </div>
-          </div>
-        )}
-
         <section className="max-w-7xl mx-auto px-6 pb-20">
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
             {productsLoading
@@ -125,24 +114,20 @@ export default function Home({
             }
           </div>
 
-          {/* Infinite scroll sentinel — invisible, sits below the grid */}
           <div ref={sentinelRef} className="h-1 w-full" />
 
-          {/* Loading more spinner */}
           {loadingMore && (
             <div className="flex justify-center py-8">
               <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin" />
             </div>
           )}
 
-          {/* End of catalog */}
           {!hasMore && !productsLoading && filteredProducts.length > 0 && (
             <p className="text-center text-xs text-gray-300 tracking-widest uppercase py-8">
               All products loaded
             </p>
           )}
 
-          {/* Empty state */}
           {!productsLoading && filteredProducts.length === 0 && (
             <div className="text-center py-20">
               <p className="text-sm text-gray-400 tracking-wider">No products found</p>
@@ -172,12 +157,6 @@ export default function Home({
 
       <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cart}
         onUpdateQuantity={onUpdateQuantity} onRemove={onRemoveFromCart} onCheckout={handleCheckout} />
-
-      <Checkout isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} items={cart}
-        onSuccess={() => {
-          onClearCart(); setIsCheckoutOpen(false); setOrderSuccess(true);
-          setTimeout(() => setOrderSuccess(false), 3000);
-        }} />
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)}
         onViewTerms={onNavigateToTerms} onViewPrivacy={onNavigateToPrivacy} />
