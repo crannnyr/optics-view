@@ -1,280 +1,458 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, Product, markIntentionalSignOut } from '../../../lib/supabase';
+import { useState, useEffect } from 'react';
+import { supabase, CartItem, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
+import { sendEmail } from '../../../lib/email';
 
-interface UseHomeProps {
-  user: any;
-  autoOpenAuth?: boolean;
-  onAutoAuthHandled?: () => void;
-  onNavigateToCheckout: () => void;
+export const NIGERIAN_STATES = [
+  "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
+  "Cross River", "Delta", "Ebonyi", "Edo", "Ekiti", "Enugu", "FCT - Abuja", "Gombe", 
+  "Imo", "Jigawa", "Kaduna", "Kano", "Katsina", "Kebbi", "Kogi", "Kwara", "Lagos", 
+  "Nasarawa", "Niger", "Ogun", "Ondo", "Osun", "Oyo", "Plateau", "Rivers", "Sokoto", 
+  "Taraba", "Yobe", "Zamfara"
+];
+
+const ADMIN_EMAIL = 'opticsview1@gmail.com';
+
+interface ShippingData {
+  state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
 }
 
-const PAGE_SIZE = 12;
+interface RetryOrder {
+  id: string;
+  user_id: string;
+  status: string;
+  total_amount: number;
+  payment_method: string;
+  paystack_reference: string | null;
+}
 
-export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToCheckout }: UseHomeProps) {
+interface UseCheckoutProps {
+  isOpen: boolean;
+  items: CartItem[];
+  onSuccess: () => void;
+  retryOrderId?: string | null;
+}
+
+export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheckoutProps) {
   const { store } = useStore();
-  const [products, setProducts]                 = useState<Product[]>([]);
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [categories, setCategories]             = useState<{ slug: string; name: string; image: string | null }[]>([]);
-  const [productsLoading, setProductsLoading]   = useState(true);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [loading, setLoading] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
+  const [shippingData, setShippingData] = useState<ShippingData>({
+    state: '', city: '', lga: '', landmark: '', area: '', phone1: '', phone2: ''
+  });
+  const [processingMessage, setProcessingMessage] = useState('');
+  const [paystackConfig, setPaystackConfig] = useState<any>(null);
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [settings, setSettings] = useState({ enable_paystack: true, enable_transfer: true });
+  const [copied, setCopied] = useState(false);
 
-  const [page, setPage]               = useState(1);
-  const [hasMore, setHasMore]         = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [totalCount, setTotalCount]   = useState(0);
+  const [transferDetails, setTransferDetails] = useState({
+    bank: "OPay",
+    number: "9069149803",
+    name: "Optics View Store"
+  });
 
-  const isRetailerStore = store.isRetailer && !!store.id;
+  const [senderName, setSenderName] = useState('');
+  const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
 
-  const [isCartOpen,          setIsCartOpen]          = useState(false);
-  const [isAuthOpen,          setIsAuthOpen]          = useState(false);
-  const [isUserMenuOpen,      setIsUserMenuOpen]      = useState(false);
-  const [isRetailerModalOpen, setIsRetailerModalOpen] = useState(false);
-
-  // Set when a signed-out user hits "checkout" — after they sign in, we
-  // navigate them to /checkout automatically instead of reopening a modal.
-  const [pendingCheckout, setPendingCheckout] = useState(false);
-  const [hasApplied,      setHasApplied]      = useState(false);
-
-  const retailerCatsRef = useRef<string[]>([]);
-  const customPricesRef = useRef<{ product_id: string; custom_price: number }[]>([]);
-
-  useEffect(() => {
-    if (autoOpenAuth) {
-      setIsAuthOpen(true);
-      onAutoAuthHandled?.();
-    }
-  }, [autoOpenAuth]);
+  const [retryOrder, setRetryOrder] = useState<RetryOrder | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const isRetryMode = !!retryOrder;
 
   useEffect(() => {
-    setPage(1);
-    setProducts([]);
-    setHasMore(true);
-    loadProducts(1, 'all', true);
-    loadCategories();
-  }, [store.id]);
+    if (!isOpen) return;
 
-  useEffect(() => {
-    if (user?.email) {
-      supabase
-        .from('retailer_registrations')
-        .select('payment_status, payment_method, is_blocked')
-        .eq('email', user.email)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data }) => {
-          if (!data) {
-            setHasApplied(false);
-            return;
-          }
-          const showDashboard =
-            data.is_blocked === true ||
-            data.payment_status === 'verified' ||
-            data.payment_method === 'transfer';
-          setHasApplied(showDashboard);
-        });
+    setPaystackConfig(null);
+    setSenderName('');
+    setRetryError(null);
+    fetchSettings();
+
+    if (retryOrderId) {
+      loadRetryOrder(retryOrderId);
     } else {
-      setHasApplied(false);
+      setStep(1);
+      setCurrentOrderId(null);
+      setRetryOrder(null);
     }
-  }, [user]);
+  }, [isOpen, retryOrderId]);
 
-  // ── Pending checkout after auth ───────────────────────────────────────────
-  useEffect(() => {
-    if (user && pendingCheckout) {
-      setPendingCheckout(false);
-      onNavigateToCheckout();
+  const fetchSettings = async () => {
+    const { data: methodData } = await supabase.from('app_settings').select('*').eq('key', 'payment_methods').single();
+    if (methodData?.value) setSettings(methodData.value);
+
+    const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
+    if (transferData?.value) setTransferDetails(transferData.value);
+
+    const { data: deliveryData } = await supabase
+      .from('delivery_settings')
+      .select('state, delivery_fee');
+    if (deliveryData) {
+      const map: Record<string, number> = {};
+      deliveryData.forEach(row => { map[row.state] = row.delivery_fee; });
+      setDeliveryFees(map);
     }
-  }, [user, pendingCheckout]);
+  };
 
-  useEffect(() => {
-    setPage(1);
-    setProducts([]);
-    setHasMore(true);
-    loadProducts(1, selectedCategory, true);
-  }, [selectedCategory]);
-
-  const loadProducts = useCallback(async (
-    pageNum: number,
-    category: string,
-    isReset: boolean
-  ) => {
-    if (pageNum === 1) {
-      setProductsLoading(true);
-    } else {
-      setLoadingMore(true);
-    }
+  const loadRetryOrder = async (orderId: string) => {
+    setLoading(true);
+    setProcessingMessage('Loading your order...');
 
     try {
-      const from = (pageNum - 1) * PAGE_SIZE;
-      const to   = from + PAGE_SIZE - 1;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      if (isRetailerStore) {
-        if (isReset) {
-          const [{ data: reg }, { data: customPrices }] = await Promise.all([
-            supabase
-              .from('retailer_registrations')
-              .select('selected_categories')
-              .eq('store_slug', store.slug)
-              .maybeSingle(),
-            supabase
-              .from('retailer_products')
-              .select('product_id, custom_price')
-              .eq('retailer_id', store.id),
-          ]);
-          retailerCatsRef.current  = reg?.selected_categories ?? [];
-          customPricesRef.current  = customPrices ?? [];
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select('id, user_id, status, total_amount, payment_method, paystack_reference, shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark, customer_phone_1, customer_phone_2')
+        .eq('id', orderId)
+        .single();
+
+      if (error || !order) throw new Error('Order not found');
+      if (order.user_id !== user.id) throw new Error('This order does not belong to you');
+      if (order.status !== 'pending') throw new Error('This order can no longer be retried');
+
+      setRetryOrder(order);
+      setCurrentOrderId(order.id);
+      setShippingData({
+        state: order.shipping_state || '',
+        city: order.shipping_city || '',
+        lga: order.shipping_lga || '',
+        landmark: order.shipping_landmark || '',
+        area: order.shipping_area || '',
+        phone1: order.customer_phone_1 || '',
+        phone2: order.customer_phone_2 || '',
+      });
+      setStep(2);
+    } catch (err: any) {
+      console.error('Retry order load failed:', err);
+      setRetryError(err.message || 'We could not load this order.');
+    } finally {
+      setLoading(false);
+      setProcessingMessage('');
+    }
+  };
+
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  const calculateShipping = () => {
+    if (!shippingData.state) return 0;
+    return deliveryFees[shippingData.state] ?? 1000;
+  };
+
+  const subtotal = items.reduce((sum, item) => {
+    const threshold = item.product.wholesale_min_qty || 7;
+    const price = (item.quantity >= threshold && item.product.wholesale_price)
+      ? item.product.wholesale_price
+      : item.product.price;
+    return sum + (price * item.quantity);
+  }, 0);
+
+  const totalOrderAmount = isRetryMode ? retryOrder!.total_amount : subtotal + calculateShipping();
+  const payableAmount = totalOrderAmount;
+
+  const fireAdminAlert = (order: any, user: any, method: string) => {
+    const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
+    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
+
+    sendEmail({
+      type: 'new_order_alert',
+      to_email: ADMIN_EMAIL,
+      data: {
+        order_id: order.id,
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        customer_email: user.email,
+        customer_phone: contactPhones,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+      bypass_limit: true,
+    });
+  };
+
+  const fireOrderEmails = (order: any, user: any, method: string) => {
+    const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
+    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
+
+    sendEmail({
+      type: 'order_confirmation',
+      to_email: user.email,
+      to_name: user.user_metadata?.full_name || 'Customer',
+      data: {
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        order_id: order.id,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+    });
+
+    sendEmail({
+      type: 'new_order_alert',
+      to_email: ADMIN_EMAIL,
+      data: {
+        order_id: order.id,
+        customer_name: user.user_metadata?.full_name || 'Customer',
+        customer_email: user.email,
+        customer_phone: contactPhones,
+        total_amount: totalOrderAmount,
+        payment_method: method,
+        shipping_address: shippingAddress,
+      },
+      bypass_limit: true,
+    });
+  };
+
+  const handleShippingNext = () => {
+    if (settings.enable_paystack && !settings.enable_transfer) {
+      setPaymentMethod('paystack');
+      createOrder('paystack');
+    } else if (!settings.enable_paystack && settings.enable_transfer) {
+      setPaymentMethod('transfer');
+      createOrder('transfer');
+    } else {
+      setStep(2);
+    }
+  };
+
+  const handleShippingSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleShippingNext();
+  };
+
+  const handleCopyAccount = () => {
+    navigator.clipboard.writeText(transferDetails.number);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const createOrder = async (method: 'paystack' | 'transfer') => {
+    setPaymentMethod(method);
+    setLoading(true);
+    setProcessingMessage(isRetryMode ? 'Preparing payment...' : 'Creating secure order...');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      let orderId = currentOrderId;
+      let orderReference = retryOrder?.paystack_reference || null;
+
+      if (isRetryMode && orderId) {
+        if (!orderReference) {
+          orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         }
-
-        const catSlugs = retailerCatsRef.current;
-
-        let query = supabase
-          .from('products')
-          .select('*', { count: 'exact' })
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .range(from, to);
-
-        if (category !== 'all') {
-          query = query.eq('category', category);
-        } else if (catSlugs.length > 0) {
-          query = query.in('category', catSlugs);
-        }
-
-        const { data: baseProducts, count, error } = await query;
-        if (error) throw error;
-        if (!baseProducts) return;
-
-        setTotalCount(count ?? 0);
-        setHasMore(to < (count ?? 0) - 1);
-
-        const finalProducts: Product[] = baseProducts.map(p => {
-          const custom = customPricesRef.current.find(cp => cp.product_id === p.id);
-          return custom ? { ...p, price: custom.custom_price } : p;
-        });
-
-        setProducts(prev => isReset ? finalProducts : [...prev, ...finalProducts]);
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ payment_method: method, paystack_reference: orderReference })
+          .eq('id', orderId);
+        if (updateError) throw updateError;
 
       } else {
-        let query = supabase
-          .from('products')
-          .select('*', { count: 'exact' })
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .range(from, to);
+        orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-        if (category !== 'all') {
-          query = query.eq('category', category);
+        let retailerProfit = 0;
+        if (store?.isRetailer && store?.id) {
+          for (const item of items) {
+            const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
+            const soldPrice = item.product.price;
+            if (soldPrice > costPrice) {
+              retailerProfit += (soldPrice - costPrice) * item.quantity;
+            }
+          }
         }
 
-        const { data: baseProducts, count, error } = await query;
-        if (error) throw error;
+        const contactPhones = [shippingData.phone1, shippingData.phone2]
+          .filter(Boolean)
+          .join(', ');
 
-        setTotalCount(count ?? 0);
-        setHasMore(to < (count ?? 0) - 1);
-        setProducts(prev => isReset ? (baseProducts ?? []) : [...prev, ...(baseProducts ?? [])]);
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert([{
+            user_id: user.id,
+            customer_name: user.user_metadata.full_name || 'Customer',
+            customer_email: user.email,
+            customer_phone: contactPhones,
+            customer_phone_1: shippingData.phone1,
+            customer_phone_2: shippingData.phone2 || null,
+            customer_address: `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`,
+            shipping_state: shippingData.state,
+            shipping_city: shippingData.city,
+            shipping_area: shippingData.area,
+            shipping_lga: shippingData.lga,
+            shipping_landmark: shippingData.landmark || null,
+            total_amount: totalOrderAmount,
+            status: 'pending',
+            payment_method: method,
+            manual_payment_verified: false,
+            paystack_reference: orderReference,
+            retailer_id: store?.id,
+            retailer_slug: store?.slug,
+            retailer_profit: Math.max(0, retailerProfit),
+          }])
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+        orderId = order.id;
+
+        const orderItems = items.map(item => {
+          const threshold = item.product.wholesale_min_qty || 7;
+          return {
+            order_id: order.id,
+            product_id: item.product.id,
+            quantity: item.quantity,
+            price: (item.quantity >= threshold && item.product.wholesale_price)
+              ? item.product.wholesale_price
+              : item.product.price,
+            selected_color: item.selectedColor || null,
+            selected_type: item.selectedType || null
+          };
+        });
+
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        if (itemsError) throw itemsError;
+
+        if (method === 'transfer') {
+          fireAdminAlert(order, user, method);
+        }
       }
 
-    } catch (err) {
-      console.error('Products fetch failed:', err);
-    } finally {
-      setProductsLoading(false);
-      setLoadingMore(false);
+      setCurrentOrderId(orderId);
+
+      if (method === 'paystack') {
+        setPaystackConfig({
+          reference: orderReference,
+          email: user.email!,
+          amount: payableAmount * 100,
+          publicKey: PAYSTACK_PUBLIC_KEY,
+          metadata: {
+            order_id: orderId,
+            retailer_id: store?.id
+          }
+        });
+      }
+
+      setStep(3);
+      setLoading(false);
+      setProcessingMessage('');
+
+    } catch (error) {
+      console.error('Order creation error:', error);
+      alert('Failed to create order. Please try again.');
+      setLoading(false);
     }
-  }, [store.id, store.slug, store.isRetailer, isRetailerStore]);
+  };
 
-  useEffect(() => {
-    setFilteredProducts(products);
-  }, [products]);
+  const handleTransferComplete = async () => {
+    setLoading(true);
+    setProcessingMessage('Recording transaction...');
 
-  const loadMore = useCallback(() => {
-    if (loadingMore || !hasMore) return;
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadProducts(nextPage, selectedCategory, false);
-  }, [page, loadingMore, hasMore, selectedCategory, loadProducts]);
-
-  const loadCategories = async () => {
     try {
-      let catSlugs: string[] = [];
+      await supabase.from('payments').insert({
+        order_id: currentOrderId,
+        amount: payableAmount,
+        paystack_reference: `MANUAL-${Date.now()}`,
+        status: 'pending',
+        payment_number: 1,
+        is_balance_payment: false
+      });
 
-      if (store.isRetailer && store.slug) {
-        const { data: reg } = await supabase
-          .from('retailer_registrations')
-          .select('selected_categories')
-          .eq('store_slug', store.slug)
-          .maybeSingle();
-        catSlugs = reg?.selected_categories ?? [];
-      }
+      await supabase
+        .from('orders')
+        .update({ payment_sender_name: senderName.trim() || null })
+        .eq('id', currentOrderId);
 
-      const [catsRes, imagesRes] = await Promise.all([
-        (() => {
-          let q = supabase.from('categories').select('slug, name').order('sort_order');
-          if (catSlugs.length > 0) q = q.in('slug', catSlugs);
-          return q;
-        })(),
-        supabase
-          .from('products')
-          .select('category, images, image_url')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(80),
-      ]);
+      setProcessingMessage('Order placed! Awaiting verification.');
+      setTimeout(() => {
+        onSuccess();
+        setLoading(false);
+      }, 1500);
 
-      if (!catsRes.data) return;
+    } catch (error) {
+      console.error('Payment record error:', error);
+      alert('Failed to record payment. Please contact support.');
+      setLoading(false);
+    }
+  };
 
-      const imageBySlug = new Map<string, string | null>();
-      for (const p of imagesRes.data ?? []) {
-        if (!imageBySlug.has(p.category)) {
-          imageBySlug.set(p.category, p.images?.[0] ?? p.image_url ?? null);
+  const handlePaystackSuccess = async (reference: any) => {
+    setLoading(true);
+    setProcessingMessage('Verifying payment...');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      await supabase.from('payments').insert({
+        order_id: currentOrderId,
+        amount: payableAmount,
+        paystack_reference: reference.reference,
+        status: 'pending',
+        payment_number: 1,
+        is_balance_payment: false
+      });
+
+      await supabase.from('orders')
+        .update({ payment_verified_via: 'paystack' })
+        .eq('id', currentOrderId);
+
+      if (user) {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('id, customer_name, customer_email')
+          .eq('id', currentOrderId)
+          .single();
+        if (order) {
+          fireOrderEmails(order, user, 'paystack');
         }
       }
 
-      setCategories(
-        catsRes.data.map(cat => ({ ...cat, image: imageBySlug.get(cat.slug) ?? null }))
-      );
-    } catch (err) {
-      console.error('Categories fetch failed:', err);
+      setProcessingMessage('Payment successful! 🎉');
+      setTimeout(() => {
+        onSuccess();
+        setLoading(false);
+      }, 1500);
+
+    } catch (error) {
+      console.error('Payment record error:', error);
+      onSuccess();
     }
   };
 
-  const handleSignOut = async () => {
-    markIntentionalSignOut();
-    await supabase.auth.signOut();
-    setIsUserMenuOpen(false);
-  };
-
-  // Cart's "PROCEED TO CHECKOUT" button calls this. Signed-in users go
-  // straight to /checkout; signed-out users are prompted to sign in first,
-  // then get sent to /checkout automatically once they do.
-  const handleCheckout = () => {
-    setIsCartOpen(false);
-    if (!user) {
-      setPendingCheckout(true);
-      setIsAuthOpen(true);
-    } else {
-      onNavigateToCheckout();
-    }
+  const handlePaystackClose = () => {
+    setPaystackConfig(null);
+    setStep(2);
   };
 
   return {
     store,
-    products,
-    filteredProducts,
-    productsLoading,
-    loadingMore,
-    hasMore,
-    loadMore,
-    totalCount,
-    selectedCategory,
-    setSelectedCategory,
-    categories,
-    hasApplied,
-    isCartOpen,          setIsCartOpen,
-    isAuthOpen,          setIsAuthOpen,
-    isUserMenuOpen,      setIsUserMenuOpen,
-    isRetailerModalOpen, setIsRetailerModalOpen,
-    handleSignOut,
-    handleCheckout,
+    step,
+    loading,
+    paymentMethod,
+    setPaymentMethod,
+    shippingData,
+    setShippingData,
+    processingMessage,
+    paystackConfig,
+    settings,
+    copied,
+    transferDetails,
+    senderName,
+    setSenderName,
+    totalItems,
+    subtotal,
+    totalOrderAmount,
+    payableAmount,
+    isRetryMode,
+    retryError,
+    calculateShipping,
+    handleShippingSubmit,
+    handleShippingNext,
+    handleCopyAccount,
+    createOrder,
+    handleTransferComplete,
+    handlePaystackSuccess,
+    handlePaystackClose,
   };
 }
