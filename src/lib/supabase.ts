@@ -102,7 +102,7 @@ export interface Payment {
   amount: number;
   payment_proof_url?: string;
   bank_account_id?: string;
-  status: 'pending' | 'verified' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected';  // was 'verified' — DB only allows 'approved'
   payment_number?: number;
   is_balance_payment?: boolean;
   paystack_reference?: string;
