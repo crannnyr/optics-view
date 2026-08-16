@@ -10,11 +10,9 @@ const OrderHistory      = lazy(() => import('./components/OrderHistory'));
 const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
+const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
 
 // ── Session timeout ───────────────────────────────────────────────────────────
-// Guards against getSession() never resolving on a dead connection.
-// 15 seconds is enough for slow mobile (3G resolves well within it).
-// This is NOT the user's session duration — Supabase manages that separately.
 const SESSION_TIMEOUT_MS = 15 * 1000;
 
 function PageLoader() {
@@ -25,10 +23,6 @@ function PageLoader() {
   );
 }
 
-// ── PWA Update Prompt ─────────────────────────────────────────────────────────
-// Shown when a new service worker is waiting to activate.
-// vite.config.ts uses registerType: 'prompt' so we control when the update applies.
-// Without this component the new SW would never activate (user stays on old version).
 function PWAUpdatePrompt() {
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null);
 
@@ -36,10 +30,8 @@ function PWAUpdatePrompt() {
     if (!('serviceWorker' in navigator)) return;
 
     navigator.serviceWorker.ready.then(reg => {
-      // Already waiting (page loaded after SW installed)
       if (reg.waiting) { setWaiting(reg.waiting); return; }
 
-      // New SW installs while page is open
       reg.addEventListener('updatefound', () => {
         const newSW = reg.installing;
         if (!newSW) return;
@@ -51,7 +43,6 @@ function PWAUpdatePrompt() {
       });
     });
 
-    // When SW activates, reload to serve new assets
     let refreshing = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (refreshing) return;
@@ -88,7 +79,6 @@ function PWAUpdatePrompt() {
   );
 }
 
-// ── Session toast ─────────────────────────────────────────────────────────────
 function SessionToast({ onDismiss, showSignIn }: { onDismiss: () => void; showSignIn: boolean }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-[9999] flex items-center justify-center p-4">
@@ -115,7 +105,6 @@ function SessionToast({ onDismiss, showSignIn }: { onDismiss: () => void; showSi
   );
 }
 
-// ── Store error screen ────────────────────────────────────────────────────────
 function StoreErrorScreen() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-6 text-center">
@@ -143,7 +132,7 @@ function StoreErrorScreen() {
 function App() {
   const { store, loading: storeLoading, storeNotFound, storeError } = useStore();
   const [currentView, setCurrentView] = useState<
-    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'legal-privacy' | 'legal-terms'
+    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms'
   >('shop');
   const [user, setUser]                       = useState<any>(null);
   const [authLoading, setAuthLoading]         = useState(true);
@@ -151,7 +140,6 @@ function App() {
   const [autoOpenAuth, setAutoOpenAuth]       = useState(false);
   const sessionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Badge 4 — debounce cart saves so we don't write localStorage on every keystroke
   const cartSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [adminEmail,    setAdminEmail]    = useState('');
@@ -159,6 +147,12 @@ function App() {
   const [adminError,    setAdminError]    = useState('');
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  // Set when navigating to /checkout to retry an existing pending order
+  // (from ProductDetails right now, from Home and OrderHistory once those
+  // are updated). Null means a normal fresh checkout from the cart.
+  const [retryOrderId, setRetryOrderId] = useState<string | null>(null);
+
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('optics_cart');
@@ -174,6 +168,7 @@ function App() {
     if (path === '/privacy-policy')   return 'legal-privacy';
     if (path === '/terms-conditions') return 'legal-terms';
     if (path === '/orders')           return 'orders';
+    if (path === '/checkout')         return 'checkout';
     if (path.startsWith('/product/')) return 'details';
     return 'shop';
   };
@@ -209,15 +204,12 @@ function App() {
       if (timedOut) return;
       if (sessionTimeoutRef.current) clearTimeout(sessionTimeoutRef.current);
 
-      // ── last_seen_at ──────────────────────────────────────────────────────
-      // Update last_seen_at on every sign-in so the Users admin tab can show
-      // "Active Today" and track recent sign-in activity.
       if (event === 'SIGNED_IN' && session?.user) {
         supabase
           .from('profiles')
           .update({ last_seen_at: new Date().toISOString() })
           .eq('id', session.user.id)
-          .then(() => {});  // fire and forget — non-critical
+          .then(() => {});
       }
 
       if (
@@ -265,6 +257,10 @@ function App() {
         supabase.from('products').select('*').eq('id', productId).single()
           .then(({ data }) => { if (data) setSelectedProduct(data); });
       }
+      // Leaving /checkout via back/forward — clear any stale retry target
+      if (newView !== 'checkout') {
+        setRetryOrderId(null);
+      }
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -275,9 +271,6 @@ function App() {
     };
   }, []);
 
-  // ── Badge 4: Debounced cart persistence ───────────────────────────────────
-  // Previously wrote to localStorage on every single cart change.
-  // Now waits 500ms after last change before saving — smoother on slow devices.
   useEffect(() => {
     if (cartSaveTimerRef.current) clearTimeout(cartSaveTimerRef.current);
     cartSaveTimerRef.current = setTimeout(() => {
@@ -300,6 +293,13 @@ function App() {
   const viewProduct = (product: Product) => {
     setSelectedProduct(product);
     navigateTo('details', `/product/${product.id}`);
+  };
+
+  // Enters the checkout page. Pass an orderId to resume/retry an existing
+  // pending order instead of starting a fresh checkout from the cart.
+  const navigateToCheckout = (orderIdToRetry?: string) => {
+    setRetryOrderId(orderIdToRetry ?? null);
+    navigateTo('checkout', '/checkout');
   };
 
   const addToCart = (product: Product, quantity = 1, selectedColor?: string, selectedType?: string) => {
@@ -490,6 +490,26 @@ function App() {
     );
   }
 
+  if (currentView === 'checkout') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <CheckoutPage
+          items={cart}
+          retryOrderId={retryOrderId}
+          onBack={() => {
+            setRetryOrderId(null);
+            navigateTo(retryOrderId ? 'orders' : 'shop', retryOrderId ? '/orders' : '/');
+          }}
+          onSuccess={() => {
+            clearCart();
+            setRetryOrderId(null);
+            navigateTo('orders', '/orders');
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   if (currentView === 'details' && selectedProduct) {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -500,8 +520,8 @@ function App() {
           cart={cart}
           onUpdateQuantity={updateQuantity}
           onRemoveFromCart={removeFromCart}
-          onClearCart={clearCart}
           onNavigateToProduct={viewProduct}
+          onNavigateToCheckout={() => navigateToCheckout()}
           user={user}
         />
       </Suspense>
@@ -510,7 +530,6 @@ function App() {
 
   return (
     <>
-      {/* PWA update banner — appears when a new version is deployed */}
       <PWAUpdatePrompt />
 
       {sessionTimedOut && (
