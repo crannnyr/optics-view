@@ -1,4 +1,4 @@
-import { CreditCard, Smartphone, ArrowRight, Loader2, Zap } from 'lucide-react';
+import { CreditCard, Smartphone, ArrowRight, Loader2, Zap, RotateCcw } from 'lucide-react';
 
 interface PaymentMethodStepProps {
   payableAmount: number;
@@ -10,6 +10,7 @@ interface PaymentMethodStepProps {
   createOrder: (method: 'paystack' | 'transfer') => void;
   loading: boolean;
   themeColor?: string;
+  isRetryMode?: boolean;
 }
 
 export default function PaymentMethodStep({
@@ -18,16 +19,23 @@ export default function PaymentMethodStep({
   setPaymentMethod,
   createOrder,
   loading,
-  themeColor = '#0d2818'
+  themeColor = '#0d2818',
+  isRetryMode = false
 }: PaymentMethodStepProps) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+      {isRetryMode && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 text-blue-800 text-xs rounded-lg p-3">
+          <RotateCcw size={14} className="shrink-0" />
+          <span>Resuming payment for your existing order — your shipping details are already saved.</span>
+        </div>
+      )}
+
       <p className="text-center text-sm text-gray-600 mb-6">
         How would you like to pay <strong>₦{payableAmount.toLocaleString()}</strong>?
       </p>
 
       <div className="space-y-3">
-         {/* Paystack listed first — it's the instant option, activates the order immediately */}
          {settings.enable_paystack && (
             <button 
               onClick={() => { setPaymentMethod('paystack'); createOrder('paystack'); }}
@@ -71,7 +79,7 @@ export default function PaymentMethodStep({
       {loading && (
          <div className="text-center pt-4">
             <Loader2 size={24} className="animate-spin mx-auto mb-2" style={{ color: themeColor }} />
-            <p className="text-xs text-gray-500">Initializing order...</p>
+            <p className="text-xs text-gray-500">{isRetryMode ? 'Preparing payment...' : 'Initializing order...'}</p>
          </div>
       )}
     </div>
