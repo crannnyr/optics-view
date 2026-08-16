@@ -4,7 +4,6 @@ import Home from './components/Home';
 import { Lock, Loader2, SearchX, WifiOff, RefreshCw } from 'lucide-react';
 import { useStore } from './context/StoreContext';
 
-// ── Lazy-loaded route components ──────────────────────────────────────────────
 const Admin             = lazy(() => import('./components/Admin'));
 const OrderHistory      = lazy(() => import('./components/OrderHistory'));
 const ProductDetails    = lazy(() => import('./components/ProductDetails'));
@@ -12,7 +11,6 @@ const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
 
-// ── Session timeout ───────────────────────────────────────────────────────────
 const SESSION_TIMEOUT_MS = 15 * 1000;
 
 function PageLoader() {
@@ -148,9 +146,8 @@ function App() {
 
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  // Set when navigating to /checkout to retry an existing pending order
-  // (from ProductDetails right now, from Home and OrderHistory once those
-  // are updated). Null means a normal fresh checkout from the cart.
+  // Set when navigating to /checkout to retry an existing pending order.
+  // Null means a normal fresh checkout from the cart.
   const [retryOrderId, setRetryOrderId] = useState<string | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -257,7 +254,6 @@ function App() {
         supabase.from('products').select('*').eq('id', productId).single()
           .then(({ data }) => { if (data) setSelectedProduct(data); });
       }
-      // Leaving /checkout via back/forward — clear any stale retry target
       if (newView !== 'checkout') {
         setRetryOrderId(null);
       }
@@ -356,8 +352,6 @@ function App() {
       await supabase.auth.signOut();
     }
   };
-
-  // ── Render guards ─────────────────────────────────────────────────────────
 
   if (authLoading || storeLoading) {
     return (
@@ -485,7 +479,10 @@ function App() {
   if (currentView === 'orders') {
     return (
       <Suspense fallback={<PageLoader />}>
-        <OrderHistory onBack={() => navigateTo('shop', '/')} />
+        <OrderHistory
+          onBack={() => navigateTo('shop', '/')}
+          onRetryPayment={(orderId) => navigateToCheckout(orderId)}
+        />
       </Suspense>
     );
   }
@@ -546,6 +543,7 @@ function App() {
         onRemoveFromCart={removeFromCart}
         onClearCart={clearCart}
         onNavigateToOrders={() => navigateTo('orders', '/orders')}
+        onNavigateToCheckout={navigateToCheckout}
         onViewProduct={viewProduct}
         onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
         onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
