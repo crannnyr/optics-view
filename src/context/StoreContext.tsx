@@ -74,8 +74,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         let profile = null;
         let isLookingForStore = false;
 
-        // 1. Check custom domain
-        if (!isMainDomain) {
+        const isReserved = !!pathSegment && reservedPaths.includes(pathSegment);
+
+        // 1. Custom domain: only look up a retailer if the path is NOT a reserved route.
+        //    This allows something like https://example.com/checkout to render the app checkout.
+        if (!isMainDomain && !isReserved) {
           isLookingForStore = true;
           const { data, error } = await supabase
             .from('profiles')
@@ -87,8 +90,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           profile = data;
         }
 
-        // 2. Check slug path
-        else if (pathSegment && !reservedPaths.includes(pathSegment)) {
+        // 2. Main domain slug path: only lookup retailer if pathSegment exists and is not reserved.
+        else if (isMainDomain && pathSegment && !isReserved) {
           isLookingForStore = true;
           const { data, error } = await supabase
             .from('profiles')
