@@ -156,7 +156,8 @@ export default function Home({
       </button>
 
       <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cart}
-        onUpdateQuantity={onUpdateQuantity} onRemove={onRemoveFromCart} onCheckout={handleCheckout} />
+        onUpdateQuantity={onUpdateQuantity} onRemove={onRemoveFromCart}
+        onCheckout={() => { setIsCartOpen(false); onNavigateToCheckout(); }} />
 
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)}
         onViewTerms={onNavigateToTerms} onViewPrivacy={onNavigateToPrivacy} />
