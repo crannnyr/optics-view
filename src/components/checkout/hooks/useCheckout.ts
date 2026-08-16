@@ -13,18 +13,32 @@ export const NIGERIAN_STATES = [
 
 const ADMIN_EMAIL = 'opticsview1@gmail.com';
 
+interface ShippingData {
+  state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
+}
+
+interface RetryOrder {
+  id: string;
+  user_id: string;
+  status: string;
+  total_amount: number;
+  payment_method: string;
+  paystack_reference: string | null;
+}
+
 interface UseCheckoutProps {
   isOpen: boolean;
   items: CartItem[];
   onSuccess: () => void;
+  retryOrderId?: string | null;
 }
 
-export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
+export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheckoutProps) {
   const { store } = useStore();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
-  const [shippingData, setShippingData] = useState({
+  const [shippingData, setShippingData] = useState<ShippingData>({
     state: '', city: '', lga: '', landmark: '', area: '', phone1: '', phone2: ''
   });
   const [processingMessage, setProcessingMessage] = useState('');
@@ -39,22 +53,33 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     name: "Optics View Store"
   });
 
-  // Sender name for manual transfer — matches the retailer registration flow.
-  // Saved to orders.payment_sender_name on transfer completion.
   const [senderName, setSenderName] = useState('');
-
-  // Keyed by state name for O(1) lookup — populated on fetchSettings
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
 
+  // ── Retry-mode state ────────────────────────────────────────────────────
+  // Set when this checkout session is resuming an existing pending order
+  // (e.g. from "Try Payment Again" in My Purchases) instead of creating a
+  // brand new one from the cart.
+  const [retryOrder, setRetryOrder] = useState<RetryOrder | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
+  const isRetryMode = !!retryOrder;
+
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) return;
+
+    setPaystackConfig(null);
+    setSenderName('');
+    setRetryError(null);
+    fetchSettings();
+
+    if (retryOrderId) {
+      loadRetryOrder(retryOrderId);
+    } else {
       setStep(1);
-      setPaystackConfig(null);
       setCurrentOrderId(null);
-      setSenderName('');
-      fetchSettings();
+      setRetryOrder(null);
     }
-  }, [isOpen]);
+  }, [isOpen, retryOrderId]);
 
   const fetchSettings = async () => {
     const { data: methodData } = await supabase.from('app_settings').select('*').eq('key', 'payment_methods').single();
@@ -63,7 +88,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
     if (transferData?.value) setTransferDetails(transferData.value);
 
-    // Load all per-state delivery fees in one query and key by state name
     const { data: deliveryData } = await supabase
       .from('delivery_settings')
       .select('state, delivery_fee');
@@ -74,14 +98,53 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     }
   };
 
+  // Loads an existing pending order for a retry attempt, verifies it
+  // belongs to the current user, pre-fills shipping data for display,
+  // and jumps straight to the payment-method step.
+  const loadRetryOrder = async (orderId: string) => {
+    setLoading(true);
+    setProcessingMessage('Loading your order...');
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data: order, error } = await supabase
+        .from('orders')
+        .select('id, user_id, status, total_amount, payment_method, paystack_reference, shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark, customer_phone_1, customer_phone_2')
+        .eq('id', orderId)
+        .single();
+
+      if (error || !order) throw new Error('Order not found');
+      if (order.user_id !== user.id) throw new Error('This order does not belong to you');
+      if (order.status !== 'pending') throw new Error('This order can no longer be retried');
+
+      setRetryOrder(order);
+      setCurrentOrderId(order.id);
+      setShippingData({
+        state: order.shipping_state || '',
+        city: order.shipping_city || '',
+        lga: order.shipping_lga || '',
+        landmark: order.shipping_landmark || '',
+        area: order.shipping_area || '',
+        phone1: order.customer_phone_1 || '',
+        phone2: order.customer_phone_2 || '',
+      });
+      setStep(2);
+    } catch (err: any) {
+      console.error('Retry order load failed:', err);
+      setRetryError(err.message || 'We could not load this order.');
+    } finally {
+      setLoading(false);
+      setProcessingMessage('');
+    }
+  };
+
   // --- Calculations ---
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
-  // Returns the admin-configured fee for the selected state.
-  // Falls back to 1000 (the current flat rate) only if a state somehow isn't
-  // configured yet — this should not happen since all 37 states are set.
   const calculateShipping = () => {
-    if (!shippingData.state) return 0; // No state selected yet — shown as 0 on step 1
+    if (!shippingData.state) return 0;
     return deliveryFees[shippingData.state] ?? 1000;
   };
 
@@ -93,15 +156,13 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     return sum + (price * item.quantity);
   }, 0);
 
-  const totalOrderAmount = subtotal + calculateShipping();
+  // In retry mode the amount owed is whatever was locked in on the original
+  // order — never recalculated from the current cart, which may have
+  // changed or been cleared since.
+  const totalOrderAmount = isRetryMode ? retryOrder!.total_amount : subtotal + calculateShipping();
   const payableAmount = totalOrderAmount;
 
   // --- Helpers ---
-
-  // Sends the admin new-order alert only.
-  // Used for transfer orders at creation time — the customer confirmation
-  // email (order_confirmation) is intentionally withheld until the admin
-  // manually verifies and approves the payment.
   const fireAdminAlert = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
@@ -122,9 +183,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     });
   };
 
-  // Sends both the customer confirmation and the admin alert.
-  // Only called after a payment is fully confirmed (Paystack success).
-  // Never called for transfer orders at creation — those go through fireAdminAlert only.
   const fireOrderEmails = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
     const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
@@ -183,83 +241,104 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
   };
 
   const createOrder = async (method: 'paystack' | 'transfer') => {
+    setPaymentMethod(method);
     setLoading(true);
-    setProcessingMessage('Creating secure order...');
+    setProcessingMessage(isRetryMode ? 'Preparing payment...' : 'Creating secure order...');
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      const orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      let orderId = currentOrderId;
+      let orderReference = retryOrder?.paystack_reference || null;
 
-      let retailerProfit = 0;
-      if (store?.isRetailer && store?.id) {
-        for (const item of items) {
-          const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
-          const soldPrice = item.product.price;
-          if (soldPrice > costPrice) {
-            retailerProfit += (soldPrice - costPrice) * item.quantity;
+      if (isRetryMode && orderId) {
+        // Reuse the existing order — just update the method (and generate a
+        // reference if one was somehow never set) instead of inserting a
+        // duplicate order.
+        if (!orderReference) {
+          orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        }
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ payment_method: method, paystack_reference: orderReference })
+          .eq('id', orderId);
+        if (updateError) throw updateError;
+
+      } else {
+        // Fresh order — original creation flow
+        orderReference = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+        let retailerProfit = 0;
+        if (store?.isRetailer && store?.id) {
+          for (const item of items) {
+            const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
+            const soldPrice = item.product.price;
+            if (soldPrice > costPrice) {
+              retailerProfit += (soldPrice - costPrice) * item.quantity;
+            }
           }
+        }
+
+        const contactPhones = [shippingData.phone1, shippingData.phone2]
+          .filter(Boolean)
+          .join(', ');
+
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert([{
+            user_id: user.id,
+            customer_name: user.user_metadata.full_name || 'Customer',
+            customer_email: user.email,
+            customer_phone: contactPhones,
+            customer_phone_1: shippingData.phone1,
+            customer_phone_2: shippingData.phone2 || null,
+            customer_address: `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`,
+            shipping_state: shippingData.state,
+            shipping_city: shippingData.city,
+            shipping_area: shippingData.area,
+            shipping_lga: shippingData.lga,
+            shipping_landmark: shippingData.landmark || null,
+            total_amount: totalOrderAmount,
+            status: 'pending',
+            payment_method: method,
+            manual_payment_verified: false,
+            paystack_reference: orderReference,
+            retailer_id: store?.id,
+            retailer_slug: store?.slug,
+            retailer_profit: Math.max(0, retailerProfit),
+          }])
+          .select()
+          .single();
+
+        if (orderError) throw orderError;
+        orderId = order.id;
+
+        const orderItems = items.map(item => {
+          const threshold = item.product.wholesale_min_qty || 7;
+          return {
+            order_id: order.id,
+            product_id: item.product.id,
+            quantity: item.quantity,
+            price: (item.quantity >= threshold && item.product.wholesale_price)
+              ? item.product.wholesale_price
+              : item.product.price,
+            selected_color: item.selectedColor || null,
+            selected_type: item.selectedType || null
+          };
+        });
+
+        const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+        if (itemsError) throw itemsError;
+
+        // Only fire the admin alert for brand-new transfer orders — a retry
+        // reuses the same order, so re-alerting would just be noise.
+        if (method === 'transfer') {
+          fireAdminAlert(order, user, method);
         }
       }
 
-      const contactPhones = [shippingData.phone1, shippingData.phone2]
-        .filter(Boolean)
-        .join(', ');
-
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert([{
-          user_id: user.id,
-          customer_name: user.user_metadata.full_name || 'Customer',
-          customer_email: user.email,
-          customer_phone: contactPhones,
-          customer_phone_1: shippingData.phone1,
-          customer_phone_2: shippingData.phone2 || null,
-          customer_address: `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`,
-          shipping_state: shippingData.state,
-          shipping_city: shippingData.city,
-          shipping_area: shippingData.area,
-          shipping_lga: shippingData.lga,
-          shipping_landmark: shippingData.landmark || null,
-          total_amount: totalOrderAmount,
-          status: 'pending',
-          payment_method: method,
-          manual_payment_verified: false,
-          paystack_reference: orderReference,
-          retailer_id: store?.id,
-          retailer_slug: store?.slug,
-          retailer_profit: Math.max(0, retailerProfit),
-        }])
-        .select()
-        .single();
-
-      if (orderError) throw orderError;
-      setCurrentOrderId(order.id);
-
-      const orderItems = items.map(item => {
-        const threshold = item.product.wholesale_min_qty || 7;
-        return {
-          order_id: order.id,
-          product_id: item.product.id,
-          quantity: item.quantity,
-          price: (item.quantity >= threshold && item.product.wholesale_price)
-            ? item.product.wholesale_price
-            : item.product.price,
-          selected_color: item.selectedColor || null,
-          selected_type: item.selectedType || null
-        };
-      });
-
-      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-      if (itemsError) throw itemsError;
-
-      // Transfer: only alert admin — order_confirmation is sent by admin on approval.
-      // Paystack: emails fire in handlePaystackSuccess only, never here,
-      // so cancelled/failed payments don't trigger confirmation emails.
-      if (method === 'transfer') {
-        fireAdminAlert(order, user, method);
-      }
+      setCurrentOrderId(orderId);
 
       if (method === 'paystack') {
         setPaystackConfig({
@@ -268,7 +347,7 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
           amount: payableAmount * 100,
           publicKey: PAYSTACK_PUBLIC_KEY,
           metadata: {
-            order_id: order.id,
+            order_id: orderId,
             retailer_id: store?.id
           }
         });
@@ -299,8 +378,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         is_balance_payment: false
       });
 
-      // Save the sender name the customer typed so admin can match it against
-      // the bank alert — same pattern as the retailer registration flow.
       await supabase
         .from('orders')
         .update({ payment_sender_name: senderName.trim() || null })
@@ -324,7 +401,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     setProcessingMessage('Verifying payment...');
 
     try {
-      // Retrieve the user for email firing
       const { data: { user } } = await supabase.auth.getUser();
 
       await supabase.from('payments').insert({
@@ -340,7 +416,6 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
         .update({ payment_verified_via: 'paystack' })
         .eq('id', currentOrderId);
 
-      // Fire both emails only on confirmed Paystack payment
       if (user) {
         const { data: order } = await supabase
           .from('orders')
@@ -360,31 +435,14 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
 
     } catch (error) {
       console.error('Payment record error:', error);
-      // Even if DB write fails, Paystack confirmed — still call onSuccess
       onSuccess();
     }
   };
 
-  // Paystack was cancelled or failed.
-  // Delete the orphaned pending order and its items, then step back to
-  // payment method selection so the user can retry cleanly without
-  // creating a duplicate order.
-  const handlePaystackClose = async () => {
-    if (!currentOrderId) {
-      setStep(2);
-      return;
-    }
-
-    try {
-      // Delete items first (foreign key constraint)
-      await supabase.from('order_items').delete().eq('order_id', currentOrderId);
-      await supabase.from('orders').delete().eq('id', currentOrderId);
-    } catch (err) {
-      // Non-critical — log but don't block the retry flow
-      console.error('Failed to clean up cancelled order:', err);
-    }
-
-    setCurrentOrderId(null);
+  // Paystack was cancelled or failed. The order is NOT deleted anymore —
+  // it stays as 'pending' so the customer can retry later from My
+  // Purchases. Just clear the popup config and drop back to method choice.
+  const handlePaystackClose = () => {
     setPaystackConfig(null);
     setStep(2);
   };
@@ -408,6 +466,8 @@ export function useCheckout({ isOpen, items, onSuccess }: UseCheckoutProps) {
     subtotal,
     totalOrderAmount,
     payableAmount,
+    isRetryMode,
+    retryError,
     calculateShipping,
     handleShippingSubmit,
     handleShippingNext,
