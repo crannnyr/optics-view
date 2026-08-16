@@ -3,7 +3,6 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import Cart from './Cart';
-import Checkout from './Checkout';
 
 interface ProductDetailsProps {
   product: Product;
@@ -12,14 +11,14 @@ interface ProductDetailsProps {
   cart: CartItem[];
   onUpdateQuantity: (id: string, qty: number, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
-  onClearCart: () => void;
   onNavigateToProduct: (product: Product) => void;
+  onNavigateToCheckout: () => void;
   user: any;
 }
 
 export default function ProductDetails({
   product, onBack, onAddToCart, cart, onUpdateQuantity, onRemoveFromCart,
-  onClearCart, onNavigateToProduct, user
+  onNavigateToProduct, onNavigateToCheckout, user
 }: ProductDetailsProps) {
   const { store } = useStore();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -32,7 +31,6 @@ export default function ProductDetails({
   const [selectedSize, setSelectedSize] = useState('');
   const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
 
   const touchStartX = useRef(0);
@@ -120,7 +118,7 @@ export default function ProductDetails({
 
   const handleCheckout = () => {
     setIsCartOpen(false);
-    if (!user) { onBack(); } else { setIsCheckoutOpen(true); }
+    if (!user) { onBack(); } else { onNavigateToCheckout(); }
   };
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -136,7 +134,6 @@ export default function ProductDetails({
 
   return (
     <div className="min-h-screen bg-white pb-20" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      {/* Header */}
       <div className="sticky top-0 bg-white/95 backdrop-blur z-20 border-b px-4 md:px-6 py-3 md:py-4 flex items-center justify-between">
         <button onClick={onBack} className="flex items-center gap-2 text-xs md:text-sm hover:opacity-70" style={{ color: store.themeColor }}>
           <ArrowLeft size={18} />
@@ -150,7 +147,6 @@ export default function ProductDetails({
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-6 md:py-10 grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-12">
-        {/* Left: Images */}
         <div className="space-y-3 md:space-y-4">
           <div className="relative bg-gray-100 overflow-hidden group">
             <img
@@ -189,7 +185,6 @@ export default function ProductDetails({
           </div>
         </div>
 
-        {/* Right: Details */}
         <div>
           <h1 className="text-2xl md:text-3xl font-light mb-2" style={{ color: store.themeColor }}>
             {product.name}
@@ -214,7 +209,6 @@ export default function ProductDetails({
             <span className="text-xs text-gray-500 ml-2">({reviews.length} reviews)</span>
           </div>
 
-          {/* Description */}
           <div className="mb-6 md:mb-8">
             <p className="text-gray-600 leading-relaxed text-sm">
               {showFullDescription ? product.description : truncatedDescription}
@@ -228,7 +222,6 @@ export default function ProductDetails({
             </p>
           </div>
 
-          {/* Variants — color, type, size */}
           {(hasColors || hasTypes || hasSizes) && (
             <div className="border-t border-b border-gray-100 py-4 md:py-6 mb-6 md:mb-8 space-y-4">
               {hasColors && (
@@ -287,7 +280,6 @@ export default function ProductDetails({
             </div>
           )}
 
-          {/* Quantity + Add to cart */}
           <div className="border-t border-b border-gray-100 py-4 md:py-6 mb-6 md:mb-8">
             <div className="flex items-center gap-4 mb-4">
               <span className="text-xs uppercase tracking-wider text-gray-500">Quantity</span>
@@ -305,7 +297,6 @@ export default function ProductDetails({
             </button>
           </div>
 
-          {/* Reviews */}
           <div>
             <h3 className="text-base md:text-lg font-light mb-4 md:mb-6 border-b pb-2">Customer Reviews</h3>
             {loadingReviews ? (
@@ -333,7 +324,6 @@ export default function ProductDetails({
         </div>
       </div>
 
-      {/* You might also like */}
       {suggestedProducts.length > 0 && (
         <div className="border-t border-gray-100 py-10">
           <div className="max-w-7xl mx-auto px-4 md:px-6">
@@ -356,7 +346,6 @@ export default function ProductDetails({
         </div>
       )}
 
-      {/* Floating Cart */}
       <button onClick={() => setIsCartOpen(true)}
         className="fixed bottom-8 right-8 text-white w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:opacity-90 transition-transform hover:scale-105 z-40"
         style={{ backgroundColor: store.themeColor }}>
@@ -370,9 +359,6 @@ export default function ProductDetails({
 
       <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cart}
         onUpdateQuantity={onUpdateQuantity} onRemove={onRemoveFromCart} onCheckout={handleCheckout} />
-
-      <Checkout isOpen={isCheckoutOpen} onClose={() => setIsCheckoutOpen(false)} items={cart}
-        onSuccess={() => { onClearCart(); setIsCheckoutOpen(false); }} />
     </div>
   );
 }
