@@ -40,7 +40,7 @@ export interface Product {
   category: string;
   product_type?: string;
   supplier?: string;
-
+  units_sold: number; 
   // Product variants
   color_options?: string[];
   type_options?: string[];
