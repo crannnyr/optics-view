@@ -84,12 +84,11 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
           </div>
         )}
 
-        {/* Popular indicator — small pulsing gold square, top-left corner.
-            Kept tiny and unlabeled so it stays subtle rather than a banner. */}
+        {/* Popular indicator — small static tag, top-left corner. No animation,
+            kept minimal so it reads as a quiet signal rather than a banner. */}
         {isPopular && (
-          <div className="absolute top-2 left-2">
-            <span className="absolute inline-flex h-2.5 w-2.5 rounded-sm bg-amber-400 opacity-75 animate-ping" />
-            <span className="relative inline-flex h-2.5 w-2.5 rounded-sm bg-amber-500" />
+          <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded-sm">
+            Trending
           </div>
         )}
 
