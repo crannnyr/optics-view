@@ -9,6 +9,13 @@ interface ProductCardProps {
   onViewDetails: (product: Product) => void;
 }
 
+function formatSoldCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return count.toLocaleString();
+}
+
 export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
@@ -20,28 +27,23 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
     ? product.images.slice(0, 5)
     : [product.image_url];
 
-  // Reset error state when image changes
+  const isPopular = product.units_sold >= 1000;
+
   useEffect(() => { setImgError(false); }, [currentImageIdx]);
 
-  // ── Visibility observer ───────────────────────────────────────────────────
-  // Tracks whether this card is in the viewport.
-  // Used to: (1) pause the carousel when off-screen, (2) lazy-load the image.
   useEffect(() => {
     const card = cardRef.current;
     if (!card) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '100px' } // Slightly early so image loads before it's visible
+      { rootMargin: '100px' }
     );
 
     observer.observe(card);
     return () => observer.disconnect();
   }, []);
 
-  // ── Carousel — only runs when card is visible ─────────────────────────────
-  // Previously all 199 cards ran setInterval simultaneously.
-  // Now only visible cards cycle — typically 6-12 at a time.
   useEffect(() => {
     if (images.length <= 1 || !isVisible) return;
     const interval = setInterval(() => {
@@ -70,10 +72,6 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
           <img
             src={images[currentImageIdx]}
             alt={product.name}
-            // lazy: browser only downloads this image when card is near viewport.
-            // async: decoding happens off the main thread, no paint blocking.
-            // First 12 products visible on load are fine with lazy since the
-            // browser is smart enough to prioritise above-the-fold images.
             loading="lazy"
             decoding="async"
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -83,6 +81,15 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
           <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-300">
             <ImageOff size={32} />
             <span className="text-[10px] mt-2 tracking-wider">Image unavailable</span>
+          </div>
+        )}
+
+        {/* Popular indicator — small pulsing gold square, top-left corner.
+            Kept tiny and unlabeled so it stays subtle rather than a banner. */}
+        {isPopular && (
+          <div className="absolute top-2 left-2">
+            <span className="absolute inline-flex h-2.5 w-2.5 rounded-sm bg-amber-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-sm bg-amber-500" />
           </div>
         )}
 
@@ -134,14 +141,19 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
           </p>
         </div>
 
-        <button
-          onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
-          className="shrink-0 text-white px-3 py-1.5 text-[10px] tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5"
-          style={{ backgroundColor: store.themeColor }}
-        >
-          <ShoppingBag size={12} />
-          BUY
-        </button>
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+            className="text-white px-3 py-1.5 text-[10px] tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            style={{ backgroundColor: store.themeColor }}
+          >
+            <ShoppingBag size={12} />
+            BUY
+          </button>
+          <span className={`text-[10px] ${isPopular ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
+            {formatSoldCount(product.units_sold)} sold
+          </span>
+        </div>
       </div>
     </div>
   );
