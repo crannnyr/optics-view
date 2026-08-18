@@ -281,6 +281,16 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [currentView]);
 
+  // Kicks a signed-out user off /checkout back to home with the login
+  // modal open — covers direct URL entry and mid-checkout session expiry.
+  useEffect(() => {
+    if (currentView === 'checkout' && !authLoading && !user) {
+      setRetryOrderId(null);
+      setAutoOpenAuth(true);
+      navigateTo('shop', '/');
+    }
+  }, [currentView, user, authLoading]);
+
   const navigateTo = (view: typeof currentView, path: string) => {
     window.history.pushState({}, '', path);
     setCurrentView(view);
@@ -291,9 +301,15 @@ function App() {
     navigateTo('details', `/product/${product.id}`);
   };
 
-  // Enters the checkout page. Pass an orderId to resume/retry an existing
-  // pending order instead of starting a fresh checkout from the cart.
+  // Gatekeeper for every path into checkout (cart, product page, retry
+  // payment). Signed-out users never see the checkout page — they're sent
+  // home with the login modal already open instead.
   const navigateToCheckout = (orderIdToRetry?: string) => {
+    if (!user) {
+      setAutoOpenAuth(true);
+      navigateTo('shop', '/');
+      return;
+    }
     setRetryOrderId(orderIdToRetry ?? null);
     navigateTo('checkout', '/checkout');
   };
@@ -488,6 +504,14 @@ function App() {
   }
 
   if (currentView === 'checkout') {
+    // Safety net for someone typing /checkout directly, or a session
+    // expiring while they're sitting on this page — never render checkout
+    // content for a signed-out user, even for a single frame. The redirect
+    // itself is handled by the useEffect above; this just prevents a flash
+    // of checkout content in the interim.
+    if (!user) {
+      return <PageLoader />;
+    }
     return (
       <Suspense fallback={<PageLoader />}>
         <CheckoutPage
@@ -519,7 +543,6 @@ function App() {
           onRemoveFromCart={removeFromCart}
           onNavigateToProduct={viewProduct}
           onNavigateToCheckout={() => navigateToCheckout()}
-          user={user}
         />
       </Suspense>
     );
