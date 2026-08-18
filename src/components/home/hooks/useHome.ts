@@ -149,6 +149,7 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
           .from('products')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
+          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false })
           .range(from, to);
 
@@ -178,6 +179,7 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
           .from('products')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
+          .order('display_order', { ascending: true })
           .order('created_at', { ascending: false })
           .range(from, to);
 
