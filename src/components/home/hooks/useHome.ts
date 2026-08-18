@@ -6,12 +6,12 @@ interface UseHomeProps {
   user: any;
   autoOpenAuth?: boolean;
   onAutoAuthHandled?: () => void;
+  onNavigateToCheckout: () => void;
 }
 
 const PAGE_SIZE = 12;
-const HERO_CACHE_KEY = 'ov_hero_settings';
 
-export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps) {
+export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToCheckout }: UseHomeProps) {
   const { store } = useStore();
   const [products, setProducts]                 = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -19,31 +19,26 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
   const [categories, setCategories]             = useState<{ slug: string; name: string; image: string | null }[]>([]);
   const [productsLoading, setProductsLoading]   = useState(true);
 
-  // Pagination state
   const [page, setPage]               = useState(1);
   const [hasMore, setHasMore]         = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [totalCount, setTotalCount]   = useState(0);
 
-  // For retailer stores we fetch all (usually small filtered set).
-  // For the main store we paginate.
   const isRetailerStore = store.isRetailer && !!store.id;
 
   const [isCartOpen,          setIsCartOpen]          = useState(false);
-  const [isCheckoutOpen,      setIsCheckoutOpen]      = useState(false);
   const [isAuthOpen,          setIsAuthOpen]          = useState(false);
   const [isUserMenuOpen,      setIsUserMenuOpen]      = useState(false);
   const [isRetailerModalOpen, setIsRetailerModalOpen] = useState(false);
 
-  const [orderSuccess,    setOrderSuccess]    = useState(false);
+  // Set when a signed-out user hits "checkout" — after they sign in, we
+  // navigate them to /checkout automatically instead of reopening a modal.
   const [pendingCheckout, setPendingCheckout] = useState(false);
   const [hasApplied,      setHasApplied]      = useState(false);
 
-  // Retailer category whitelist — fetched once and reused
   const retailerCatsRef = useRef<string[]>([]);
   const customPricesRef = useRef<{ product_id: string; custom_price: number }[]>([]);
 
-  // ── Auto-open auth after session expiry ───────────────────────────────────
   useEffect(() => {
     if (autoOpenAuth) {
       setIsAuthOpen(true);
@@ -51,7 +46,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   }, [autoOpenAuth]);
 
-  // ── Initial load ──────────────────────────────────────────────────────────
   useEffect(() => {
     setPage(1);
     setProducts([]);
@@ -60,13 +54,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     loadCategories();
   }, [store.id]);
 
-  // ── Retailer application check ────────────────────────────────────────────
-  // "MY DASHBOARD" only replaces "BECOME A RETAILER" once payment is verified,
-  // a manual transfer has been submitted (dashboard shows pending-approval
-  // screen), or the account is blocked (dashboard explains the suspension).
-  // A cancelled/failed Paystack attempt keeps showing "BECOME A RETAILER" so
-  // the person can retry — clicking it resumes them at the last step before
-  // payment, it does not restart the whole application.
   useEffect(() => {
     if (user?.email) {
       supabase
@@ -96,12 +83,10 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
   useEffect(() => {
     if (user && pendingCheckout) {
       setPendingCheckout(false);
-      setIsCheckoutOpen(true);
+      onNavigateToCheckout();
     }
   }, [user, pendingCheckout]);
 
-  // ── Category filter ───────────────────────────────────────────────────────
-  // When category changes reset pagination and re-fetch
   useEffect(() => {
     setPage(1);
     setProducts([]);
@@ -109,7 +94,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     loadProducts(1, selectedCategory, true);
   }, [selectedCategory]);
 
-  // ── Product loader ────────────────────────────────────────────────────────
   const loadProducts = useCallback(async (
     pageNum: number,
     category: string,
@@ -126,7 +110,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
       const to   = from + PAGE_SIZE - 1;
 
       if (isRetailerStore) {
-        // Retailer: fetch supporting data once on reset
         if (isReset) {
           const [{ data: reg }, { data: customPrices }] = await Promise.all([
             supabase
@@ -145,11 +128,13 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
 
         const catSlugs = retailerCatsRef.current;
 
+        // Featured products (display_order > 0) surface first, ranked by
+        // that value descending; everything else falls back to newest-first.
         let query = supabase
           .from('products')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
-          .order('display_order', { ascending: true })
+          .order('display_order', { ascending: false })
           .order('created_at', { ascending: false })
           .range(from, to);
 
@@ -174,12 +159,13 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
         setProducts(prev => isReset ? finalProducts : [...prev, ...finalProducts]);
 
       } else {
-        // Main store: paginated fetch
+        // Featured products (display_order > 0) surface first, ranked by
+        // that value descending; everything else falls back to newest-first.
         let query = supabase
           .from('products')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
-          .order('display_order', { ascending: true })
+          .order('display_order', { ascending: false })
           .order('created_at', { ascending: false })
           .range(from, to);
 
@@ -203,12 +189,10 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   }, [store.id, store.slug, store.isRetailer, isRetailerStore]);
 
-  // filteredProducts is just products — filtering is now done server-side
   useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
 
-  // ── Load more (called by infinite scroll sentinel) ────────────────────────
   const loadMore = useCallback(() => {
     if (loadingMore || !hasMore) return;
     const nextPage = page + 1;
@@ -216,7 +200,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     loadProducts(nextPage, selectedCategory, false);
   }, [page, loadingMore, hasMore, selectedCategory, loadProducts]);
 
-  // ── Categories ────────────────────────────────────────────────────────────
   const loadCategories = async () => {
     try {
       let catSlugs: string[] = [];
@@ -236,9 +219,6 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
           if (catSlugs.length > 0) q = q.in('slug', catSlugs);
           return q;
         })(),
-        // Capped and ordered by newest — enough rows to cover a thumbnail for
-        // every category without pulling the entire active product table on
-        // every home page load. No caching layer, just a sane row limit.
         supabase
           .from('products')
           .select('category, images, image_url')
@@ -264,20 +244,22 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     }
   };
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
   const handleSignOut = async () => {
     markIntentionalSignOut();
     await supabase.auth.signOut();
     setIsUserMenuOpen(false);
   };
 
+  // Cart's "PROCEED TO CHECKOUT" button calls this. Signed-in users go
+  // straight to /checkout; signed-out users are prompted to sign in first,
+  // then get sent to /checkout automatically once they do.
   const handleCheckout = () => {
     setIsCartOpen(false);
     if (!user) {
       setPendingCheckout(true);
       setIsAuthOpen(true);
     } else {
-      setIsCheckoutOpen(true);
+      onNavigateToCheckout();
     }
   };
 
@@ -295,11 +277,9 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled }: UseHomeProps)
     categories,
     hasApplied,
     isCartOpen,          setIsCartOpen,
-    isCheckoutOpen,      setIsCheckoutOpen,
     isAuthOpen,          setIsAuthOpen,
     isUserMenuOpen,      setIsUserMenuOpen,
     isRetailerModalOpen, setIsRetailerModalOpen,
-    orderSuccess,        setOrderSuccess,
     handleSignOut,
     handleCheckout,
   };
