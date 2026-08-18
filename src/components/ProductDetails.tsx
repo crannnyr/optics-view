@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, Product, Review, CartItem } from '../lib/supabase';
-import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import Cart from './Cart';
 
@@ -14,6 +14,13 @@ interface ProductDetailsProps {
   onNavigateToProduct: (product: Product) => void;
   onNavigateToCheckout: () => void;
   user: any;
+}
+
+function formatSoldCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return count.toLocaleString();
 }
 
 export default function ProductDetails({
@@ -190,7 +197,7 @@ export default function ProductDetails({
             {product.name}
           </h1>
 
-          <div className="flex flex-wrap items-baseline gap-3 md:gap-4 mb-4 md:mb-6">
+          <div className="flex flex-wrap items-baseline gap-3 md:gap-4 mb-3">
             {product.compare_at_price && product.compare_at_price > product.price && (
               <span className="text-lg md:text-xl text-gray-400 line-through">₦{product.compare_at_price.toLocaleString()}</span>
             )}
@@ -207,6 +214,11 @@ export default function ProductDetails({
               <Star key={star} size={14} className={star <= 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
             ))}
             <span className="text-xs text-gray-500 ml-2">({reviews.length} reviews)</span>
+            <span className="text-gray-300 mx-1.5">·</span>
+            <span className="flex items-center gap-1 text-xs text-gray-500">
+              <TrendingUp size={12} />
+              {formatSoldCount(product.units_sold)} sold
+            </span>
           </div>
 
           <div className="mb-6 md:mb-8">
