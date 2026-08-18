@@ -1,5 +1,7 @@
+import { useState, useEffect, useRef } from 'react';
+import { ChevronLeft, ChevronRight, ShoppingBag, ImageOff } from 'lucide-react';
 import { Product } from '../../lib/supabase';
-import { ShoppingBag, Star } from 'lucide-react';
+import { useStore } from '../../context/StoreContext';
 
 interface ProductCardProps {
   product: Product;
@@ -7,75 +9,151 @@ interface ProductCardProps {
   onViewDetails: (product: Product) => void;
 }
 
-export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
-  const displayImage = product.images?.[0] || product.image_url;
+function formatSoldCount(count: number): string {
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1).replace(/\.0$/, '')}k`;
+  }
+  return count.toLocaleString();
+}
 
-  const calculateDiscount = () => {
-    if (!product.wholesale_price) return 0;
-    return Math.round(((product.price - product.wholesale_price) / product.price) * 100);
+export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
+  const { store } = useStore();
+  const [currentImageIdx, setCurrentImageIdx] = useState(0);
+  const [imgError, setImgError] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const images = product.images && product.images.length > 0
+    ? product.images.slice(0, 5)
+    : [product.image_url];
+
+  const isPopular = product.units_sold >= 1000;
+
+  useEffect(() => { setImgError(false); }, [currentImageIdx]);
+
+  useEffect(() => {
+    const card = cardRef.current;
+    if (!card) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsVisible(entry.isIntersecting),
+      { rootMargin: '100px' }
+    );
+
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (images.length <= 1 || !isVisible) return;
+    const interval = setInterval(() => {
+      setCurrentImageIdx((prev) => (prev + 1) % images.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [images.length, isVisible]);
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIdx((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentImageIdx((prev) => (prev - 1 + images.length) % images.length);
   };
 
   return (
-    <div className="group">
+    <div className="group" ref={cardRef}>
       <div
-        className="relative overflow-hidden bg-gray-50 mb-4 cursor-pointer"
-        onClick={() => onAddToCart(product)}
+        onClick={() => onViewDetails(product)}
+        className="relative bg-gray-100 mb-4 overflow-hidden cursor-pointer aspect-square"
       >
-        <img
-          src={displayImage}
-          alt={product.name}
-          className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
-          // Only download this image when it's about to enter the viewport.
-          // Prevents all product images competing with the hero on first load.
-          loading="lazy"
-          decoding="async"
-        />
-
-        {/* Wholesale Badge */}
-        {product.wholesale_price && (
-          <div className="absolute top-2 left-2 bg-[#0d2818] text-white text-[10px] px-2 py-1 tracking-wider">
-            -{calculateDiscount()}% WHOLESALE
+        {!imgError ? (
+          <img
+            src={images[currentImageIdx]}
+            alt={product.name}
+            loading="lazy"
+            decoding="async"
+            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-300">
+            <ImageOff size={32} />
+            <span className="text-[10px] mt-2 tracking-wider">Image unavailable</span>
           </div>
         )}
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <div className="bg-white text-[#0d2818] px-4 py-2 text-xs tracking-widest flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform">
-            <ShoppingBag size={14} />
-            ADD TO CART
+        {/* Popular indicator — small pulsing gold square, top-left corner.
+            Kept tiny and unlabeled so it stays subtle rather than a banner. */}
+        {isPopular && (
+          <div className="absolute top-2 left-2">
+            <span className="absolute inline-flex h-2.5 w-2.5 rounded-sm bg-amber-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2.5 w-2.5 rounded-sm bg-amber-500" />
           </div>
+        )}
+
+        <div
+          className="absolute bottom-0 right-0 bg-white px-3 py-2.5 text-[8px] tracking-[0.2em] font-light border-l border-t border-gray-200"
+          style={{ color: store.themeColor }}
+        >
+          {store.name.toUpperCase()}
         </div>
+
+        {images.length > 1 && !imgError && (
+          <>
+            <button
+              onClick={prevImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={nextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            >
+              <ChevronRight size={16} />
+            </button>
+            <div className="absolute bottom-2 left-2 flex gap-1.5">
+              {images.map((_, idx) => (
+                <div
+                  key={idx}
+                  className="w-1.5 h-1.5 rounded-full transition-colors"
+                  style={{ backgroundColor: idx === currentImageIdx ? store.themeColor : 'rgba(255,255,255,0.6)' }}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      <div className="text-center">
-        <h3 className="text-sm font-medium tracking-wide text-[#0d2818] mb-1">
-          {product.name}
-        </h3>
-
-        <div className="mb-3 flex items-center justify-center gap-2">
-          {product.compare_at_price && product.compare_at_price > product.price && (
-            <span className="text-xs text-gray-400 line-through">
-              ₦{product.compare_at_price.toLocaleString()}
-            </span>
-          )}
-          <p className="text-xs text-gray-900 font-light">
+      <div className="flex justify-between items-center gap-2">
+        <div className="flex-1 text-left">
+          <h3
+            onClick={() => onViewDetails(product)}
+            className="text-sm font-light mb-1 cursor-pointer hover:opacity-70"
+            style={{ color: store.themeColor }}
+          >
+            {product.name}
+          </h3>
+          <p className="text-base font-medium" style={{ color: store.themeColor }}>
             ₦{product.price.toLocaleString()}
           </p>
         </div>
 
-        {product.wholesale_price && (
-          <p className="text-[10px] text-green-700 mb-2">
-            (Bulk: ₦{product.wholesale_price.toLocaleString()})
-          </p>
-        )}
-
-        <button
-          onClick={() => onViewDetails(product)}
-          className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-gray-400 hover:text-[#0d2818] border-b border-transparent hover:border-[#0d2818] pb-0.5 transition-colors"
-        >
-          <Star size={10} className="fill-current" />
-          See Reviews
-        </button>
+        <div className="shrink-0 flex flex-col items-end gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+            className="text-white px-3 py-1.5 text-[10px] tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5"
+            style={{ backgroundColor: store.themeColor }}
+          >
+            <ShoppingBag size={12} />
+            BUY
+          </button>
+          <span className={`text-[10px] ${isPopular ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
+            {formatSoldCount(product.units_sold)} sold
+          </span>
+        </div>
       </div>
     </div>
   );
