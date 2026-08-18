@@ -13,7 +13,6 @@ interface ProductDetailsProps {
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
   onNavigateToProduct: (product: Product) => void;
   onNavigateToCheckout: () => void;
-  user: any;
 }
 
 function formatSoldCount(count: number): string {
@@ -25,7 +24,7 @@ function formatSoldCount(count: number): string {
 
 export default function ProductDetails({
   product, onBack, onAddToCart, cart, onUpdateQuantity, onRemoveFromCart,
-  onNavigateToProduct, onNavigateToCheckout, user
+  onNavigateToProduct, onNavigateToCheckout
 }: ProductDetailsProps) {
   const { store } = useStore();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -125,7 +124,10 @@ export default function ProductDetails({
 
   const handleCheckout = () => {
     setIsCartOpen(false);
-    if (!user) { onBack(); } else { onNavigateToCheckout(); }
+    // Auth is gated centrally in App.tsx's navigateToCheckout — if the
+    // person isn't signed in, they'll land back on home with the login
+    // modal open instead of ever seeing checkout.
+    onNavigateToCheckout();
   };
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -215,7 +217,7 @@ export default function ProductDetails({
             ))}
             <span className="text-xs text-gray-500 ml-2">({reviews.length} reviews)</span>
             <span className="text-gray-300 mx-1.5">·</span>
-            <span className="flex items-center gap-1 text-xs text-gray-500">
+            <span className={`flex items-center gap-1 text-xs ${product.units_sold >= 1000 ? 'text-amber-500 font-medium' : 'text-gray-500'}`}>
               <TrendingUp size={12} />
               {formatSoldCount(product.units_sold)} sold
             </span>
