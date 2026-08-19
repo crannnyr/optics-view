@@ -11,8 +11,6 @@ export const NIGERIAN_STATES = [
   "Taraba", "Yobe", "Zamfara"
 ];
 
-const ADMIN_EMAIL = 'opticsview1@gmail.com';
-
 interface ShippingData {
   state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
 }
@@ -151,29 +149,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const totalOrderAmount = isRetryMode ? retryOrder!.total_amount : subtotal + calculateShipping();
   const payableAmount = totalOrderAmount;
 
-  const fireAdminAlert = (order: any, user: any, method: string) => {
+  // Sends only the customer's own order confirmation. Admin new-order
+  // alert emails have been intentionally disabled per request — order
+  // volume made the admin inbox/Resend usage too noisy. Nothing is sent
+  // to the admin address here anymore, and no Resend call fires for it.
+  const fireCustomerConfirmation = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
-    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
-
-    sendEmail({
-      type: 'new_order_alert',
-      to_email: ADMIN_EMAIL,
-      data: {
-        order_id: order.id,
-        customer_name: user.user_metadata?.full_name || 'Customer',
-        customer_email: user.email,
-        customer_phone: contactPhones,
-        total_amount: totalOrderAmount,
-        payment_method: method,
-        shipping_address: shippingAddress,
-      },
-      bypass_limit: true,
-    });
-  };
-
-  const fireOrderEmails = (order: any, user: any, method: string) => {
-    const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
-    const contactPhones = [shippingData.phone1, shippingData.phone2].filter(Boolean).join(', ');
 
     sendEmail({
       type: 'order_confirmation',
@@ -186,21 +167,6 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         payment_method: method,
         shipping_address: shippingAddress,
       },
-    });
-
-    sendEmail({
-      type: 'new_order_alert',
-      to_email: ADMIN_EMAIL,
-      data: {
-        order_id: order.id,
-        customer_name: user.user_metadata?.full_name || 'Customer',
-        customer_email: user.email,
-        customer_phone: contactPhones,
-        total_amount: totalOrderAmount,
-        payment_method: method,
-        shipping_address: shippingAddress,
-      },
-      bypass_limit: true,
     });
   };
 
@@ -314,9 +280,9 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
         if (itemsError) throw itemsError;
 
-        if (method === 'transfer') {
-          fireAdminAlert(order, user, method);
-        }
+        // Admin alert removed — see fireCustomerConfirmation note above.
+        // Transfer orders no longer trigger any email at creation time;
+        // the admin now finds new orders via the admin panel itself.
       }
 
       setCurrentOrderId(orderId);
@@ -397,6 +363,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         .update({ payment_verified_via: 'paystack' })
         .eq('id', currentOrderId);
 
+      // Customer still gets their confirmation — admin alert removed.
       if (user) {
         const { data: order } = await supabase
           .from('orders')
@@ -404,7 +371,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
           .eq('id', currentOrderId)
           .single();
         if (order) {
-          fireOrderEmails(order, user, 'paystack');
+          fireCustomerConfirmation(order, user, 'paystack');
         }
       }
 
