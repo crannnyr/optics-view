@@ -167,7 +167,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       const fileName = `${Math.random()}.webp`;
       const { error } = await supabase.storage
         .from('product-images')
-        .upload(fileName, compressed, { contentType: 'image/webp' });
+        .upload(fileName, compressed, {
+          contentType: 'image/webp',
+          cacheControl: '31536000' // 1 year — filenames are random/unique, so long caching is safe
+        });
 
       if (!error) {
         const { data } = supabase.storage
