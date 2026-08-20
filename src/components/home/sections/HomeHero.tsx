@@ -188,6 +188,11 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
     return () => { cancelled = true; };
   }, [store.id, store.isRetailer]);
 
+  // China + Jumia buttons are OPTICSVIEW's own sourcing channels, not a
+  // given retailer's — they must never appear on a retailer's store,
+  // only on the main opticsview.store domain/root.
+  const showGlobalButtons = !store.isRetailer;
+
   return (
     <>
       {/* ── Hero section ── */}
@@ -254,11 +259,14 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
 
         {/* China + Jumia buttons, side by side, floating over the bottom edge
             of the hero image. Jumia is styled as the primary/star action;
-            China is the quieter secondary option to its left. */}
-        <div className="absolute left-3 right-3 md:left-5 md:right-5 bottom-3 md:bottom-5 z-10 flex items-center gap-2 md:gap-3">
-          <ChinaImportButton />
-          <JumiaStoreButton />
-        </div>
+            China is the quieter secondary option to its left.
+            Main store only — never on a retailer's store. */}
+        {showGlobalButtons && (
+          <div className="absolute left-3 right-3 md:left-5 md:right-5 bottom-3 md:bottom-5 z-10 flex items-center gap-2 md:gap-3">
+            <ChinaImportButton />
+            <JumiaStoreButton />
+          </div>
+        )}
       </section>
 
       {/* ── CTA row ── */}
@@ -273,8 +281,12 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               <TrendingUp size={14} />
               BECOME A RETAILER
             </button>
-            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-            <JumiaExpressBadge />
+            {showGlobalButtons && (
+              <>
+                <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
+                <JumiaExpressBadge />
+              </>
+            )}
           </div>
         </section>
       )}
@@ -290,8 +302,12 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
               <TrendingUp size={13} />
               MY DASHBOARD
             </a>
-            <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
-            <JumiaExpressBadge />
+            {showGlobalButtons && (
+              <>
+                <div className="h-7 w-px bg-gray-200 flex-shrink-0" />
+                <JumiaExpressBadge />
+              </>
+            )}
           </div>
         </section>
       )}
