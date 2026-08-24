@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store, Users } from 'lucide-react';
+import { Package, Settings, Upload, Store, Users, PackageSearch } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
 import RetailersTab from './admin/RetailersTab';
 import UsersTab from './admin/UsersTab';
+import VendorApplicationsTab from './admin/VendorApplicationsTab';
 
-type TabType = 'products' | 'orders' | 'retailers' | 'users' | 'settings';
+type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'users' | 'settings';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
@@ -15,6 +16,7 @@ export default function Admin() {
     { id: 'products'  as const, label: 'Products',  icon: Upload },
     { id: 'orders'    as const, label: 'Orders',    icon: Package },
     { id: 'retailers' as const, label: 'Retailers', icon: Store },
+    { id: 'vendors'   as const, label: 'Vendors',   icon: PackageSearch },
     { id: 'users'     as const, label: 'Users',     icon: Users },
     { id: 'settings'  as const, label: 'Settings',  icon: Settings },
   ];
@@ -69,6 +71,7 @@ export default function Admin() {
           {activeTab === 'products'  && <ProductsTab />}
           {activeTab === 'orders'    && <OrdersTab />}
           {activeTab === 'retailers' && <RetailersTab />}
+          {activeTab === 'vendors'   && <VendorApplicationsTab />}
           {activeTab === 'users'     && <UsersTab />}
           {activeTab === 'settings'  && <SettingsTab />}
         </div>
