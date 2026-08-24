@@ -20,7 +20,6 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [imgError, setImgError] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const images = product.images && product.images.length > 0
@@ -31,26 +30,8 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
 
   useEffect(() => { setImgError(false); }, [currentImageIdx]);
 
-  useEffect(() => {
-    const card = cardRef.current;
-    if (!card) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { rootMargin: '100px' }
-    );
-
-    observer.observe(card);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (images.length <= 1 || !isVisible) return;
-    const interval = setInterval(() => {
-      setCurrentImageIdx((prev) => (prev + 1) % images.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [images.length, isVisible]);
+  // Auto-shuffle disabled — was cycling every 5s regardless of interaction,
+  // adding unnecessary re-renders/load. Manual arrows still work below.
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();

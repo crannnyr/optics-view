@@ -50,7 +50,7 @@ function JumiaExpressBadge() {
 }
 
 const JUMIA_STORE_URL = 'https://www.jumia.com.ng/opticsview';
-const CHINA_IMPORT_URL = 'https://qafrica.store/importations/';
+const CHINA_IMPORT_URL = 'https://qafrica.store/recommendations';
 
 // Secondary option, sits to the left of the Jumia button — outlined red so it
 // reads as a quieter alternative rather than competing with the star action.
