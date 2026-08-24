@@ -23,7 +23,7 @@ export function useOrders() {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, items:order_items(*, products(name, images, image_url))')
+      .select('*, items:order_items(*, products(name, images, image_url, supplier))')
       .order('created_at', { ascending: false });
     if (data) setOrders(data);
   };
@@ -323,7 +323,18 @@ export function useOrders() {
 
   // ── Filtering ─────────────────────────────────────────────
 
+  // An order made up entirely of vendor-supplied items is managed via the
+  // separate Vendor Orders tab (per-vendor approval + shipping deadline),
+  // not here — so it shouldn't clutter admin's own fulfillment queue.
+  // Mixed orders (some own items, some vendor items) still show here,
+  // since admin still has their own items to ship — the vendor's portion
+  // is just tracked separately.
+  const isFullyVendorOrder = (order: any) =>
+    order.items?.length > 0 && order.items.every((item: any) => item.products?.supplier === 'vendor');
+
   const filteredOrders = orders.filter(order => {
+    if (['active', 'history', 'verify'].includes(viewMode) && isFullyVendorOrder(order)) return false;
+
     if (viewMode === 'verify') {
       return order.payment_method === 'transfer'
         && !order.manual_payment_verified
@@ -388,3 +399,9 @@ export function useOrders() {
     fetchOrders,
   };
 }
+
+// An order has vendor items if at least one line item is vendor-supplied —
+// used by OrdersList to badge mixed orders (fully-vendor orders never reach
+// the list at all, filtered out above).
+export const hasVendorItems = (order: any) =>
+  !!order.items?.some((item: any) => item.products?.supplier === 'vendor');

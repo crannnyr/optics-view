@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Loader2, Store } from 'lucide-react';
+import { ArrowLeft, Loader2, Store, AlertTriangle } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useVendorAccess } from './hooks/useVendorAccess';
 import { useVendorProgramRules } from './useVendorProgramRules';
 import PostProductForm from './sections/PostProductForm';
 import MyProductsList from './sections/MyProductsList';
+import VendorOrdersList from './sections/VendorOrdersList';
 
 interface VendorDashboardPageProps {
   user: any;
@@ -16,7 +17,7 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
   const { store } = useStore();
   const { vendor, loading } = useVendorAccess(user);
   const { rules } = useVendorProgramRules();
-  const [tab, setTab] = useState<'post' | 'products'>('post');
+  const [tab, setTab] = useState<'post' | 'products' | 'orders'>('post');
   const [refreshKey, setRefreshKey] = useState(0);
 
   if (!user || loading) {
@@ -44,6 +45,22 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
     );
   }
 
+  if (vendor.status !== 'active') {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">
+        <AlertTriangle size={40} className="text-red-400 mb-4" />
+        <h2 className="text-lg font-medium text-gray-800 mb-2">Your vendor account is {vendor.status}</h2>
+        <p className="text-sm text-gray-500 mb-2 max-w-sm">
+          This usually happens after repeated failed deliveries. To reactivate your account, a fee of ₦50,000 applies.
+        </p>
+        <p className="text-sm text-gray-500 mb-6 max-w-sm">Contact support to arrange reactivation.</p>
+        <button onClick={onBack} className="text-xs tracking-widest underline text-gray-400 hover:text-gray-600">
+          BACK TO STORE
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="max-w-5xl mx-auto px-6 pt-4 pb-16">
@@ -60,6 +77,7 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
           {[
             { key: 'post' as const, label: 'Post a Product' },
             { key: 'products' as const, label: 'My Products' },
+            { key: 'orders' as const, label: 'My Orders' },
           ].map(t => (
             <button
               key={t.key}
@@ -81,6 +99,7 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
           />
         )}
         {tab === 'products' && <MyProductsList vendor={vendor} refreshKey={refreshKey} />}
+        {tab === 'orders' && <VendorOrdersList vendor={vendor} themeColor={store.themeColor} />}
       </div>
     </div>
   );

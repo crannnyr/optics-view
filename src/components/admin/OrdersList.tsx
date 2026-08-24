@@ -1,3 +1,5 @@
+import { hasVendorItems } from './hooks/useOrders';
+
 const STATUS_COLORS: Record<string, string> = {
   pending:     'bg-yellow-100 text-yellow-800 border-yellow-200',
   approved:    'bg-blue-100 text-blue-800 border-blue-200',
@@ -48,6 +50,11 @@ export default function OrdersList({ orders, onSelectOrder }: Props) {
                 {order.retailer_slug && (
                   <span className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded">
                     {order.retailer_slug}
+                  </span>
+                )}
+                {hasVendorItems(order) && (
+                  <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded">
+                    + vendor items
                   </span>
                 )}
               </div>
