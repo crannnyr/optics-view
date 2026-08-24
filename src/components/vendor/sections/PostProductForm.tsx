@@ -1,0 +1,135 @@
+import { Loader2, CheckCircle2 } from 'lucide-react';
+import { VendorAccount } from '../hooks/useVendorAccess';
+import { VendorProgramRules } from '../useVendorProgramRules';
+import { useVendorCategories } from '../hooks/useVendorCategories';
+import { usePostProductForm } from '../hooks/usePostProductForm';
+import PhotoUploadSlot from './PhotoUploadSlot';
+import VariantsEditor from './VariantsEditor';
+
+interface PostProductFormProps {
+  vendor: VendorAccount;
+  rules: VendorProgramRules;
+  themeColor: string;
+  onPosted: () => void;
+}
+
+export default function PostProductForm({ vendor, rules, themeColor, onPosted }: PostProductFormProps) {
+  const { categories, loading: categoriesLoading } = useVendorCategories(rules.allowed_category_ids);
+  const { form, setField, variants, setVariants, submitting, error, handleSubmit } =
+    usePostProductForm({ vendor, rules, onSuccess: onPosted });
+
+  const itemTypes = categories.find(c => c.id === form.category_id)?.item_types || [];
+  const packagingFee = form.total_quantity ? rules.packaging_fee_per_item * Number(form.total_quantity) : 0;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
+      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+        Your product won't go live immediately — our team reviews every submission first.
+        You'll get an email once it's approved.
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs uppercase text-gray-500 mb-1.5">Category</label>
+          <select
+            required value={form.category_id} disabled={categoriesLoading}
+            onChange={e => { setField('category_id', e.target.value); setField('item_type_id', ''); }}
+            className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
+          >
+            <option value="">{categoriesLoading ? 'Loading...' : 'Select...'}</option>
+            {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-gray-500 mb-1.5">Item Type</label>
+          <select
+            required value={form.item_type_id} disabled={!form.category_id}
+            onChange={e => setField('item_type_id', e.target.value)}
+            className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black disabled:opacity-50"
+          >
+            <option value="">Select...</option>
+            {itemTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase text-gray-500 mb-1.5">Product Name</label>
+        <input required value={form.name} onChange={e => setField('name', e.target.value)}
+          className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black" placeholder="e.g. Men's Cotton Joggers" />
+      </div>
+
+      <div>
+        <label className="block text-xs uppercase text-gray-500 mb-1.5">Description</label>
+        <textarea rows={3} value={form.description} onChange={e => setField('description', e.target.value)}
+          className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black resize-none" placeholder="Material, fit, what makes it worth stocking..." />
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-4">
+        <PhotoUploadSlot
+          label="Photo 1 — Required"
+          hint="Pure white background, product only, no text or watermark."
+          value={form.photo_url_1}
+          onChange={url => setField('photo_url_1', url)}
+          themeColor={themeColor}
+        />
+        <PhotoUploadSlot
+          label="Photo 2 — Required"
+          hint="A second angle or lifestyle shot of the product."
+          value={form.photo_url_2}
+          onChange={url => setField('photo_url_2', url)}
+          themeColor={themeColor}
+        />
+      </div>
+
+      <div className="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label className="block text-xs uppercase text-gray-500 mb-1.5">Your Price (₦)</label>
+          <input required type="number" min="1" value={form.vendor_price} onChange={e => setField('vendor_price', e.target.value)}
+            className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black" />
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-gray-500 mb-1.5">
+            Total Quantity <span className="text-gray-400 normal-case text-[10px]">({rules.min_quantity}–{rules.max_quantity})</span>
+          </label>
+          <input required type="number" min={rules.min_quantity} max={rules.max_quantity} value={form.total_quantity}
+            onChange={e => setField('total_quantity', e.target.value)}
+            className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black" />
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-gray-500 mb-1.5">
+            Weight/item <span className="text-gray-400 normal-case text-[10px]">(max {rules.max_weight_kg}kg)</span>
+          </label>
+          <input type="number" step="0.1" max={rules.max_weight_kg} value={form.weight_kg}
+            onChange={e => setField('weight_kg', e.target.value)}
+            className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black" placeholder="kg" />
+        </div>
+      </div>
+
+      <VariantsEditor variants={variants} setVariants={setVariants} themeColor={themeColor} />
+
+      <label className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <input type="checkbox" checked={form.size_confirmed} onChange={e => setField('size_confirmed', e.target.checked)} className="mt-0.5" />
+        I confirm this item fits the size requirement: {rules.size_reference}
+      </label>
+
+      {form.total_quantity && (
+        <p className="text-xs text-gray-500">
+          Estimated packaging fee for this batch: <strong>₦{packagingFee.toLocaleString()}</strong> (₦{rules.packaging_fee_per_item.toLocaleString()} × {form.total_quantity} units) — invoiced after approval.
+        </p>
+      )}
+
+      {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
+
+      <button
+        type="submit"
+        disabled={submitting}
+        className="w-full text-white py-3.5 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+        style={{ backgroundColor: themeColor }}
+      >
+        {submitting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+        {submitting ? 'Submitting...' : 'Submit for Review'}
+      </button>
+    </form>
+  );
+}

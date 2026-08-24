@@ -6,10 +6,11 @@ interface VendorSignupFormProps {
   user: any;
   themeColor: string;
   onRequestSignIn: () => void;
+  onGoToDashboard: () => void;
 }
 
 const VendorSignupForm = forwardRef<HTMLDivElement, VendorSignupFormProps>(
-  function VendorSignupForm({ user, themeColor, onRequestSignIn }, ref) {
+  function VendorSignupForm({ user, themeColor, onRequestSignIn, onGoToDashboard }, ref) {
     const [checking, setChecking] = useState(true);
     const [alreadyRegistered, setAlreadyRegistered] = useState(false);
     const [submitting, setSubmitting] = useState(false);
@@ -94,9 +95,16 @@ const VendorSignupForm = forwardRef<HTMLDivElement, VendorSignupFormProps>(
             <p className="text-sm font-semibold text-green-800 mb-1">
               {submitted ? "You're registered!" : "You're already a registered vendor."}
             </p>
-            <p className="text-xs text-green-700">
+            <p className="text-xs text-green-700 mb-5">
               We'll be in touch with warehouse drop-off instructions to get your first batch listed.
             </p>
+            <button
+              onClick={onGoToDashboard}
+              className="text-white px-6 py-2.5 text-xs font-semibold rounded-full hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: themeColor }}
+            >
+              Go to Vendor Dashboard
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4 bg-gray-50 border border-gray-200 rounded-2xl p-6 md:p-8">

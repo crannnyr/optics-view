@@ -13,9 +13,10 @@ interface VendorLandingPageProps {
   onBack: () => void;
   onNavigateToPrivacy: () => void;
   onNavigateToTerms: () => void;
+  onNavigateToDashboard: () => void;
 }
 
-export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, onNavigateToTerms }: VendorLandingPageProps) {
+export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, onNavigateToTerms, onNavigateToDashboard }: VendorLandingPageProps) {
   const { store } = useStore();
   const { rules } = useVendorProgramRules();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -43,6 +44,7 @@ export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, o
         user={user}
         themeColor={store.themeColor}
         onRequestSignIn={() => setIsAuthOpen(true)}
+        onGoToDashboard={onNavigateToDashboard}
       />
 
       <AuthModal

@@ -12,6 +12,7 @@ export interface VendorProgramRules {
   packaging_fee_per_item: number;
   commission_rate_percent: number;
   dropoff_contact_phone: string;
+  allowed_category_ids: string[];
 }
 
 const FALLBACK_RULES: VendorProgramRules = {
@@ -25,6 +26,7 @@ const FALLBACK_RULES: VendorProgramRules = {
   packaging_fee_per_item: 450,
   commission_rate_percent: 21,
   dropoff_contact_phone: '09069149803',
+  allowed_category_ids: [],
 };
 
 // Rules live in app_settings so admins can tune them without a code change —
