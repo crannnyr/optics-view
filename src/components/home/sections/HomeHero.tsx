@@ -49,7 +49,7 @@ function JumiaExpressBadge() {
   );
 }
 
-const JUMIA_STORE_URL = 'https://www.jumia.com.ng/opticsview';
+const JUMIA_STORE_URL = 'https://jforce.jumia.com.ng/s/C6tCHzq';
 const CHINA_IMPORT_URL = 'https://qafrica.store/recommendations';
 
 // Secondary option, sits to the left of the Jumia button — outlined red so it
