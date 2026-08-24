@@ -10,6 +10,7 @@ const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
+const VendorLandingPage = lazy(() => import('./components/vendor/VendorLandingPage'));
 
 const SESSION_TIMEOUT_MS = 15 * 1000;
 
@@ -130,7 +131,7 @@ function StoreErrorScreen() {
 function App() {
   const { store, loading: storeLoading, storeNotFound, storeError } = useStore();
   const [currentView, setCurrentView] = useState<
-    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms'
+    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'vendor-landing'
   >('shop');
   const [user, setUser]                       = useState<any>(null);
   const [authLoading, setAuthLoading]         = useState(true);
@@ -166,6 +167,7 @@ function App() {
     if (path === '/terms-conditions') return 'legal-terms';
     if (path === '/orders')           return 'orders';
     if (path === '/checkout')         return 'checkout';
+    if (path === '/become-a-vendor')  return 'vendor-landing';
     if (path.startsWith('/product/')) return 'details';
     return 'shop';
   };
@@ -399,6 +401,19 @@ function App() {
     );
   }
 
+  if (currentView === 'vendor-landing') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <VendorLandingPage
+          user={user}
+          onBack={() => navigateTo('shop', '/')}
+          onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
+          onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
+        />
+      </Suspense>
+    );
+  }
+
   if (currentView === 'legal-privacy') {
     return (
       <Suspense fallback={<PageLoader />}>
@@ -567,6 +582,7 @@ function App() {
         onClearCart={clearCart}
         onNavigateToOrders={() => navigateTo('orders', '/orders')}
         onNavigateToCheckout={navigateToCheckout}
+        onNavigateToVendor={() => navigateTo('vendor-landing', '/become-a-vendor')}
         onViewProduct={viewProduct}
         onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
         onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}

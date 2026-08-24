@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Menu, Package, LogOut, Download, MessageCircle, Store, Rocket, Globe } from 'lucide-react';
 import CustomerNotifications from '../../CustomerNotifications';
-import SellWithUsModal from './SellWithUsModal';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -43,6 +42,7 @@ interface HomeHeaderProps {
   isUserMenuOpen: boolean;
   setIsUserMenuOpen: (open: boolean) => void;
   onNavigateToOrders: () => void;
+  onNavigateToVendor: () => void;
   handleSignOut: () => void;
   setIsAuthOpen: (open: boolean) => void;
 }
@@ -52,10 +52,9 @@ const QAFRICA_STORE_URL = 'https://qafrica.store';
 
 export default function HomeHeader({
   user, store, isUserMenuOpen, setIsUserMenuOpen,
-  onNavigateToOrders, handleSignOut, setIsAuthOpen,
+  onNavigateToOrders, onNavigateToVendor, handleSignOut, setIsAuthOpen,
 }: HomeHeaderProps) {
   const { canInstall, triggerInstall } = usePWAInstall();
-  const [sellModalOpen, setSellModalOpen] = useState(false);
 
   const handleCustomerService = () => {
     window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank');
@@ -121,7 +120,7 @@ export default function HomeHeader({
                           <Package size={16} /> My Purchases
                         </button>
                         <button
-                          onClick={() => { setSellModalOpen(true); setIsUserMenuOpen(false); }}
+                          onClick={() => { onNavigateToVendor(); setIsUserMenuOpen(false); }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                           style={{ color: store.themeColor }}
                         >
@@ -184,12 +183,6 @@ export default function HomeHeader({
           </div>
         </div>
       </header>
-
-      <SellWithUsModal
-        isOpen={sellModalOpen}
-        onClose={() => setSellModalOpen(false)}
-        themeColor={store.themeColor}
-      />
     </>
   );
 }

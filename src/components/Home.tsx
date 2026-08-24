@@ -21,6 +21,7 @@ interface HomeProps {
   onClearCart: () => void;
   onNavigateToOrders: () => void;
   onNavigateToCheckout: () => void;
+  onNavigateToVendor: () => void;
   onViewProduct: (product: Product) => void;
   onNavigateToPrivacy: () => void;
   onNavigateToTerms: () => void;
@@ -40,7 +41,7 @@ function ProductSkeleton() {
 
 export default function Home({
   user, cart, onAddToCart, onUpdateQuantity, onRemoveFromCart, onClearCart,
-  onNavigateToOrders, onNavigateToCheckout, onViewProduct, onNavigateToPrivacy, onNavigateToTerms,
+  onNavigateToOrders, onNavigateToCheckout, onNavigateToVendor, onViewProduct, onNavigateToPrivacy, onNavigateToTerms,
   autoOpenAuth, onAutoAuthHandled,
 }: HomeProps) {
 
@@ -81,6 +82,7 @@ export default function Home({
       <HomeHeader
         user={user} store={store} isUserMenuOpen={isUserMenuOpen}
         setIsUserMenuOpen={setIsUserMenuOpen} onNavigateToOrders={onNavigateToOrders}
+        onNavigateToVendor={onNavigateToVendor}
         handleSignOut={handleSignOut} setIsAuthOpen={setIsAuthOpen}
       />
 
