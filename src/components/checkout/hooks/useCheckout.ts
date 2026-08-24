@@ -13,7 +13,13 @@ export const NIGERIAN_STATES = [
 
 interface ShippingData {
   state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
+  deliveryMethod: 'pickup' | 'home';
+  pickupStationId: string | null;
+  pickupStationName: string | null;
+  pickupStationAddress: string | null;
 }
+
+export const HOME_DELIVERY_FEE = 6500;
 
 interface RetryOrder {
   id: string;
@@ -37,8 +43,10 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'paystack' | 'transfer'>('paystack');
   const [shippingData, setShippingData] = useState<ShippingData>({
-    state: '', city: '', lga: '', landmark: '', area: '', phone1: '', phone2: ''
+    state: '', city: '', lga: '', landmark: '', area: '', phone1: '', phone2: '',
+    deliveryMethod: 'pickup', pickupStationId: null, pickupStationName: null, pickupStationAddress: null,
   });
+  const [shippingError, setShippingError] = useState<string | null>(null);
   const [processingMessage, setProcessingMessage] = useState('');
   const [paystackConfig, setPaystackConfig] = useState<any>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -46,9 +54,9 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [copied, setCopied] = useState(false);
 
   const [transferDetails, setTransferDetails] = useState({
-    bank: "OPay",
-    number: "9069149803",
-    name: "Optics View Store"
+    bank: "Moniepoint",
+    number: "6001470094",
+    name: "Opticsview Commerce"
   });
 
   const [senderName, setSenderName] = useState('');
@@ -102,7 +110,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
       const { data: order, error } = await supabase
         .from('orders')
-        .select('id, user_id, status, total_amount, payment_method, paystack_reference, shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark, customer_phone_1, customer_phone_2')
+        .select('id, user_id, status, total_amount, payment_method, paystack_reference, shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark, customer_phone_1, customer_phone_2, delivery_method, pickup_station_id, pickup_station_name, pickup_station_address')
         .eq('id', orderId)
         .single();
 
@@ -120,6 +128,10 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         area: order.shipping_area || '',
         phone1: order.customer_phone_1 || '',
         phone2: order.customer_phone_2 || '',
+        deliveryMethod: (order.delivery_method as 'pickup' | 'home') || 'pickup',
+        pickupStationId: order.pickup_station_id || null,
+        pickupStationName: order.pickup_station_name || null,
+        pickupStationAddress: order.pickup_station_address || null,
       });
       setStep(2);
     } catch (err: any) {
@@ -131,11 +143,19 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     }
   };
 
+  useEffect(() => {
+    setShippingError(null);
+  }, [shippingData.deliveryMethod, shippingData.pickupStationId]);
+
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const calculateShipping = () => {
+    if (shippingData.deliveryMethod === 'pickup') return 0;
     if (!shippingData.state) return 0;
-    return deliveryFees[shippingData.state] ?? 1000;
+    // Admin-configured per-state fee takes priority if set; otherwise the
+    // standard home delivery fee applies. This fee is intentionally higher
+    // than pickup to nudge people toward the free pickup-station option.
+    return deliveryFees[shippingData.state] ?? HOME_DELIVERY_FEE;
   };
 
   const subtotal = items.reduce((sum, item) => {
@@ -171,6 +191,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   };
 
   const handleShippingNext = () => {
+    if (shippingData.deliveryMethod === 'pickup' && !shippingData.pickupStationId) {
+      setShippingError('Please choose a pickup station, or switch to Home Delivery.');
+      return;
+    }
+    setShippingError(null);
+
     if (settings.enable_paystack && !settings.enable_transfer) {
       setPaymentMethod('paystack');
       createOrder('paystack');
@@ -233,6 +259,11 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
           .filter(Boolean)
           .join(', ');
 
+        const isPickup = shippingData.deliveryMethod === 'pickup';
+        const customerAddress = isPickup
+          ? `Pickup: ${shippingData.pickupStationName} — ${shippingData.pickupStationAddress}`
+          : `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`;
+
         const { data: order, error: orderError } = await supabase
           .from('orders')
           .insert([{
@@ -242,12 +273,16 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
             customer_phone: contactPhones,
             customer_phone_1: shippingData.phone1,
             customer_phone_2: shippingData.phone2 || null,
-            customer_address: `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} (${shippingData.area})`,
+            customer_address: customerAddress,
             shipping_state: shippingData.state,
             shipping_city: shippingData.city,
             shipping_area: shippingData.area,
             shipping_lga: shippingData.lga,
             shipping_landmark: shippingData.landmark || null,
+            delivery_method: shippingData.deliveryMethod,
+            pickup_station_id: isPickup ? shippingData.pickupStationId : null,
+            pickup_station_name: isPickup ? shippingData.pickupStationName : null,
+            pickup_station_address: isPickup ? shippingData.pickupStationAddress : null,
             total_amount: totalOrderAmount,
             status: 'pending',
             payment_method: method,
@@ -400,6 +435,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     setPaymentMethod,
     shippingData,
     setShippingData,
+    shippingError,
     processingMessage,
     paystackConfig,
     settings,

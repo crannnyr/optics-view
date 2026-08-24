@@ -1,7 +1,7 @@
 import { PaystackButton } from 'react-paystack';
 import { CreditCard, ShieldCheck, AlertTriangle, Smartphone, CheckCircle, Copy, Loader2 } from 'lucide-react';
 
-const VALID_ACCOUNT_NAMES = ['OpticsView', 'Nnebedum Joshua'];
+const VALID_ACCOUNT_NAMES = ['Opticsview Commerce'];
 
 interface PaymentExecutionStepProps {
   paymentMethod: 'paystack' | 'transfer';
@@ -86,7 +86,20 @@ export default function PaymentExecutionStep({
             <div className="absolute top-0 right-0 p-4 opacity-10">
               <Smartphone size={100} />
             </div>
-            <p className="text-xs text-gray-400 uppercase tracking-widest mb-4">Transfer Details</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-gray-400 uppercase tracking-widest">Transfer Details</p>
+              {transferDetails.bank.toLowerCase().includes('moniepoint') && (
+                <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded-full">
+                  <div
+                    className="w-4 h-4 rounded-sm flex items-center justify-center text-[9px] font-black text-white"
+                    style={{ backgroundColor: '#053B76' }}
+                  >
+                    M
+                  </div>
+                  <span className="text-[10px] font-semibold tracking-wide text-gray-200">Moniepoint</span>
+                </div>
+              )}
+            </div>
 
             <div className="space-y-4 relative z-10">
               <div>
@@ -119,10 +132,9 @@ export default function PaymentExecutionStep({
             <div className="flex items-start gap-2.5">
               <AlertTriangle size={16} className="text-red-600 shrink-0 mt-0.5" />
               <p className="text-xs text-red-700 leading-relaxed">
-                The account name on your banking app may show as either{' '}
-                <strong>{VALID_ACCOUNT_NAMES[0]}</strong> or <strong>{VALID_ACCOUNT_NAMES[1]}</strong> —
-                both are correct and belong to us. <strong>Do not send</strong> if the name shown
-                doesn't match either of these.
+                The account name on your banking app should show as{' '}
+                <strong>{VALID_ACCOUNT_NAMES[0]}</strong>. <strong>Do not send</strong> if the name shown
+                doesn't match.
               </p>
             </div>
           </div>

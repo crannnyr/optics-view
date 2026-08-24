@@ -187,6 +187,16 @@ export interface ComboProduct {
   updated_at: string;
 }
 
+export interface PickupStation {
+  id: string;
+  name: string;
+  state: string;
+  address: string;
+  landmark?: string;
+  latitude: number;
+  longitude: number;
+}
+
 export const initializePaystack = (email: string, amount: number, reference: string, metadata?: any) => {
   return {
     key: PAYSTACK_PUBLIC_KEY,

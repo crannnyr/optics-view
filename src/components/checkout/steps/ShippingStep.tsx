@@ -1,14 +1,25 @@
 import { NIGERIAN_STATES } from '../hooks/useCheckout';
+import PickupLocationPicker from './PickupLocationPicker';
+
+interface ShippingData {
+  state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
+  deliveryMethod: 'pickup' | 'home';
+  pickupStationId: string | null;
+  pickupStationName: string | null;
+  pickupStationAddress: string | null;
+}
 
 interface ShippingStepProps {
-  shippingData: { state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string };
-  setShippingData: (data: { state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string }) => void;
+  shippingData: ShippingData;
+  setShippingData: (data: ShippingData) => void;
   totalItems: number;
   subtotal: number;
   calculateShipping: () => number;
   totalOrderAmount: number;
   handleShippingSubmit: (e: React.FormEvent) => void;
   themeColor?: string;
+  shippingError?: string | null;
+  homeDeliveryFee: number;
 }
 
 export default function ShippingStep({
@@ -19,7 +30,9 @@ export default function ShippingStep({
   calculateShipping,
   totalOrderAmount,
   handleShippingSubmit,
-  themeColor = '#0d2818'
+  themeColor = '#0d2818',
+  shippingError,
+  homeDeliveryFee,
 }: ShippingStepProps) {
   return (
     <form onSubmit={handleShippingSubmit} className="space-y-5">
@@ -29,7 +42,7 @@ export default function ShippingStep({
           <select
             required
             value={shippingData.state}
-            onChange={e => setShippingData({ ...shippingData, state: e.target.value })}
+            onChange={e => setShippingData({ ...shippingData, state: e.target.value, pickupStationId: null, pickupStationName: null, pickupStationAddress: null })}
             className="w-full border p-3 text-sm rounded bg-gray-50 focus:bg-white transition-colors outline-none focus:border-black"
           >
             <option value="">Select...</option>
@@ -48,6 +61,29 @@ export default function ShippingStep({
           />
         </div>
       </div>
+
+      <PickupLocationPicker
+        state={shippingData.state}
+        deliveryMethod={shippingData.deliveryMethod}
+        setDeliveryMethod={method => setShippingData({ ...shippingData, deliveryMethod: method, pickupStationId: null, pickupStationName: null, pickupStationAddress: null })}
+        selectedStation={shippingData.pickupStationId ? {
+          id: shippingData.pickupStationId,
+          name: shippingData.pickupStationName || '',
+          address: shippingData.pickupStationAddress || '',
+        } : null}
+        onSelectStation={station => setShippingData({
+          ...shippingData,
+          pickupStationId: station.id || null,
+          pickupStationName: station.id ? station.name : null,
+          pickupStationAddress: station.id ? station.address : null,
+        })}
+        homeDeliveryFee={homeDeliveryFee}
+        themeColor={themeColor}
+      />
+
+      {shippingError && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{shippingError}</p>
+      )}
 
       <div>
         <label className="block text-xs uppercase text-gray-500 mb-2">

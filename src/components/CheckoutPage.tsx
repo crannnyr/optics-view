@@ -1,5 +1,5 @@
 import { ArrowLeft, Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
-import { useCheckout } from './checkout/hooks/useCheckout';
+import { useCheckout, HOME_DELIVERY_FEE } from './checkout/hooks/useCheckout';
 import { CartItem } from '../lib/supabase';
 
 import CheckoutHeader from './checkout/CheckoutHeader';
@@ -23,6 +23,7 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
     setPaymentMethod,
     shippingData,
     setShippingData,
+    shippingError,
     paystackConfig,
     settings,
     copied,
@@ -95,7 +96,7 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-lg mx-auto bg-white min-h-screen shadow-sm">
+      <div className="max-w-lg md:max-w-2xl mx-auto bg-white min-h-screen shadow-sm md:my-6 md:min-h-0 md:rounded-xl md:border md:border-gray-100">
         <div className="px-6 pt-4">
           <button
             onClick={onBack}
@@ -127,6 +128,8 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
               totalOrderAmount={totalOrderAmount}
               handleShippingSubmit={handleShippingSubmit}
               themeColor={store?.themeColor}
+              shippingError={shippingError}
+              homeDeliveryFee={HOME_DELIVERY_FEE}
             />
           )}
 
