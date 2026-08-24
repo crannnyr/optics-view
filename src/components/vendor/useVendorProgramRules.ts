@@ -5,25 +5,25 @@ export interface VendorProgramRules {
   min_quantity: number;
   max_quantity: number;
   max_weight_kg: number;
-  size_reference: string;
   photos_required: number;
+  ship_window_hours: number;
+  warehouse_dropoff_enabled: boolean;
   warehouse_address: string;
   logistics_partners: string[];
-  packaging_fee_per_item: number;
   commission_rate_percent: number;
   dropoff_contact_phone: string;
   allowed_category_ids: string[];
 }
 
 const FALLBACK_RULES: VendorProgramRules = {
-  min_quantity: 50,
-  max_quantity: 350,
+  min_quantity: 1,
+  max_quantity: 1000,
   max_weight_kg: 20,
-  size_reference: 'Must not exceed the size of a carton of Indomie noodles',
   photos_required: 2,
+  ship_window_hours: 48,
+  warehouse_dropoff_enabled: false,
   warehouse_address: 'Ajah, Lagos',
   logistics_partners: ['GUO Transport', 'GIG Logistics'],
-  packaging_fee_per_item: 450,
   commission_rate_percent: 21,
   dropoff_contact_phone: '09069149803',
   allowed_category_ids: [],

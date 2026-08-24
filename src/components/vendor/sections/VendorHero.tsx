@@ -59,10 +59,11 @@ export default function VendorHero({ themeColor, onGetStarted }: VendorHeroProps
           Why your products get sold out in a month
         </h1>
         <p className="text-base text-gray-600 leading-relaxed mb-8 max-w-md">
-          Ship us your stock once. We list it, and a whole network of retailers running their
-          own stores on this platform can import it straight into their catalogs and sell it at
-          whatever price they choose. You get paid on every sale — without running a single ad
-          yourself.
+          List what you already have in stock. We photograph nothing and pack nothing — a whole
+          network of retailers running their own stores on this platform can import your product
+          straight into their catalogs and sell it at whatever price they choose. When an order
+          comes in, you ship it yourself within 48 hours. You get paid on every sale — without
+          running a single ad yourself.
         </p>
         <button
           onClick={onGetStarted}

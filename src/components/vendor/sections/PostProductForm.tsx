@@ -1,4 +1,4 @@
-import { Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2, Truck } from 'lucide-react';
 import { VendorAccount } from '../hooks/useVendorAccess';
 import { VendorProgramRules } from '../useVendorProgramRules';
 import { useVendorCategories } from '../hooks/useVendorCategories';
@@ -19,7 +19,6 @@ export default function PostProductForm({ vendor, rules, themeColor, onPosted }:
     usePostProductForm({ vendor, rules, onSuccess: onPosted });
 
   const itemTypes = categories.find(c => c.id === form.category_id)?.item_types || [];
-  const packagingFee = form.total_quantity ? rules.packaging_fee_per_item * Number(form.total_quantity) : 0;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
@@ -90,15 +89,15 @@ export default function PostProductForm({ vendor, rules, themeColor, onPosted }:
         </div>
         <div>
           <label className="block text-xs uppercase text-gray-500 mb-1.5">
-            Total Quantity <span className="text-gray-400 normal-case text-[10px]">({rules.min_quantity}–{rules.max_quantity})</span>
+            In Stock <span className="text-gray-400 normal-case text-[10px]">(how many you have)</span>
           </label>
-          <input required type="number" min={rules.min_quantity} max={rules.max_quantity} value={form.total_quantity}
+          <input required type="number" min={1} max={rules.max_quantity} value={form.total_quantity}
             onChange={e => setField('total_quantity', e.target.value)}
             className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black" />
         </div>
         <div>
           <label className="block text-xs uppercase text-gray-500 mb-1.5">
-            Weight/item <span className="text-gray-400 normal-case text-[10px]">(max {rules.max_weight_kg}kg)</span>
+            Weight/item <span className="text-gray-400 normal-case text-[10px]">(optional, for shipping)</span>
           </label>
           <input type="number" step="0.1" max={rules.max_weight_kg} value={form.weight_kg}
             onChange={e => setField('weight_kg', e.target.value)}
@@ -108,16 +107,10 @@ export default function PostProductForm({ vendor, rules, themeColor, onPosted }:
 
       <VariantsEditor variants={variants} setVariants={setVariants} themeColor={themeColor} />
 
-      <label className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
-        <input type="checkbox" checked={form.size_confirmed} onChange={e => setField('size_confirmed', e.target.checked)} className="mt-0.5" />
-        I confirm this item fits the size requirement: {rules.size_reference}
-      </label>
-
-      {form.total_quantity && (
-        <p className="text-xs text-gray-500">
-          Estimated packaging fee for this batch: <strong>₦{packagingFee.toLocaleString()}</strong> (₦{rules.packaging_fee_per_item.toLocaleString()} × {form.total_quantity} units) — invoiced after approval.
-        </p>
-      )}
+      <div className="flex items-start gap-2.5 text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+        <Truck size={15} className="mt-0.5 shrink-0" style={{ color: themeColor }} />
+        Once approved, you'll ship any order for this product yourself, within {rules.ship_window_hours} hours of it being approved.
+      </div>
 
       {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
 

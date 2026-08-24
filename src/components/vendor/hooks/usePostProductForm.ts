@@ -13,7 +13,7 @@ interface UsePostProductFormProps {
 const emptyForm = {
   category_id: '', item_type_id: '', name: '', description: '',
   vendor_price: '', total_quantity: '', weight_kg: '',
-  photo_url_1: '', photo_url_2: '', size_confirmed: false,
+  photo_url_1: '', photo_url_2: '',
 };
 
 export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductFormProps) {
@@ -31,16 +31,14 @@ export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductF
     if (!form.name.trim()) return 'Please enter a product name.';
     if (!form.photo_url_1 || !form.photo_url_2) return 'Both photos are required.';
     const qty = Number(form.total_quantity);
-    if (!qty || qty < rules.min_quantity || qty > rules.max_quantity) {
-      return `Total quantity must be between ${rules.min_quantity} and ${rules.max_quantity}.`;
-    }
+    if (!qty || qty < 1) return 'Please enter how many you have in stock.';
+    if (qty > rules.max_quantity) return `Quantity can't exceed ${rules.max_quantity}.`;
     if (form.weight_kg && Number(form.weight_kg) > rules.max_weight_kg) {
-      return `Weight per item can't exceed ${rules.max_weight_kg}kg.`;
+      return `Weight per item should stay under ${rules.max_weight_kg}kg to ship easily by courier.`;
     }
     if (!Number(form.vendor_price) || Number(form.vendor_price) <= 0) {
       return 'Please enter a valid price.';
     }
-    if (!form.size_confirmed) return 'Please confirm the size requirement.';
     return null;
   };
 
@@ -53,7 +51,6 @@ export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductF
     setError(null);
 
     const totalQuantity = Number(form.total_quantity);
-    const packagingFeeTotal = rules.packaging_fee_per_item * totalQuantity;
 
     const { data: application, error: insertError } = await supabase
       .from('vendor_product_applications')
@@ -69,8 +66,6 @@ export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductF
         commission_rate: rules.commission_rate_percent,
         total_quantity: totalQuantity,
         weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
-        size_confirmed: form.size_confirmed,
-        packaging_fee_total: packagingFeeTotal,
         status: 'pending_review',
         submitted_at: new Date().toISOString(),
       })

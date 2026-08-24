@@ -73,7 +73,7 @@ const VendorSignupForm = forwardRef<HTMLDivElement, VendorSignupFormProps>(
           Ready to get started?
         </h2>
         <p className="text-sm text-gray-500 text-center mb-10">
-          Tell us about your business — we'll follow up with warehouse drop-off details.
+          Tell us about your business, then head to your dashboard to list your first product.
         </p>
 
         {!user ? (
@@ -96,7 +96,7 @@ const VendorSignupForm = forwardRef<HTMLDivElement, VendorSignupFormProps>(
               {submitted ? "You're registered!" : "You're already a registered vendor."}
             </p>
             <p className="text-xs text-green-700 mb-5">
-              We'll be in touch with warehouse drop-off instructions to get your first batch listed.
+              You can list your first product right away from your vendor dashboard.
             </p>
             <button
               onClick={onGoToDashboard}

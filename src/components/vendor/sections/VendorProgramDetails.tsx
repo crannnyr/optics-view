@@ -1,3 +1,4 @@
+import { Truck } from 'lucide-react';
 import { VendorProgramRules } from '../useVendorProgramRules';
 
 interface VendorProgramDetailsProps {
@@ -7,10 +8,10 @@ interface VendorProgramDetailsProps {
 
 export default function VendorProgramDetails({ themeColor, rules }: VendorProgramDetailsProps) {
   const stats = [
-    { label: 'Batch size', value: `${rules.min_quantity}–${rules.max_quantity} units` },
-    { label: 'Max weight per item', value: `${rules.max_weight_kg}kg` },
+    { label: 'Minimum stock', value: 'None — list what you have' },
+    { label: 'Ship within', value: `${rules.ship_window_hours} hours of an order` },
     { label: 'You keep', value: `${100 - rules.commission_rate_percent}% of your price` },
-    { label: 'Packaging fee', value: `₦${rules.packaging_fee_per_item.toLocaleString()} / item` },
+    { label: 'Listing fee', value: 'Free' },
   ];
 
   return (
@@ -29,6 +30,16 @@ export default function VendorProgramDetails({ themeColor, rules }: VendorProgra
           </div>
         ))}
       </div>
+
+      {!rules.warehouse_dropoff_enabled && (
+        <div className="mt-10 max-w-md mx-auto flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <Truck size={18} className="text-gray-400 shrink-0" />
+          <p className="text-xs text-gray-500">
+            <strong className="text-gray-700">Warehouse drop-off — coming soon.</strong> Ship bulk stock
+            to us once and skip packing individual orders yourself. Not available yet.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

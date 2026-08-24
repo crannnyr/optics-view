@@ -10,13 +10,13 @@ export default function VendorHowItWorks({ themeColor, rules }: VendorHowItWorks
   const steps = [
     {
       icon: <Package size={20} />,
-      title: 'Ship your stock to us',
-      body: `Send between ${rules.min_quantity} and ${rules.max_quantity} units to our warehouse in ${rules.warehouse_address} via ${rules.logistics_partners.join(' or ')}. Each item should be no heavier than ${rules.max_weight_kg}kg — ${rules.size_reference.toLowerCase()}.`,
+      title: 'List what you have in stock',
+      body: `Post any product you already have on hand — no minimum batch size. Send at least ${rules.photos_required} clear photos, including one with a plain white background.`,
     },
     {
       icon: <ListChecks size={20} />,
-      title: 'We list it properly',
-      body: `Send at least ${rules.photos_required} clear photos and we handle the listing — pricing, description, and a packaging fee of ₦${rules.packaging_fee_per_item.toLocaleString()} per item covers us preparing it for sale.`,
+      title: 'We review and list it',
+      body: 'Our team checks the submission and sets it live once approved — usually within a day or two. You get an email the moment it goes live.',
     },
     {
       icon: <Users size={20} />,
@@ -25,18 +25,23 @@ export default function VendorHowItWorks({ themeColor, rules }: VendorHowItWorks
     },
     {
       icon: <Wallet size={20} />,
-      title: 'You get paid per sale',
-      body: `You keep ${100 - rules.commission_rate_percent}% of your set price on every unit sold, paid straight to your wallet. Track it all from your vendor dashboard.`,
+      title: `You ship within ${rules.ship_window_hours} hours`,
+      body: `When an order comes in, you'll get ${rules.ship_window_hours} hours to ship it yourself from your own stock. You keep ${100 - rules.commission_rate_percent}% of your set price on every sale, paid to your wallet.`,
     },
   ];
 
   return (
     <section className="bg-gray-50 py-16 md:py-20">
       <div className="max-w-7xl mx-auto px-6">
-        <h2 className="text-2xl md:text-3xl text-center mb-12 text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <h2 className="text-2xl md:text-3xl text-center mb-3 text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
           How it works
         </h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {!rules.warehouse_dropoff_enabled && (
+          <p className="text-xs text-center text-gray-400 mb-12">
+            You handle your own stock and shipping for now — warehouse drop-off is a coming-soon option.
+          </p>
+        )}
+        <div className={`grid sm:grid-cols-2 lg:grid-cols-4 gap-6 ${rules.warehouse_dropoff_enabled ? 'mt-9' : ''}`}>
           {steps.map((step, i) => (
             <div key={step.title} className="bg-white rounded-2xl p-6 border border-gray-100 relative">
               <span
