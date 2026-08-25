@@ -141,7 +141,7 @@ export default function RetailerHeroTab({ profile }: { profile: any }) {
       const path = `retailer-${profile.id}-hero-${Date.now()}.jpg`;
       const { data, error } = await supabase.storage
         .from('hero-images')
-        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg' });
+        .upload(path, compressed, { upsert: true, contentType: 'image/jpeg', cacheControl: '31536000' });
       if (data) {
         const { data: { publicUrl } } = supabase.storage.from('hero-images').getPublicUrl(data.path);
         update('image_url', publicUrl);

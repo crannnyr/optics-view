@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { ArrowLeft, Loader2, Store, AlertTriangle } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useVendorAccess } from './hooks/useVendorAccess';
+import { useVendorManifest } from './hooks/useVendorManifest';
 import { useVendorProgramRules } from './useVendorProgramRules';
+import VendorAnalyticsOverview from './sections/VendorAnalyticsOverview';
 import PostProductForm from './sections/PostProductForm';
 import MyProductsList from './sections/MyProductsList';
 import VendorOrdersList from './sections/VendorOrdersList';
@@ -13,11 +15,19 @@ interface VendorDashboardPageProps {
   onNavigateToVendorSignup: () => void;
 }
 
+const TABS = [
+  { key: 'overview' as const, label: 'Overview' },
+  { key: 'post' as const, label: 'Post a Product' },
+  { key: 'products' as const, label: 'My Products' },
+  { key: 'orders' as const, label: 'My Orders' },
+];
+
 export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSignup }: VendorDashboardPageProps) {
+  useVendorManifest();
   const { store } = useStore();
   const { vendor, loading } = useVendorAccess(user);
   const { rules } = useVendorProgramRules();
-  const [tab, setTab] = useState<'post' | 'products' | 'orders'>('post');
+  const [tab, setTab] = useState<typeof TABS[number]['key']>('overview');
   const [refreshKey, setRefreshKey] = useState(0);
 
   if (!user || loading) {
@@ -63,26 +73,22 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-5xl mx-auto px-6 pt-4 pb-16">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4 pb-16">
         <button onClick={onBack} className="flex items-center gap-2 text-xs tracking-widest hover:opacity-70 transition-opacity mb-6" style={{ color: store.themeColor }}>
           <ArrowLeft size={16} /> BACK
         </button>
 
-        <div className="mb-8">
+        <div className="mb-6 md:mb-8">
           <p className="text-xs uppercase tracking-wide text-gray-400">Vendor Dashboard</p>
-          <h1 className="text-2xl font-light text-gray-900">{vendor.business_name}</h1>
+          <h1 className="text-xl md:text-2xl font-light text-gray-900">{vendor.business_name}</h1>
         </div>
 
-        <div className="flex gap-2 border-b border-gray-100 mb-8">
-          {[
-            { key: 'post' as const, label: 'Post a Product' },
-            { key: 'products' as const, label: 'My Products' },
-            { key: 'orders' as const, label: 'My Orders' },
-          ].map(t => (
+        <div className="flex gap-1 sm:gap-2 border-b border-gray-100 mb-6 md:mb-8 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          {TABS.map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
-              className="px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors"
+              className="px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap shrink-0"
               style={tab === t.key ? { borderColor: store.themeColor, color: store.themeColor } : { borderColor: 'transparent', color: '#9ca3af' }}
             >
               {t.label}
@@ -90,6 +96,7 @@ export default function VendorDashboardPage({ user, onBack, onNavigateToVendorSi
           ))}
         </div>
 
+        {tab === 'overview' && <VendorAnalyticsOverview vendor={vendor} themeColor={store.themeColor} />}
         {tab === 'post' && (
           <PostProductForm
             vendor={vendor}

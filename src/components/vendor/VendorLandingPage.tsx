@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useVendorProgramRules } from './useVendorProgramRules';
+import { useVendorManifest } from './hooks/useVendorManifest';
 import VendorHero from './sections/VendorHero';
 import VendorHowItWorks from './sections/VendorHowItWorks';
 import VendorProgramDetails from './sections/VendorProgramDetails';
@@ -17,6 +18,7 @@ interface VendorLandingPageProps {
 }
 
 export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, onNavigateToTerms, onNavigateToDashboard }: VendorLandingPageProps) {
+  useVendorManifest();
   const { store } = useStore();
   const { rules } = useVendorProgramRules();
   const [isAuthOpen, setIsAuthOpen] = useState(false);

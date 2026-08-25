@@ -1,0 +1,16 @@
+{
+  "name": "OpticsView Vendor",
+  "short_name": "OV Vendor",
+  "description": "Manage your OpticsView vendor account — post products, track orders, and get paid.",
+  "start_url": "/vendor-dashboard",
+  "scope": "/vendor-dashboard",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0d2818",
+  "background_color": "#ffffff",
+  "icons": [
+    { "src": "/pwa-icon.jpg", "sizes": "192x192", "type": "image/jpeg" },
+    { "src": "/pwa-icon.jpg", "sizes": "512x512", "type": "image/jpeg" },
+    { "src": "/pwa-icon.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "maskable" }
+  ]
+}

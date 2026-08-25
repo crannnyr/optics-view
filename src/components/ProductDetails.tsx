@@ -64,6 +64,10 @@ export default function ProductDetails({
     else setSelectedSize('');
     fetchReviews();
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    // Fire-and-forget — feeds vendor dashboard analytics, must never
+    // block rendering or surface an error to the shopper.
+    supabase.rpc('increment_product_views', { p_product_id: product.id }).then(() => {});
   }, [product.id]);
 
   useEffect(() => {
