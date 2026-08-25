@@ -61,6 +61,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // "store not found" page.
           'checkout', 'orders', 'cart', 'product',
           'legal-privacy', 'legal-terms', 'privacy-policy', 'terms-conditions',
+          // Vendor portal routes. Without these, reloading /become-a-vendor or
+          // /vendor-dashboard made the path segment look like a retailer slug,
+          // the lookup missed, and the user got "Store Not Found".
+          'become-a-vendor', 'vendor-dashboard',
         ];
 
         const isMainDomain =

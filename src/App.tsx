@@ -381,6 +381,30 @@ function App() {
     );
   }
 
+  // Vendor portal is standalone: it renders before the retailer-store
+  // gates so a reload on a vendor URL can't be swallowed by store
+  // resolution (which previously showed "Store Not Found").
+  if (currentView === 'vendor-dashboard') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <VendorDashboardPage
+          onNavigateToVendorSignup={() => navigateTo('vendor-landing', '/become-a-vendor')}
+        />
+      </Suspense>
+    );
+  }
+
+  if (currentView === 'vendor-landing') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <VendorLandingPage
+          onBack={() => navigateTo('shop', '/')}
+          onNavigateToDashboard={() => navigateTo('vendor-dashboard', '/vendor-dashboard')}
+        />
+      </Suspense>
+    );
+  }
+
   if (storeError) return <StoreErrorScreen />;
 
   if (storeNotFound) {
@@ -400,27 +424,6 @@ function App() {
           </a>
         </div>
       </div>
-    );
-  }
-
-  if (currentView === 'vendor-dashboard') {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <VendorDashboardPage
-          onNavigateToVendorSignup={() => navigateTo('vendor-landing', '/become-a-vendor')}
-        />
-      </Suspense>
-    );
-  }
-
-  if (currentView === 'vendor-landing') {
-    return (
-      <Suspense fallback={<PageLoader />}>
-        <VendorLandingPage
-          onBack={() => navigateTo('shop', '/')}
-          onNavigateToDashboard={() => navigateTo('vendor-dashboard', '/vendor-dashboard')}
-        />
-      </Suspense>
     );
   }
 

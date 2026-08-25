@@ -59,9 +59,10 @@ export default function VendorHero({ themeColor, onGetStarted }: VendorHeroProps
           Sell out your first 100 in a month
         </h1>
         <p className="text-base text-gray-600 leading-relaxed mb-8 max-w-md">
-          List what you already have. Retailers across the platform import your products
-          into their own stores and sell them for you — you just ship each order within
-          48 hours and get paid.
+          List what you already have. Your products go live on our own store, and
+          retailers across the platform can import them into their sites and sell for
+          you too — so you're selling in dozens of places at once. You just ship each
+          order within 48 hours and get paid.
         </p>
         <button
           onClick={onGetStarted}

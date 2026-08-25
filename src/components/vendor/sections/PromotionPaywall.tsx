@@ -68,7 +68,8 @@ export default function PromotionPaywall({
             </span>
           </div>
           <p className="text-xs text-gray-500 -mt-3">
-            Intro rate for your first campaign. Renews at the standard ₦{rules.promo_list_price.toLocaleString()}/month.
+            One-off payment to launch your campaign. After it ends, selling with us stays
+            free — sponsorship is entirely optional if you want to keep the extra visibility.
           </p>
 
           <div className="space-y-3 pt-2">
@@ -97,14 +98,15 @@ export default function PromotionPaywall({
               <Loader2 size={15} className="animate-spin" /> Activating your campaign...
             </div>
           ) : paystackConfig ? (
-            <PaystackButton
-              {...paystackConfig}
-              text={`Pay ₦${rules.promo_intro_price.toLocaleString()} & Start My Campaign`}
-              onSuccess={handleSuccess}
-              onClose={() => setError('Payment was cancelled. Your product is saved — you can pay whenever you\'re ready.')}
-              className="w-full text-white py-3.5 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: themeColor }}
-            />
+            <div className="rounded-full overflow-hidden" style={{ backgroundColor: themeColor }}>
+              <PaystackButton
+                {...paystackConfig}
+                text={`Pay ₦${rules.promo_intro_price.toLocaleString()} & Start My Campaign`}
+                onSuccess={handleSuccess}
+                onClose={() => setError('Payment was cancelled. Your product is saved — you can pay whenever you\'re ready.')}
+                className="w-full text-white py-3.5 text-sm font-semibold hover:opacity-90 transition-opacity"
+              />
+            </div>
           ) : (
             <button
               onClick={async () => {

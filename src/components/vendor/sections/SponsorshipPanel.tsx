@@ -90,14 +90,15 @@ export default function SponsorshipPanel({ vendor, rules, userEmail, themeColor 
             <Loader2 size={15} className="animate-spin" /> Activating...
           </div>
         ) : paystackConfig ? (
+          <div className="rounded-full overflow-hidden" style={{ backgroundColor: themeColor }}>
           <PaystackButton
             {...paystackConfig}
             text={`Pay ₦${rules.sponsorship_price.toLocaleString()}`}
             onSuccess={handleSuccess}
             onClose={() => setError('Payment was cancelled.')}
-            className="w-full text-white py-3 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: themeColor }}
+            className="w-full text-white py-3 text-sm font-semibold hover:opacity-90 transition-opacity"
           />
+          </div>
         ) : (
           <button
             onClick={async () => {
