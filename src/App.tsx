@@ -131,6 +131,13 @@ function StoreErrorScreen() {
 
 function App() {
   const { store, loading: storeLoading, storeNotFound, storeError } = useStore();
+  // Admin status is read from profiles.role — the SAME column RLS's
+  // is_admin() checks. The gate previously read auth user_metadata.role,
+  // which could (and did) drift out of sync with profiles.role, letting
+  // someone into the admin panel while RLS silently returned only their
+  // own rows.
+  const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
+
   const [currentView, setCurrentView] = useState<
     'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'vendor-landing' | 'vendor-dashboard'
   >('shop');
@@ -173,6 +180,16 @@ function App() {
     if (path.startsWith('/product/')) return 'details';
     return 'shop';
   };
+
+  // Resolve admin status from profiles.role whenever the session changes,
+  // so a refresh doesn't lock a real admin out of the panel.
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) { setIsAdminUser(false); return; }
+    supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      .then(({ data }) => { if (!cancelled) setIsAdminUser(data?.role === 'admin'); });
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   useEffect(() => {
     let timedOut = false;
@@ -366,10 +383,15 @@ function App() {
       email: adminEmail, password: adminPassword,
     });
     if (error) { setAdminError('Invalid credentials'); return; }
-    if (data.user?.user_metadata?.role !== 'admin') {
+    const { data: profile } = await supabase
+      .from('profiles').select('role').eq('id', data.user.id).maybeSingle();
+
+    if (profile?.role !== 'admin') {
       setAdminError('Access Denied: Not an administrator');
       import('./lib/supabase').then(({ markIntentionalSignOut }) => markIntentionalSignOut());
       await supabase.auth.signOut();
+    } else {
+      setIsAdminUser(true);
     }
   };
 
@@ -443,7 +465,7 @@ function App() {
   }
 
   if (currentView === 'admin') {
-    const isAdmin = user && user.user_metadata?.role === 'admin';
+    const isAdmin = !!user && isAdminUser === true;
     if (!isAdmin) {
       return (
         <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
