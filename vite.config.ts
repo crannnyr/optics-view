@@ -6,7 +6,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
+      // 'prompt' requires the user to accept an update prompt before the new
+      // service worker activates — but no prompt UI was ever wired up, so
+      // opticsview.store kept serving a months-old cached bundle while new
+      // deploys sat unused. autoUpdate + skipWaiting/clientsClaim makes a
+      // deploy take effect on the next load instead.
+      registerType: 'autoUpdate',
       includeAssets: ['pwa-icon.jpg'],
       manifest: {
         name: 'OpticsView',
@@ -38,6 +43,11 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Activate a new service worker immediately rather than waiting for
+        // every tab to close, and drop stale precaches from older builds.
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         globPatterns: ['**/*.{js,css,html,ico,png,jpg,jpeg,svg,webp,woff,woff2}'],
         runtimeCaching: [
           // Supabase API — network first, fall back to cache
