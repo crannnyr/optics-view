@@ -20,6 +20,9 @@ interface ShippingStepProps {
   themeColor?: string;
   shippingError?: string | null;
   homeDeliveryFee: number;
+  pickupFee: number;
+  pickupEta: string;
+  homeEta: string;
 }
 
 export default function ShippingStep({
@@ -33,6 +36,9 @@ export default function ShippingStep({
   themeColor = '#0d2818',
   shippingError,
   homeDeliveryFee,
+  pickupFee,
+  pickupEta,
+  homeEta,
 }: ShippingStepProps) {
   return (
     <form onSubmit={handleShippingSubmit} className="space-y-5">
@@ -78,8 +84,30 @@ export default function ShippingStep({
           pickupStationAddress: station.id ? station.address : null,
         })}
         homeDeliveryFee={homeDeliveryFee}
+        pickupFee={pickupFee}
+        pickupEta={pickupEta}
+        homeEta={homeEta}
         themeColor={themeColor}
       />
+
+      {shippingData.state && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 space-y-1.5">
+          <p className="text-xs font-medium text-gray-700">What happens next</p>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Your order arrives in{' '}
+            <strong className="text-gray-700">
+              {shippingData.deliveryMethod === 'pickup' ? pickupEta.toLowerCase() : homeEta.toLowerCase()}
+            </strong>
+            {shippingData.deliveryMethod === 'pickup'
+              ? ', and you\'ll pick it up from the station you chose above.'
+              : ', delivered to the address you entered.'}
+          </p>
+          <p className="text-xs text-gray-500 leading-relaxed">
+            Our team will reach out on WhatsApp using the number you provide below to confirm your
+            order before it ships — please keep an eye out for that call or message.
+          </p>
+        </div>
+      )}
 
       {shippingError && (
         <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{shippingError}</p>

@@ -17,6 +17,9 @@ interface PickupLocationPickerProps {
   selectedStation: SelectedStation | null;
   onSelectStation: (station: SelectedStation) => void;
   homeDeliveryFee: number;
+  pickupFee: number;
+  pickupEta: string;
+  homeEta: string;
   themeColor?: string;
 }
 
@@ -44,7 +47,8 @@ function StationRow({
 }
 
 export default function PickupLocationPicker({
-  state, deliveryMethod, setDeliveryMethod, selectedStation, onSelectStation, homeDeliveryFee, themeColor = '#0d2818',
+  state, deliveryMethod, setDeliveryMethod, selectedStation, onSelectStation,
+  homeDeliveryFee, pickupFee, pickupEta, homeEta, themeColor = '#0d2818',
 }: PickupLocationPickerProps) {
   const [query, setQuery] = useState('');
   const {
@@ -69,7 +73,8 @@ export default function PickupLocationPicker({
             <MapPin size={16} style={{ color: deliveryMethod === 'pickup' ? themeColor : '#9ca3af' }} />
             <span className="text-sm font-bold">Pickup Station</span>
           </div>
-          <p className="text-xs text-gray-500">Free · via Jumia Express</p>
+          <p className="text-xs text-gray-500">₦{pickupFee.toLocaleString()} · via Jumia Express</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{pickupEta}</p>
         </button>
 
         <button
@@ -82,14 +87,15 @@ export default function PickupLocationPicker({
             <Truck size={16} style={{ color: deliveryMethod === 'home' ? themeColor : '#9ca3af' }} />
             <span className="text-sm font-bold">Home Delivery</span>
           </div>
-          <p className="text-xs text-gray-500">+₦{homeDeliveryFee.toLocaleString()}</p>
+          <p className="text-xs text-gray-500">₦{homeDeliveryFee.toLocaleString()}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{homeEta}</p>
         </button>
       </div>
 
       {deliveryMethod === 'home' && (
         <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg p-3">
-          Your order will be delivered to the address you enter below. Home delivery costs more than
-          pickup because it needs a dedicated rider.
+          Your order will be delivered to the address you enter below, typically within {homeEta.toLowerCase()}.
+          Home delivery costs more than pickup because it needs a dedicated rider, and takes longer.
         </p>
       )}
 

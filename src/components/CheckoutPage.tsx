@@ -1,5 +1,5 @@
 import { ArrowLeft, Loader2, ShoppingBag, AlertCircle } from 'lucide-react';
-import { useCheckout, HOME_DELIVERY_FEE } from './checkout/hooks/useCheckout';
+import { useCheckout } from './checkout/hooks/useCheckout';
 import { CartItem } from '../lib/supabase';
 
 import CheckoutHeader from './checkout/CheckoutHeader';
@@ -37,6 +37,8 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
     isRetryMode,
     retryError,
     calculateShipping,
+    shippingConfig,
+    pickupFee,
     handleShippingSubmit,
     handleCopyAccount,
     createOrder,
@@ -129,7 +131,10 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
               handleShippingSubmit={handleShippingSubmit}
               themeColor={store?.themeColor}
               shippingError={shippingError}
-              homeDeliveryFee={HOME_DELIVERY_FEE}
+              homeDeliveryFee={shippingConfig.home_fee}
+              pickupFee={pickupFee}
+              pickupEta={`${shippingConfig.pickup_eta_min_days}–${shippingConfig.pickup_eta_max_days} working days`}
+              homeEta={`${shippingConfig.home_eta_min_days}–${shippingConfig.home_eta_max_days} working days`}
             />
           )}
 

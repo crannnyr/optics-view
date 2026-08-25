@@ -19,7 +19,23 @@ interface ShippingData {
   pickupStationAddress: string | null;
 }
 
-export const HOME_DELIVERY_FEE = 6500;
+export interface ShippingConfig {
+  pickup_fee_default: number;
+  home_fee: number;
+  pickup_eta_min_days: number;
+  pickup_eta_max_days: number;
+  home_eta_min_days: number;
+  home_eta_max_days: number;
+}
+
+export const DEFAULT_SHIPPING_CONFIG: ShippingConfig = {
+  pickup_fee_default: 1000,
+  home_fee: 6500,
+  pickup_eta_min_days: 2,
+  pickup_eta_max_days: 4,
+  home_eta_min_days: 5,
+  home_eta_max_days: 7,
+};
 
 interface RetryOrder {
   id: string;
@@ -61,6 +77,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
   const [senderName, setSenderName] = useState('');
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
+  const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
 
   const [retryOrder, setRetryOrder] = useState<RetryOrder | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -89,6 +106,10 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
     const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
     if (transferData?.value) setTransferDetails(transferData.value);
+
+    const { data: shippingCfg } = await supabase
+      .from('app_settings').select('value').eq('key', 'shipping_config').maybeSingle();
+    if (shippingCfg?.value) setShippingConfig({ ...DEFAULT_SHIPPING_CONFIG, ...shippingCfg.value });
 
     const { data: deliveryData } = await supabase
       .from('delivery_settings')
@@ -150,12 +171,16 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   const calculateShipping = () => {
-    if (shippingData.deliveryMethod === 'pickup') return 0;
     if (!shippingData.state) return 0;
-    // Admin-configured per-state fee takes priority if set; otherwise the
-    // standard home delivery fee applies. This fee is intentionally higher
-    // than pickup to nudge people toward the free pickup-station option.
-    return deliveryFees[shippingData.state] ?? HOME_DELIVERY_FEE;
+
+    // Pickup uses the existing per-state delivery_settings fee (flat ₦1,000
+    // across every state today), falling back to the configured default.
+    // Home delivery is a separate, higher flat fee — the per-state table is
+    // deliberately NOT used for it.
+    if (shippingData.deliveryMethod === 'pickup') {
+      return deliveryFees[shippingData.state] ?? shippingConfig.pickup_fee_default;
+    }
+    return shippingConfig.home_fee;
   };
 
   const subtotal = items.reduce((sum, item) => {
@@ -450,6 +475,10 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     isRetryMode,
     retryError,
     calculateShipping,
+    shippingConfig,
+    pickupFee: shippingData.state
+      ? (deliveryFees[shippingData.state] ?? shippingConfig.pickup_fee_default)
+      : shippingConfig.pickup_fee_default,
     handleShippingSubmit,
     handleShippingNext,
     handleCopyAccount,
