@@ -51,6 +51,20 @@ export function usePostProductForm({ vendor, rules, hasActivePromotion, onSucces
     setSubmitting(true);
     setError(null);
 
+    // Cap is on distinct listings, not stock — checked server-side at
+    // submit time rather than trusting a stale count from page load.
+    const { count } = await supabase
+      .from('vendor_product_applications')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_id', vendor.id)
+      .not('status', 'in', '(rejected,delisted)');
+
+    if ((count ?? 0) >= rules.max_products_per_vendor) {
+      setError(`You've reached the ${rules.max_products_per_vendor}-product limit. Delist an existing product to add a new one.`);
+      setSubmitting(false);
+      return;
+    }
+
     const totalQuantity = Number(form.total_quantity);
 
     const { data: application, error: insertError } = await supabase

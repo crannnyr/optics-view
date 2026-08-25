@@ -18,6 +18,9 @@ export interface VendorProgramRules {
   promo_duration_days: number;
   promo_target_units: number;
   promo_vendor_count: number;
+  sponsorship_price: number;
+  sponsorship_duration_days: number;
+  max_products_per_vendor: number;
 }
 
 const FALLBACK_RULES: VendorProgramRules = {
@@ -37,6 +40,9 @@ const FALLBACK_RULES: VendorProgramRules = {
   promo_duration_days: 30,
   promo_target_units: 100,
   promo_vendor_count: 100,
+  sponsorship_price: 30000,
+  sponsorship_duration_days: 30,
+  max_products_per_vendor: 50,
 };
 
 // Rules live in app_settings so admins can tune them without a code change —

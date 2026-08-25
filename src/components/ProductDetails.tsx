@@ -72,10 +72,11 @@ export default function ProductDetails({
 
   useEffect(() => {
     supabase
-      .from('products')
+      .from('products_feed')
       .select('*')
       .eq('category', product.category)
       .eq('is_active', true)
+      .order('is_boosted', { ascending: false })
       .order('created_at', { ascending: false })
       .then(({ data }) => { if (data) setCategoryProducts(data); });
   }, [product.category]);

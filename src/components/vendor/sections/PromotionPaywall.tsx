@@ -87,7 +87,7 @@ export default function PromotionPaywall({
             <Check size={14} className="shrink-0 mt-0.5" style={{ color: themeColor }} />
             {pendingProductCount > 0
               ? `Your ${pendingProductCount} saved product${pendingProductCount > 1 ? 's go' : ' goes'} to our team for review as soon as this payment clears.`
-              : 'Your campaign starts the moment this payment clears.'}
+              : 'Your campaign starts the moment this payment clears, and your dashboard unlocks straight away.'}
           </div>
 
           {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}

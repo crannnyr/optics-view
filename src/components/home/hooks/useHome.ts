@@ -128,12 +128,14 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToChe
 
         const catSlugs = retailerCatsRef.current;
 
-        // Featured products (display_order > 0) surface first, ranked by
-        // that value descending; everything else falls back to newest-first.
+        // Sponsored products surface first (is_boosted is computed against
+        // now(), so expired boosts don't linger), then featured products by
+        // display_order, then newest-first.
         let query = supabase
-          .from('products')
+          .from('products_feed')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
+          .order('is_boosted', { ascending: false })
           .order('display_order', { ascending: false })
           .order('created_at', { ascending: false })
           .range(from, to);
@@ -159,12 +161,14 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToChe
         setProducts(prev => isReset ? finalProducts : [...prev, ...finalProducts]);
 
       } else {
-        // Featured products (display_order > 0) surface first, ranked by
-        // that value descending; everything else falls back to newest-first.
+        // Sponsored products surface first (is_boosted is computed against
+        // now(), so expired boosts don't linger), then featured products by
+        // display_order, then newest-first.
         let query = supabase
-          .from('products')
+          .from('products_feed')
           .select('*', { count: 'exact' })
           .eq('is_active', true)
+          .order('is_boosted', { ascending: false })
           .order('display_order', { ascending: false })
           .order('created_at', { ascending: false })
           .range(from, to);

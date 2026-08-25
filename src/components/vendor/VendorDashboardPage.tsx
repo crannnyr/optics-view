@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { LayoutDashboard, PlusCircle, Package, Truck, Sparkles, Loader2, Store, AlertTriangle, LogOut } from 'lucide-react';
-import { vendorSupabase as supabase } from '../../lib/vendorSupabase';
+import { vendorSupabase } from '../../lib/vendorSupabase';
 import { useStore } from '../../context/StoreContext';
 import { useVendorAccess, VendorAccount } from './hooks/useVendorAccess';
 import { useVendorAuth } from './hooks/useVendorAuth';
@@ -13,19 +13,20 @@ import PostProductForm from './sections/PostProductForm';
 import MyProductsList from './sections/MyProductsList';
 import VendorOrdersList from './sections/VendorOrdersList';
 import PromotionPaywall from './sections/PromotionPaywall';
+import SponsorshipPanel from './sections/SponsorshipPanel';
 
 interface VendorDashboardPageProps {
   onNavigateToVendorSignup: () => void;
 }
 
-type TabKey = 'overview' | 'post' | 'products' | 'orders' | 'campaign';
+type TabKey = 'overview' | 'post' | 'products' | 'orders' | 'sponsor';
 
 const TABS: { key: TabKey; label: string; short: string; icon: typeof LayoutDashboard }[] = [
   { key: 'overview', label: 'Overview',       short: 'Home',     icon: LayoutDashboard },
   { key: 'post',     label: 'Post a Product', short: 'Post',     icon: PlusCircle },
   { key: 'products', label: 'My Products',    short: 'Products', icon: Package },
   { key: 'orders',   label: 'My Orders',      short: 'Orders',   icon: Truck },
-  { key: 'campaign', label: 'Campaign',       short: 'Campaign', icon: Sparkles },
+  { key: 'sponsor',  label: 'Sponsorship',    short: 'Sponsor',  icon: Sparkles },
 ];
 
 function CenteredState({ children }: { children: React.ReactNode }) {
@@ -86,6 +87,29 @@ export default function VendorDashboardPage({ onNavigateToVendorSignup }: Vendor
   return <VendorDashboardShell user={user} vendor={vendor} rules={rules} themeColor={store.themeColor} />;
 }
 
+function VendorHeader({ vendor, children }: { vendor: VendorAccount; children?: React.ReactNode }) {
+  return (
+    <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400">Vendor Dashboard</p>
+          <h1 className="text-sm sm:text-base font-medium text-gray-900 truncate">{vendor.business_name}</h1>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {children}
+          <button
+            onClick={() => vendorSupabase.auth.signOut()}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+            title="Sign out"
+          >
+            <LogOut size={17} />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
 interface ShellProps {
   user: any;
   vendor: VendorAccount;
@@ -101,53 +125,53 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
 
   const hasActivePromotion = !!promotion;
 
+  // The paywall gates the whole dashboard, so anyone reaching the post form
+  // already has an active campaign — needsPayment is a defensive fallback.
   const handlePosted = useCallback((needsPayment: boolean) => {
     setRefreshKey(k => k + 1);
-    if (needsPayment) {
-      setDraftCount(c => c + 1);
-      setTab('campaign');
-    } else {
-      setTab('products');
-    }
+    if (needsPayment) setDraftCount(c => c + 1);
+    setTab('products');
   }, []);
 
   const daysLeft = promotion?.ends_at
     ? Math.max(0, Math.ceil((new Date(promotion.ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
+  if (promoLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-gray-300" size={32} />
+      </div>
+    );
+  }
+
+  // The dashboard is gated: until the Sold Out Campaign is paid for, this
+  // is the only screen a newly-registered vendor can reach.
+  if (!hasActivePromotion) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <VendorHeader vendor={vendor} />
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex justify-center">
+          <PromotionPaywall
+            vendor={vendor}
+            rules={rules}
+            userEmail={user.email}
+            themeColor={themeColor}
+            pendingProductCount={draftCount}
+            onActivated={() => { refreshPromo(); setRefreshKey(k => k + 1); setDraftCount(0); }}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-widest text-gray-400">Vendor Dashboard</p>
-            <h1 className="text-sm sm:text-base font-medium text-gray-900 truncate">{vendor.business_name}</h1>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {!promoLoading && (
-              hasActivePromotion ? (
-                <span className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
-                  <Sparkles size={11} /> Campaign active · {daysLeft}d left
-                </span>
-              ) : (
-                <button
-                  onClick={() => setTab('campaign')}
-                  className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-                >
-                  Start campaign
-                </button>
-              )
-            )}
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              title="Sign out"
-            >
-              <LogOut size={17} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <VendorHeader vendor={vendor}>
+        <span className="hidden sm:flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700">
+          <Sparkles size={11} /> Campaign active · {daysLeft}d left
+        </span>
+      </VendorHeader>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-8 md:flex md:gap-8">
         <nav className="hidden md:block w-52 shrink-0">
@@ -203,30 +227,8 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
 
           {tab === 'products' && <MyProductsList vendor={vendor} refreshKey={refreshKey} />}
           {tab === 'orders' && <VendorOrdersList vendor={vendor} themeColor={themeColor} />}
-
-          {tab === 'campaign' && (
-            promoLoading ? (
-              <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={28} /></div>
-            ) : hasActivePromotion ? (
-              <div className="max-w-md rounded-xl border-2 border-green-200 bg-green-50 p-6">
-                <Sparkles size={22} className="text-green-600 mb-3" />
-                <h2 className="text-base font-semibold text-green-900 mb-1">Your Sold Out Campaign is running</h2>
-                <p className="text-sm text-green-800 mb-3">
-                  {daysLeft} day{daysLeft === 1 ? '' : 's'} left. Your products are getting top placement,
-                  and your packaging materials ship monthly.
-                </p>
-                <p className="text-xs text-green-700">Track how it's performing from the Overview tab.</p>
-              </div>
-            ) : (
-              <PromotionPaywall
-                vendor={vendor}
-                rules={rules}
-                userEmail={user.email}
-                themeColor={themeColor}
-                pendingProductCount={draftCount}
-                onActivated={() => { refreshPromo(); setRefreshKey(k => k + 1); setDraftCount(0); }}
-              />
-            )
+          {tab === 'sponsor' && (
+            <SponsorshipPanel vendor={vendor} rules={rules} userEmail={user.email} themeColor={themeColor} />
           )}
         </main>
       </div>

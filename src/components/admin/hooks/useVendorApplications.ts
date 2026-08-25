@@ -59,6 +59,23 @@ export function useVendorApplications() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      // If this vendor has a running campaign or sponsorship, the newly
+      // live product inherits that boost window rather than missing out
+      // until the next payment.
+      const nowIso = new Date().toISOString();
+      const [{ data: promo }, { data: spon }] = await Promise.all([
+        supabase.from('vendor_promotions').select('ends_at')
+          .eq('vendor_id', app.vendor_id).eq('status', 'active')
+          .gt('ends_at', nowIso).order('ends_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('vendor_sponsorships').select('ends_at')
+          .eq('vendor_id', app.vendor_id).eq('status', 'active')
+          .gt('ends_at', nowIso).order('ends_at', { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      const boostedUntil = [promo?.ends_at, spon?.ends_at]
+        .filter(Boolean)
+        .sort()
+        .pop() || null;
+
       const { data: variants } = await supabase
         .from('vendor_product_variants')
         .select('color, size, quantity')
@@ -85,6 +102,7 @@ export function useVendorApplications() {
           supplier: 'vendor',
           vendor_application_id: app.id,
           units_sold: 0,
+          boosted_until: boostedUntil,
           color_options: colorOptions,
           size_options: sizeOptions,
           is_active: true,

@@ -92,6 +92,12 @@ export function useVendorPromotion(vendor: VendorAccount, rules: VendorProgramRu
       })
       .eq('id', promo.id);
 
+    // Campaign includes top placement, so boost anything already live.
+    await supabase.rpc('apply_vendor_boost', {
+      p_vendor_id: vendor.id,
+      p_until: endsAt.toISOString(),
+    });
+
     const { data: released } = await supabase
       .from('vendor_product_applications')
       .update({
