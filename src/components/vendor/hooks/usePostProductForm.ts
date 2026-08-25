@@ -7,7 +7,8 @@ import { VariantRow } from '../sections/VariantsEditor';
 interface UsePostProductFormProps {
   vendor: VendorAccount;
   rules: VendorProgramRules;
-  onSuccess: () => void;
+  hasActivePromotion: boolean;
+  onSuccess: (needsPayment: boolean) => void;
 }
 
 const emptyForm = {
@@ -16,7 +17,7 @@ const emptyForm = {
   photo_url_1: '', photo_url_2: '',
 };
 
-export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductFormProps) {
+export function usePostProductForm({ vendor, rules, hasActivePromotion, onSuccess }: UsePostProductFormProps) {
   const [form, setForm] = useState(emptyForm);
   const [variants, setVariants] = useState<VariantRow[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -66,8 +67,8 @@ export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductF
         commission_rate: rules.commission_rate_percent,
         total_quantity: totalQuantity,
         weight_kg: form.weight_kg ? Number(form.weight_kg) : null,
-        status: 'pending_review',
-        submitted_at: new Date().toISOString(),
+        status: hasActivePromotion ? 'pending_review' : 'draft',
+        submitted_at: hasActivePromotion ? new Date().toISOString() : null,
       })
       .select('id')
       .single();
@@ -93,7 +94,7 @@ export function usePostProductForm({ vendor, rules, onSuccess }: UsePostProductF
     setForm(emptyForm);
     setVariants([]);
     setSubmitting(false);
-    onSuccess();
+    onSuccess(!hasActivePromotion);
   };
 
   return { form, setField, variants, setVariants, submitting, error, handleSubmit };

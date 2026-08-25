@@ -10,21 +10,23 @@ interface PostProductFormProps {
   vendor: VendorAccount;
   rules: VendorProgramRules;
   themeColor: string;
-  onPosted: () => void;
+  hasActivePromotion: boolean;
+  onPosted: (needsPayment: boolean) => void;
 }
 
-export default function PostProductForm({ vendor, rules, themeColor, onPosted }: PostProductFormProps) {
+export default function PostProductForm({ vendor, rules, themeColor, hasActivePromotion, onPosted }: PostProductFormProps) {
   const { categories, loading: categoriesLoading } = useVendorCategories(rules.allowed_category_ids);
   const { form, setField, variants, setVariants, submitting, error, handleSubmit } =
-    usePostProductForm({ vendor, rules, onSuccess: onPosted });
+    usePostProductForm({ vendor, rules, hasActivePromotion, onSuccess: onPosted });
 
   const itemTypes = categories.find(c => c.id === form.category_id)?.item_types || [];
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-w-2xl">
       <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-        Your product won't go live immediately — our team reviews every submission first.
-        You'll get an email once it's approved.
+        {hasActivePromotion
+          ? "Your product won't go live immediately — our team reviews every submission first. You'll get an email once it's approved."
+          : `Next step after this is your Sold Out Campaign — ₦${rules.promo_intro_price.toLocaleString()} for your first month. Your product is saved until then.`}
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">
@@ -121,7 +123,7 @@ export default function PostProductForm({ vendor, rules, themeColor, onPosted }:
         style={{ backgroundColor: themeColor }}
       >
         {submitting ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
-        {submitting ? 'Submitting...' : 'Submit for Review'}
+        {submitting ? 'Saving...' : hasActivePromotion ? 'Submit for Review' : 'Save & Continue to Campaign'}
       </button>
     </form>
   );

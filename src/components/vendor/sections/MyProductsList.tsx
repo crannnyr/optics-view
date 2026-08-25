@@ -16,7 +16,7 @@ interface Application {
 }
 
 const STATUS_STYLES: Record<string, { label: string; icon: JSX.Element; className: string }> = {
-  draft:           { label: 'Draft',            icon: <Clock size={12} />,        className: 'bg-gray-100 text-gray-600' },
+  draft:           { label: 'Awaiting Campaign', icon: <Clock size={12} />,        className: 'bg-amber-100 text-amber-700' },
   pending_payment: { label: 'Awaiting Payment',  icon: <Clock size={12} />,        className: 'bg-amber-100 text-amber-700' },
   pending_review:  { label: 'Under Review',      icon: <Clock size={12} />,        className: 'bg-blue-100 text-blue-700' },
   approved:        { label: 'Approved',          icon: <CheckCircle2 size={12} />, className: 'bg-green-100 text-green-700' },

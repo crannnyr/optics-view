@@ -408,7 +408,6 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <VendorDashboardPage
           user={user}
-          onBack={() => navigateTo('shop', '/')}
           onNavigateToVendorSignup={() => navigateTo('vendor-landing', '/become-a-vendor')}
         />
       </Suspense>

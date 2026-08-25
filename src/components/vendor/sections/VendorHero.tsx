@@ -56,14 +56,12 @@ export default function VendorHero({ themeColor, onGetStarted }: VendorHeroProps
           className="text-4xl md:text-5xl leading-[1.1] mb-5 text-gray-900"
           style={{ fontFamily: "'Playfair Display', serif" }}
         >
-          Why your products get sold out in a month
+          Sell out your first 100 in a month
         </h1>
         <p className="text-base text-gray-600 leading-relaxed mb-8 max-w-md">
-          List what you already have in stock. We photograph nothing and pack nothing — a whole
-          network of retailers running their own stores on this platform can import your product
-          straight into their catalogs and sell it at whatever price they choose. When an order
-          comes in, you ship it yourself within 48 hours. You get paid on every sale — without
-          running a single ad yourself.
+          List what you already have. Retailers across the platform import your products
+          into their own stores and sell them for you — you just ship each order within
+          48 hours and get paid.
         </p>
         <button
           onClick={onGetStarted}

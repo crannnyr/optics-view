@@ -13,6 +13,11 @@ export interface VendorProgramRules {
   commission_rate_percent: number;
   dropoff_contact_phone: string;
   allowed_category_ids: string[];
+  promo_intro_price: number;
+  promo_list_price: number;
+  promo_duration_days: number;
+  promo_target_units: number;
+  promo_vendor_count: number;
 }
 
 const FALLBACK_RULES: VendorProgramRules = {
@@ -27,6 +32,11 @@ const FALLBACK_RULES: VendorProgramRules = {
   commission_rate_percent: 21,
   dropoff_contact_phone: '09069149803',
   allowed_category_ids: [],
+  promo_intro_price: 5000,
+  promo_list_price: 30000,
+  promo_duration_days: 30,
+  promo_target_units: 100,
+  promo_vendor_count: 100,
 };
 
 // Rules live in app_settings so admins can tune them without a code change —

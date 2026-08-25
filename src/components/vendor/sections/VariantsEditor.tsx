@@ -35,19 +35,21 @@ export default function VariantsEditor({ variants, setVariants, themeColor }: Va
       ) : (
         <div className="space-y-2">
           {variants.map((v, i) => (
-            <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
-              <input value={v.color} onChange={e => update(i, 'color', e.target.value)}
-                className="border p-2 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black" placeholder="Color" />
-              <input value={v.size} onChange={e => update(i, 'size', e.target.value)}
-                className="border p-2 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black" placeholder="Size" />
-              <input type="number" min="1" value={v.quantity} onChange={e => update(i, 'quantity', e.target.value)}
-                className="border p-2 text-sm rounded bg-gray-50 focus:bg-white outline-none focus:border-black" placeholder="Qty" />
-              <button type="button" onClick={() => remove(i)} className="text-gray-400 hover:text-red-500 p-1">
+            <div key={i} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+              <div className="grid grid-cols-3 gap-2 flex-1 min-w-0">
+                <input value={v.color} onChange={e => update(i, 'color', e.target.value)}
+                  className="w-full min-w-0 border p-2 text-sm rounded bg-white outline-none focus:border-black" placeholder="Color" />
+                <input value={v.size} onChange={e => update(i, 'size', e.target.value)}
+                  className="w-full min-w-0 border p-2 text-sm rounded bg-white outline-none focus:border-black" placeholder="Size" />
+                <input type="number" min="1" value={v.quantity} onChange={e => update(i, 'quantity', e.target.value)}
+                  className="w-full min-w-0 border p-2 text-sm rounded bg-white outline-none focus:border-black" placeholder="Qty" />
+              </div>
+              <button type="button" onClick={() => remove(i)} className="shrink-0 text-gray-400 hover:text-red-500 p-1.5">
                 <Trash2 size={15} />
               </button>
             </div>
           ))}
-          <p className="text-[11px] text-gray-400">Variant quantities should add up to your total quantity above.</p>
+          <p className="text-[11px] text-gray-400">Variant quantities should add up to your total stock above.</p>
         </div>
       )}
     </div>
