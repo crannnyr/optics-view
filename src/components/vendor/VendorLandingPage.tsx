@@ -7,20 +7,19 @@ import VendorHero from './sections/VendorHero';
 import VendorHowItWorks from './sections/VendorHowItWorks';
 import VendorProgramDetails from './sections/VendorProgramDetails';
 import VendorSignupForm from './sections/VendorSignupForm';
-import AuthModal from '../AuthModal';
+import VendorAuth from './VendorAuth';
+import { useVendorAuth } from './hooks/useVendorAuth';
 
 interface VendorLandingPageProps {
-  user: any;
   onBack: () => void;
-  onNavigateToPrivacy: () => void;
-  onNavigateToTerms: () => void;
   onNavigateToDashboard: () => void;
 }
 
-export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, onNavigateToTerms, onNavigateToDashboard }: VendorLandingPageProps) {
+export default function VendorLandingPage({ onBack, onNavigateToDashboard }: VendorLandingPageProps) {
   useVendorManifest();
   const { store } = useStore();
   const { rules } = useVendorProgramRules();
+  const { user } = useVendorAuth();
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const signupRef = useRef<HTMLDivElement>(null);
 
@@ -49,12 +48,17 @@ export default function VendorLandingPage({ user, onBack, onNavigateToPrivacy, o
         onGoToDashboard={onNavigateToDashboard}
       />
 
-      <AuthModal
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onViewTerms={onNavigateToTerms}
-        onViewPrivacy={onNavigateToPrivacy}
-      />
+      {isAuthOpen && (
+        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+          <button
+            onClick={() => setIsAuthOpen(false)}
+            className="absolute top-4 left-4 z-10 flex items-center gap-2 text-xs tracking-widest text-gray-400 hover:text-gray-600"
+          >
+            <ArrowLeft size={15} /> BACK
+          </button>
+          <VendorAuth themeColor={store.themeColor} onSignedIn={() => setIsAuthOpen(false)} />
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ImagePlus, Loader2, CheckCircle2 } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
 import { compressImage } from '../../../lib/imageCompress';
 
 interface PhotoUploadSlotProps {

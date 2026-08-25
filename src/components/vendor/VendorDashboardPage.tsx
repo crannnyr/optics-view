@@ -1,8 +1,10 @@
 import { useState, useCallback } from 'react';
 import { LayoutDashboard, PlusCircle, Package, Truck, Sparkles, Loader2, Store, AlertTriangle, LogOut } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { vendorSupabase as supabase } from '../../lib/vendorSupabase';
 import { useStore } from '../../context/StoreContext';
 import { useVendorAccess, VendorAccount } from './hooks/useVendorAccess';
+import { useVendorAuth } from './hooks/useVendorAuth';
+import VendorAuth from './VendorAuth';
 import { useVendorManifest } from './hooks/useVendorManifest';
 import { useVendorPromotion } from './hooks/useVendorPromotion';
 import { useVendorProgramRules, VendorProgramRules } from './useVendorProgramRules';
@@ -13,7 +15,6 @@ import VendorOrdersList from './sections/VendorOrdersList';
 import PromotionPaywall from './sections/PromotionPaywall';
 
 interface VendorDashboardPageProps {
-  user: any;
   onNavigateToVendorSignup: () => void;
 }
 
@@ -31,13 +32,24 @@ function CenteredState({ children }: { children: React.ReactNode }) {
   return <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 text-center">{children}</div>;
 }
 
-export default function VendorDashboardPage({ user, onNavigateToVendorSignup }: VendorDashboardPageProps) {
+export default function VendorDashboardPage({ onNavigateToVendorSignup }: VendorDashboardPageProps) {
   useVendorManifest();
   const { store } = useStore();
+  const { user, loading: authLoading } = useVendorAuth();
   const { vendor, loading } = useVendorAccess(user);
   const { rules } = useVendorProgramRules();
 
-  if (!user || loading) {
+  if (authLoading) {
+    return <CenteredState><Loader2 size={32} className="animate-spin text-gray-300" /></CenteredState>;
+  }
+
+  // Vendor area has its own session — being signed in on the main store
+  // does not sign you in here.
+  if (!user) {
+    return <VendorAuth themeColor={store.themeColor} onSignedIn={() => {}} />;
+  }
+
+  if (loading) {
     return <CenteredState><Loader2 size={32} className="animate-spin text-gray-300" /></CenteredState>;
   }
 

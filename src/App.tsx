@@ -407,7 +407,6 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <VendorDashboardPage
-          user={user}
           onNavigateToVendorSignup={() => navigateTo('vendor-landing', '/become-a-vendor')}
         />
       </Suspense>
@@ -418,10 +417,7 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <VendorLandingPage
-          user={user}
           onBack={() => navigateTo('shop', '/')}
-          onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
-          onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
           onNavigateToDashboard={() => navigateTo('vendor-dashboard', '/vendor-dashboard')}
         />
       </Suspense>

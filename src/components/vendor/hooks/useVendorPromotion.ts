@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
+import { PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 import { sendEmail } from '../../../lib/email';
 import { VendorAccount } from './useVendorAccess';
 import { VendorProgramRules } from '../useVendorProgramRules';

@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef } from 'react';
 import { CheckCircle2, Loader2, LogIn } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
 
 interface VendorSignupFormProps {
   user: any;

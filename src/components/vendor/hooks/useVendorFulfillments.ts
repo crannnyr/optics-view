@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
 import { VendorAccount } from './useVendorAccess';
 
 export interface MyFulfillment {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Clock, CheckCircle2, XCircle, PackageCheck } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
 import { VendorAccount } from '../hooks/useVendorAccess';
 
 interface Application {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { vendorSupabase as supabase } from '../../lib/vendorSupabase';
 
 export interface VendorProgramRules {
   min_quantity: number;

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../../../lib/supabase';
+import { vendorSupabase as supabase } from '../../../lib/vendorSupabase';
 import { VendorAccount } from './useVendorAccess';
 import { VendorProgramRules } from '../useVendorProgramRules';
 import { VariantRow } from '../sections/VariantsEditor';
