@@ -36,21 +36,30 @@ const SELECT = `
   category_item_types ( name, slug )
 `;
 
-export function useVendorApplications() {
+export function useVendorApplications(statusFilter: string = 'pending_review') {
   const [applications, setApplications] = useState<VendorApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>({});
 
   const fetchApplications = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('vendor_product_applications')
-      .select(SELECT)
-      .eq('status', 'pending_review')
-      .order('submitted_at', { ascending: true });
-    setApplications((data as any) || []);
+
+    let query = supabase.from('vendor_product_applications').select(SELECT);
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+
+    const [listRes, countRes] = await Promise.all([
+      query.order('submitted_at', { ascending: true }),
+      supabase.from('vendor_product_applications').select('status'),
+    ]);
+
+    setApplications((listRes.data as any) || []);
+    setCounts((countRes.data || []).reduce((acc: Record<string, number>, r: any) => {
+      acc[r.status] = (acc[r.status] || 0) + 1;
+      return acc;
+    }, {}));
     setLoading(false);
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => { fetchApplications(); }, [fetchApplications]);
 
@@ -179,5 +188,5 @@ export function useVendorApplications() {
     }
   };
 
-  return { applications, loading, processingId, approve, reject, refresh: fetchApplications };
+  return { applications, loading, processingId, counts, approve, reject, refresh: fetchApplications };
 }

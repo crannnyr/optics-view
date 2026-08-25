@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store, Users, PackageSearch, Truck } from 'lucide-react';
+import { Package, Settings, Upload, Store, Users, PackageSearch, Truck, Building2 } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
@@ -7,8 +7,9 @@ import RetailersTab from './admin/RetailersTab';
 import UsersTab from './admin/UsersTab';
 import VendorApplicationsTab from './admin/VendorApplicationsTab';
 import VendorOrdersTab from './admin/VendorOrdersTab';
+import VendorManagementTab from './admin/VendorManagementTab';
 
-type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'users' | 'settings';
+type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'vendor-manage' | 'users' | 'settings';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
@@ -17,7 +18,8 @@ export default function Admin() {
     { id: 'products'      as const, label: 'Products',      icon: Upload },
     { id: 'orders'        as const, label: 'Orders',        icon: Package },
     { id: 'retailers'     as const, label: 'Retailers',     icon: Store },
-    { id: 'vendors'       as const, label: 'Vendors',       icon: PackageSearch },
+    { id: 'vendors'       as const, label: 'Listings',      icon: PackageSearch },
+    { id: 'vendor-manage' as const, label: 'Vendors',       icon: Building2 },
     { id: 'vendor-orders' as const, label: 'Vendor Orders', icon: Truck },
     { id: 'users'         as const, label: 'Users',         icon: Users },
     { id: 'settings'      as const, label: 'Settings',      icon: Settings },
@@ -75,6 +77,7 @@ export default function Admin() {
           {activeTab === 'retailers'     && <RetailersTab />}
           {activeTab === 'vendors'       && <VendorApplicationsTab />}
           {activeTab === 'vendor-orders' && <VendorOrdersTab />}
+          {activeTab === 'vendor-manage' && <VendorManagementTab />}
           {activeTab === 'users'         && <UsersTab />}
           {activeTab === 'settings'      && <SettingsTab />}
         </div>

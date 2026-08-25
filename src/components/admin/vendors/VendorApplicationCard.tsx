@@ -2,7 +2,7 @@ import { VendorApplication } from '../hooks/useVendorApplications';
 
 interface VendorApplicationCardProps {
   app: VendorApplication;
-  onReview: () => void;
+  onReview?: () => void;
 }
 
 export default function VendorApplicationCard({ app, onReview }: VendorApplicationCardProps) {
@@ -18,12 +18,18 @@ export default function VendorApplicationCard({ app, onReview }: VendorApplicati
           ₦{app.vendor_price.toLocaleString()} · {app.total_quantity} units · {app.application_reference}
         </p>
       </div>
-      <button
-        onClick={onReview}
-        className="shrink-0 bg-[#0d2818] text-white text-xs tracking-widest px-4 py-2 hover:opacity-90 transition-opacity"
-      >
-        REVIEW
-      </button>
+      {onReview ? (
+        <button
+          onClick={onReview}
+          className="shrink-0 bg-[#0d2818] text-white text-xs tracking-widest px-4 py-2 hover:opacity-90 transition-opacity"
+        >
+          REVIEW
+        </button>
+      ) : (
+        <span className="shrink-0 text-[10px] uppercase tracking-wide text-gray-400 px-3">
+          {app.status.replace(/_/g, ' ')}
+        </span>
+      )}
     </div>
   );
 }

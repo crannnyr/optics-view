@@ -19,6 +19,9 @@ export default function OrdersTab() {
     dateFilter,
     customDateRange,
     statusFilter,
+    sourceFilter,
+    setSourceFilter,
+    sourceCounts,
     unverifiedCount,
     pendingWithdrawals,
     setViewMode,
@@ -59,6 +62,28 @@ export default function OrdersTab() {
           setStatusFilter={setStatusFilter}
           resultsCount={filteredOrders.length}
         />
+      )}
+
+      {(viewMode === 'active' || viewMode === 'history' || viewMode === 'verify') && (
+        <div className="flex gap-1.5 mb-4 flex-wrap">
+          {([
+            { key: 'all',      label: 'All stores' },
+            { key: 'main',     label: 'Main store' },
+            { key: 'retailer', label: 'Retailer stores' },
+          ] as const).map(o => (
+            <button
+              key={o.key}
+              onClick={() => setSourceFilter(o.key)}
+              className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                sourceFilter === o.key
+                  ? 'bg-[#0d2818] text-white border-[#0d2818]'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              {o.label} ({sourceCounts[o.key]})
+            </button>
+          ))}
+        </div>
       )}
 
       {viewMode === 'verify' && (

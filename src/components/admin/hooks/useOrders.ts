@@ -17,6 +17,7 @@ export function useOrders() {
   const [dateFilter, setDateFilter]         = useState<'all' | 'today' | 'week' | 'custom'>('all');
   const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter]     = useState('all');
+  const [sourceFilter, setSourceFilter]     = useState<'all' | 'main' | 'retailer'>('all');
 
   useEffect(() => { fetchOrders(); fetchWithdrawals(); }, []);
 
@@ -369,6 +370,12 @@ export function useOrders() {
     }
 
     if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+
+    // Main store vs retailer-store orders. Admin sees both by default —
+    // this only narrows the view, it never hides anything permanently.
+    if (sourceFilter === 'main' && order.retailer_id) return false;
+    if (sourceFilter === 'retailer' && !order.retailer_id) return false;
+
     return true;
   });
 
@@ -389,6 +396,12 @@ export function useOrders() {
     dateFilter, setDateFilter,
     customDateRange, setCustomDateRange,
     statusFilter, setStatusFilter,
+    sourceFilter, setSourceFilter,
+    sourceCounts: {
+      all: orders.length,
+      main: orders.filter(o => !o.retailer_id).length,
+      retailer: orders.filter(o => o.retailer_id).length,
+    },
     unverifiedCount,
     pendingWithdrawals,
     updateStatus,
