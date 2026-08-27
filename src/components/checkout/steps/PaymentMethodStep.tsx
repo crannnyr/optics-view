@@ -1,4 +1,6 @@
-import { CreditCard, Smartphone, ArrowRight, Loader2, Zap, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { CreditCard, Smartphone, ArrowRight, Loader2, Zap, RotateCcw, Building2, ArrowLeft } from 'lucide-react';
+import { SENDER_BANKS, SENDER_BANK_FINTECH_EXCEPTION } from '../hooks/useCheckout';
 
 interface PaymentMethodStepProps {
   payableAmount: number;
@@ -11,6 +13,8 @@ interface PaymentMethodStepProps {
   loading: boolean;
   themeColor?: string;
   isRetryMode?: boolean;
+  senderBankName: string;
+  setSenderBankName: (bank: string) => void;
 }
 
 export default function PaymentMethodStep({
@@ -20,8 +24,72 @@ export default function PaymentMethodStep({
   createOrder,
   loading,
   themeColor = '#0d2818',
-  isRetryMode = false
+  isRetryMode = false,
+  senderBankName,
+  setSenderBankName,
 }: PaymentMethodStepProps) {
+  // Gates the transfer path: the customer must pick which bank they're
+  // sending FROM before we reveal our transfer details. If their bank isn't
+  // on the preset commercial-bank list, they're pointed to Paystack instead.
+  const [showBankSelect, setShowBankSelect] = useState(false);
+
+  if (showBankSelect) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+        <button
+          onClick={() => setShowBankSelect(false)}
+          className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-black"
+        >
+          <ArrowLeft size={12} /> Back
+        </button>
+
+        <div className="text-center">
+          <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto text-green-700 mb-3">
+            <Building2 size={22} />
+          </div>
+          <h3 className="text-base font-medium">Which bank are you transferring from?</h3>
+          <p className="text-xs text-gray-500 mt-1">
+            Select your bank to continue to transfer details.
+          </p>
+        </div>
+
+        <select
+          value={senderBankName}
+          onChange={e => setSenderBankName(e.target.value)}
+          className="w-full border-2 border-gray-200 p-3 text-sm rounded-lg focus:border-black outline-none bg-white"
+        >
+          <option value="">Select your bank…</option>
+          <option value={SENDER_BANK_FINTECH_EXCEPTION}>{SENDER_BANK_FINTECH_EXCEPTION}</option>
+          {SENDER_BANKS.map(bank => (
+            <option key={bank} value={bank}>{bank}</option>
+          ))}
+        </select>
+
+        <button
+          onClick={() => { setPaymentMethod('transfer'); createOrder('transfer'); }}
+          disabled={!senderBankName || loading}
+          className="w-full py-4 text-sm font-medium rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          style={{ backgroundColor: themeColor }}
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : null}
+          Next
+        </button>
+
+        {settings.enable_paystack && (
+          <p className="text-center text-xs text-gray-400">
+            Don't see your bank?{' '}
+            <button
+              onClick={() => { setShowBankSelect(false); setPaymentMethod('paystack'); createOrder('paystack'); }}
+              className="underline hover:text-black"
+            >
+              Pay with card via Paystack instead
+            </button>
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
       {isRetryMode && (
@@ -59,7 +127,7 @@ export default function PaymentMethodStep({
 
          {settings.enable_transfer && (
             <button 
-              onClick={() => { setPaymentMethod('transfer'); createOrder('transfer'); }}
+              onClick={() => setShowBankSelect(true)}
               className="w-full p-4 border border-gray-200 rounded-lg flex items-center justify-between hover:border-black group transition-all hover:shadow-md"
             >
                <div className="flex items-center gap-4">

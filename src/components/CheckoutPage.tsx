@@ -30,6 +30,8 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
     transferDetails,
     senderName,
     setSenderName,
+    senderBankName,
+    setSenderBankName,
     totalItems,
     subtotal,
     totalOrderAmount,
@@ -147,6 +149,8 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
               loading={loading}
               themeColor={store?.themeColor}
               isRetryMode={isRetryMode}
+              senderBankName={senderBankName}
+              setSenderBankName={setSenderBankName}
             />
           )}
 
@@ -158,6 +162,7 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
               transferDetails={transferDetails}
               senderName={senderName}
               setSenderName={setSenderName}
+              senderBankName={senderBankName}
               copied={copied}
               loading={loading}
               themeColor={store?.themeColor}

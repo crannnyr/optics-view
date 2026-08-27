@@ -11,6 +11,28 @@ export const NIGERIAN_STATES = [
   "Taraba", "Yobe", "Zamfara"
 ];
 
+// Preset list for the "which bank are you transferring FROM" selector on manual
+// payment (Badge 2). CBN-licensed commercial + non-interest banks only — no
+// fintechs/OPay/Kuda/etc, per instruction that Moniepoint is the sole fintech
+// exception. Heritage Bank intentionally excluded: its licence was revoked by
+// the CBN on 3 June 2024 and it is in liquidation, so it's no longer a valid
+// sending bank. Keep this list to institutions actually verified as currently
+// licensed — do not add entries without checking current CBN status first.
+export const SENDER_BANKS = [
+  "Access Bank", "Citibank Nigeria", "Ecobank Nigeria", "Fidelity Bank",
+  "First Bank of Nigeria", "First City Monument Bank (FCMB)", "Globus Bank",
+  "Guaranty Trust Bank (GTBank)", "Jaiz Bank", "Keystone Bank", "Lotus Bank",
+  "Optimus Bank", "Parallex Bank", "Polaris Bank", "Premium Trust Bank",
+  "Providus Bank", "Signature Bank", "Stanbic IBTC Bank",
+  "Standard Chartered Bank", "Sterling Bank", "SunTrust Bank", "Taj Bank",
+  "The Alternative Bank", "Titan Trust Bank", "Union Bank of Nigeria",
+  "United Bank for Africa (UBA)", "Unity Bank", "Wema Bank", "Zenith Bank",
+] as const;
+
+// The one fintech exception, called out separately in the UI from the
+// commercial-bank list above.
+export const SENDER_BANK_FINTECH_EXCEPTION = "Moniepoint" as const;
+
 interface ShippingData {
   state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
   deliveryMethod: 'pickup' | 'home';
@@ -76,6 +98,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   });
 
   const [senderName, setSenderName] = useState('');
+  const [senderBankName, setSenderBankName] = useState('');
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
 
@@ -88,6 +111,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
     setPaystackConfig(null);
     setSenderName('');
+    setSenderBankName('');
     setRetryError(null);
     fetchSettings();
 
@@ -223,12 +247,13 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     setShippingError(null);
 
     if (settings.enable_paystack && !settings.enable_transfer) {
+      // Paystack is the only option — no bank-selection gate applies, skip straight in
       setPaymentMethod('paystack');
       createOrder('paystack');
-    } else if (!settings.enable_paystack && settings.enable_transfer) {
-      setPaymentMethod('transfer');
-      createOrder('transfer');
     } else {
+      // Either transfer is available (needs the bank-selection step first) or
+      // both methods are available (needs the choice step) — either way, land
+      // on step 2 and let PaymentMethodStep decide what to render.
       setStep(2);
     }
   };
@@ -262,7 +287,11 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         }
         const { error: updateError } = await supabase
           .from('orders')
-          .update({ payment_method: method, paystack_reference: orderReference })
+          .update({
+            payment_method: method,
+            paystack_reference: orderReference,
+            ...(method === 'transfer' ? { sender_bank_name: senderBankName || null } : {}),
+          })
           .eq('id', orderId);
         if (updateError) throw updateError;
 
@@ -313,6 +342,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
             payment_method: method,
             manual_payment_verified: false,
             paystack_reference: orderReference,
+            sender_bank_name: method === 'transfer' ? (senderBankName || null) : null,
             retailer_id: store?.id,
             retailer_slug: store?.slug,
             retailer_profit: Math.max(0, retailerProfit),
@@ -468,6 +498,8 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     transferDetails,
     senderName,
     setSenderName,
+    senderBankName,
+    setSenderBankName,
     totalItems,
     subtotal,
     totalOrderAmount,

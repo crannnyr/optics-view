@@ -10,6 +10,7 @@ interface PaymentExecutionStepProps {
   transferDetails: { bank: string; number: string; name: string };
   senderName: string;
   setSenderName: (name: string) => void;
+  senderBankName?: string;
   copied: boolean;
   loading: boolean;
   themeColor?: string;
@@ -26,6 +27,7 @@ export default function PaymentExecutionStep({
   transferDetails,
   senderName,
   setSenderName,
+  senderBankName,
   copied,
   loading,
   themeColor = '#0d2818',
@@ -138,6 +140,13 @@ export default function PaymentExecutionStep({
               </p>
             </div>
           </div>
+
+          {senderBankName && (
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-xs">
+              <span className="text-gray-500">Transferring from</span>
+              <span className="font-medium text-gray-800">{senderBankName}</span>
+            </div>
+          )}
 
           <div>
             <label className="block text-xs uppercase text-gray-500 mb-2">
