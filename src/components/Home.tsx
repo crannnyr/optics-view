@@ -8,6 +8,7 @@ import HomeHeader from './home/sections/HomeHeader';
 import HomeHero from './home/sections/HomeHero';
 import CategoryFilter from './home/sections/CategoryFilter';
 import SearchBar from './home/sections/SearchBar';
+import DailyVendorModal from './home/sections/DailyVendorModal';
 import HomeFooter from './home/sections/HomeFooter';
 import Cart from './Cart';
 import AuthModal from './AuthModal';
@@ -192,6 +193,8 @@ export default function Home({
 
       <RetailerModal isOpen={isRetailerModalOpen} onClose={() => setIsRetailerModalOpen(false)}
         referringRetailerId={store.id} />
+
+      <DailyVendorModal themeColor={store.themeColor} onNavigateToVendor={onNavigateToVendor} />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
