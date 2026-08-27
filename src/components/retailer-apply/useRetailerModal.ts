@@ -134,12 +134,21 @@ export function useRetailerModal(referringRetailerId?: string | null) {
         return;
       }
 
-      // payment_method === 'paystack' or null — Paystack was cancelled/never completed
-      // Rehydrate paystackConfig from the saved row so the user can retry
-      // without a new row being inserted
-      setApplicationStatus({ state: 'pending_paystack', reg: data });
+      // payment_method === 'paystack' or null — Paystack was cancelled/never completed.
+      // Rehydrate paystackConfig from the saved row so the user can retry without a
+      // new registration row being inserted. IMPORTANT: Paystack rejects a second
+      // transaction attempt on a reference that was already used, so we must mint a
+      // fresh reference for this retry and persist it on the existing row — the row
+      // itself is reused, only the reference rotates.
+      const retryReference = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      await supabase
+        .from('retailer_registrations')
+        .update({ paystack_reference: retryReference })
+        .eq('id', data.id);
+
+      setApplicationStatus({ state: 'pending_paystack', reg: { ...data, paystack_reference: retryReference } });
       setPaystackConfig({
-        reference: data.paystack_reference,
+        reference: retryReference,
         email,
         amount: data.registration_fee * 100,
         publicKey: PAYSTACK_PUBLIC_KEY,
@@ -211,10 +220,17 @@ export function useRetailerModal(referringRetailerId?: string | null) {
         .maybeSingle();
 
       if (existing) {
-        // Row already exists — resume to payment with existing reference
-        // instead of blocking or inserting a duplicate
+        // Row already exists — resume to payment with the existing row, but
+        // mint a fresh Paystack reference (Paystack rejects retries on a
+        // reference that's already been attempted). Same row, new reference.
+        const retryReference = `RET-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await supabase
+          .from('retailer_registrations')
+          .update({ paystack_reference: retryReference })
+          .eq('id', existing.id);
+
         setPaystackConfig({
-          reference: existing.paystack_reference,
+          reference: retryReference,
           email: formData.email,
           amount: existing.registration_fee * 100,
           publicKey: PAYSTACK_PUBLIC_KEY,
