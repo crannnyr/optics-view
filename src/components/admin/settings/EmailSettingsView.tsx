@@ -8,16 +8,20 @@ import {
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-type QueueTab = 'queue' | 'sent' | 'failed';
+type QueueTab = 'queue' | 'sent' | 'failed' | 'types';
 
 const EMAIL_TYPE_LABELS: Record<string, string> = {
   welcome:              'Welcome',
   password_reset:       'Password Reset',
+  order_placed:         'Order Placed',
+  notification:         'Notification',
   order_confirmation:   'Order Confirmation',
   order_shipped:        'Order Shipped',
+  order_shipped_tracking: 'Order Shipped (Tracking)',
   order_delivered:      'Order Delivered',
   order_status_update:  'Order Status Update',
   new_order_alert:      'New Order Alert',
+  payment_nudge:        'Payment Nudge',
   retailer_application: 'Retailer Application',
   retailer_activated:   'Retailer Activated',
   retailer_rejected:    'Retailer Rejected',
@@ -26,6 +30,9 @@ const EMAIL_TYPE_LABELS: Record<string, string> = {
   withdrawal_processed: 'Withdrawal Processed',
   withdrawal_requested: 'Withdrawal Requested',
   new_product:          'New Product Drop',
+  buyer_morning:        'Buyer — Morning Broadcast',
+  buyer_evening:        'Buyer — Evening Broadcast',
+  retailer_weekly:      'Retailer — Weekly (No Sales)',
 };
 
 export default function EmailSettingsView() {
@@ -40,6 +47,11 @@ export default function EmailSettingsView() {
   const [savingLimit, setSavingLimit] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [typeControls, setTypeControls] = useState<Record<string, boolean>>({});
+  const [togglingType, setTogglingType] = useState<string | null>(null);
+  const [expandedType, setExpandedType] = useState<string | null>(null);
+  const [typeLastSent, setTypeLastSent] = useState<Record<string, any[]>>({});
+  const [loadingTypeLogs, setLoadingTypeLogs] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAll();
@@ -61,6 +73,13 @@ export default function EmailSettingsView() {
       setDailyLimit(data.value.daily_limit);
       setNewLimit(String(data.value.daily_limit));
     }
+
+    const { data: controlsRow } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'email_type_controls')
+      .maybeSingle();
+    setTypeControls(controlsRow?.value || {});
   };
 
   const fetchQueue = async () => {
@@ -162,6 +181,50 @@ export default function EmailSettingsView() {
     setProcessingId(null);
   };
 
+  const toggleEmailType = async (type: string) => {
+    const nextValue = typeControls[type] === false ? true : false;
+    setTogglingType(type);
+
+    // Optimistic update
+    setTypeControls(prev => ({ ...prev, [type]: nextValue }));
+
+    const { data: existing } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'email_type_controls')
+      .maybeSingle();
+
+    const { error } = await supabase
+      .from('app_settings')
+      .update({ value: { ...(existing?.value || {}), [type]: nextValue } })
+      .eq('key', 'email_type_controls');
+
+    if (error) {
+      // Roll back on failure
+      setTypeControls(prev => ({ ...prev, [type]: !nextValue }));
+    }
+    setTogglingType(null);
+  };
+
+  const toggleExpandType = async (type: string) => {
+    if (expandedType === type) {
+      setExpandedType(null);
+      return;
+    }
+    setExpandedType(type);
+    if (!typeLastSent[type]) {
+      setLoadingTypeLogs(type);
+      const { data } = await supabase
+        .from('email_logs')
+        .select('*')
+        .eq('type', type)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setTypeLastSent(prev => ({ ...prev, [type]: data || [] }));
+      setLoadingTypeLogs(null);
+    }
+  };
+
   const usagePercent = Math.min(100, Math.round((todayCount / dailyLimit) * 100));
   const usageColor = usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-orange-400' : 'bg-[#0d2818]';
 
@@ -260,6 +323,7 @@ export default function EmailSettingsView() {
             { key: 'queue',  label: `Queue (${queuedEmails.length})`,  icon: <Clock size={14} /> },
             { key: 'sent',   label: `Sent (${sentEmails.length})`,     icon: <CheckCircle size={14} /> },
             { key: 'failed', label: `Failed (${failedEmails.length})`, icon: <XCircle size={14} /> },
+            { key: 'types',  label: 'By Type',                         icon: <Settings size={14} /> },
           ] as const).map(tab => (
             <button
               key={tab.key}
@@ -402,6 +466,77 @@ export default function EmailSettingsView() {
                 ))}
               </div>
             )}
+          </div>
+        )}
+
+        {/* By Type Tab — every email category, individually stoppable, with
+            last 50 sent visible per type */}
+        {activeTab === 'types' && (
+          <div className="divide-y divide-gray-50">
+            {Object.entries(EMAIL_TYPE_LABELS).map(([type, label]) => {
+              const isStopped = typeControls[type] === false;
+              const isExpanded = expandedType === type;
+              return (
+                <div key={type}>
+                  <div className="flex items-center justify-between px-5 py-3 hover:bg-gray-50">
+                    <button
+                      onClick={() => toggleExpandType(type)}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                    >
+                      {isExpanded ? <ChevronUp size={14} className="text-gray-400 shrink-0" /> : <ChevronDown size={14} className="text-gray-400 shrink-0" />}
+                      <span className="text-xs font-medium text-gray-700 truncate">{label}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wide shrink-0 ${
+                        isStopped ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-700 border border-green-100'
+                      }`}>
+                        {isStopped ? 'Stopped' : 'Active'}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => toggleEmailType(type)}
+                      disabled={togglingType === type}
+                      className={`ml-4 shrink-0 text-[10px] px-3 py-1.5 rounded border tracking-widest uppercase disabled:opacity-50 ${
+                        isStopped
+                          ? 'border-[#0d2818]/20 text-[#0d2818] hover:bg-[#0d2818]/5'
+                          : 'border-red-200 text-red-500 hover:bg-red-50'
+                      }`}
+                    >
+                      {togglingType === type
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : isStopped ? 'Resume' : 'Stop'
+                      }
+                    </button>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="bg-gray-50/50 px-5 py-3 border-t border-gray-100">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-2">Last 50 sent</p>
+                      {loadingTypeLogs === type ? (
+                        <div className="flex justify-center py-6">
+                          <Loader2 size={16} className="animate-spin text-gray-300" />
+                        </div>
+                      ) : (typeLastSent[type]?.length ?? 0) === 0 ? (
+                        <p className="text-xs text-gray-400 py-3">No emails of this type have been sent yet.</p>
+                      ) : (
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {typeLastSent[type].map(log => (
+                            <div key={log.id} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-100 last:border-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                {log.status === 'sent'
+                                  ? <CheckCircle size={11} className="text-green-500 shrink-0" />
+                                  : <XCircle size={11} className="text-red-400 shrink-0" />
+                                }
+                                <span className="text-gray-600 truncate">{log.to_email}</span>
+                              </div>
+                              <span className="text-[10px] text-gray-400 shrink-0 ml-3">{formatDate(log.created_at)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
