@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CreditCard, Smartphone, ArrowRight, Loader2, Zap, RotateCcw, Building2, ArrowLeft } from 'lucide-react';
+import { CreditCard, Smartphone, ArrowRight, Loader2, Zap, RotateCcw, Building2, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { SENDER_BANKS, SENDER_BANK_FINTECH_EXCEPTION } from '../hooks/useCheckout';
 
 interface PaymentMethodStepProps {
@@ -50,6 +50,14 @@ export default function PaymentMethodStep({
           <h3 className="text-base font-medium">Which bank are you transferring from?</h3>
           <p className="text-xs text-gray-500 mt-1">
             Select your bank to continue to transfer details.
+          </p>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2.5">
+          <AlertTriangle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            We only accept transfers from the banks listed here — <strong>commercial banks only, no fintech apps</strong>.
+            If your bank isn't in the list, please use the Paystack (card) option below instead.
           </p>
         </div>
 

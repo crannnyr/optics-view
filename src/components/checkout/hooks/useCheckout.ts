@@ -121,8 +121,49 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
       setStep(1);
       setCurrentOrderId(null);
       setRetryOrder(null);
+      prefillFromLastOrder();
     }
   }, [isOpen, retryOrderId]);
+
+  // Auto-fill shipping details (and pickup station, if they've used one
+  // before) from the customer's most recent order, so returning shoppers
+  // don't have to retype everything. Only runs for a fresh checkout, never
+  // overwrites an in-progress retry order's data.
+  const prefillFromLastOrder = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data: lastOrder } = await supabase
+      .from('orders')
+      .select('shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark, customer_phone_1, customer_phone_2, delivery_method, pickup_station_id, pickup_station_name, pickup_station_address')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!lastOrder) return;
+
+    setShippingData(prev => ({
+      ...prev,
+      state: lastOrder.shipping_state || prev.state,
+      city: lastOrder.shipping_city || prev.city,
+      lga: lastOrder.shipping_lga || prev.lga,
+      area: lastOrder.shipping_area || prev.area,
+      landmark: lastOrder.shipping_landmark || prev.landmark,
+      phone1: lastOrder.customer_phone_1 || prev.phone1,
+      phone2: lastOrder.customer_phone_2 || prev.phone2,
+      // Only auto-select a pickup station if they actually used one last
+      // time. If their last order was home delivery (or they have no
+      // pickup history), leave delivery method/station as default — the
+      // station list still works normally, nothing forced.
+      ...(lastOrder.delivery_method === 'pickup' && lastOrder.pickup_station_id ? {
+        deliveryMethod: 'pickup' as const,
+        pickupStationId: lastOrder.pickup_station_id,
+        pickupStationName: lastOrder.pickup_station_name,
+        pickupStationAddress: lastOrder.pickup_station_address,
+      } : {}),
+    }));
+  };
 
   const fetchSettings = async () => {
     const { data: methodData } = await supabase.from('app_settings').select('*').eq('key', 'payment_methods').single();
