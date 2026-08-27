@@ -170,7 +170,9 @@ export default function OrderDetailModal({
   useEffect(() => { setLiveOrder(order); }, [order]);
 
   const total       = liveOrder.total_amount || 0;
-  const fullAddress = `${liveOrder.shipping_city}, ${liveOrder.shipping_state} · ${liveOrder.shipping_area}`;
+  const fullAddress = [liveOrder.shipping_area, liveOrder.shipping_lga, liveOrder.shipping_city, liveOrder.shipping_state]
+    .filter(Boolean)
+    .join(', ');
 
   const handleShipConfirm = async (trackingCodes: { supplier: string; trackingId: string }[]) => {
     setShowShipping(false);
@@ -323,8 +325,30 @@ export default function OrderDetailModal({
                   {!liveOrder.customer_phone_1 && liveOrder.customer_phone && (
                     <CopyField label="Phone" value={liveOrder.customer_phone} mono />
                   )}
-                  <CopyField label="Delivery Address" value={fullAddress} />
+                  {liveOrder.delivery_method !== 'pickup' && fullAddress && (
+                    <CopyField label="Delivery Address" value={fullAddress} />
+                  )}
+                  {liveOrder.shipping_landmark && (
+                    <CopyField label="Landmark" value={liveOrder.shipping_landmark} />
+                  )}
                 </div>
+
+                {/* Pickup station — only relevant when the customer chose pickup
+                    delivery. Data was already being fetched (select('*')) but
+                    never surfaced in this modal. */}
+                {liveOrder.delivery_method === 'pickup' && (liveOrder.pickup_station_name || liveOrder.pickup_station_address) && (
+                  <div className="mt-4">
+                    <p className="text-xs uppercase tracking-wider text-gray-400 mb-2 font-bold border-b pb-1">Pickup Station</p>
+                    <div className="space-y-2">
+                      {liveOrder.pickup_station_name && (
+                        <CopyField label="Station Name" value={liveOrder.pickup_station_name} />
+                      )}
+                      {liveOrder.pickup_station_address && (
+                        <CopyField label="Station Address" value={liveOrder.pickup_station_address} />
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
