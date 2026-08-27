@@ -47,21 +47,43 @@ export default function UsersTab() {
     setLoading(false);
   };
 
+  // PostgREST caps any unpaginated select() at 1000 rows by default — with
+  // ~6000 profiles now on file, a plain .select() was silently truncating
+  // the admin user list. Page through in batches of 1000 until exhausted.
+  const fetchAllRows = async <T,>(
+    table: string,
+    columns: string,
+    orderCol?: string
+  ): Promise<T[]> => {
+    const pageSize = 1000;
+    let from = 0;
+    let all: T[] = [];
+    while (true) {
+      let query = supabase.from(table).select(columns).range(from, from + pageSize - 1);
+      if (orderCol) query = query.order(orderCol, { ascending: false });
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) break;
+      all = all.concat(data as T[]);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return all;
+  };
+
   const loadUsers = async () => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, email, full_name, created_at, last_seen_at, role, store_name')
-      .order('created_at', { ascending: false });
+    const data = await fetchAllRows<any>(
+      'profiles',
+      'id, email, full_name, created_at, last_seen_at, role, store_name',
+      'created_at'
+    );
 
-    if (!data) return;
+    if (!data.length) return;
 
-    const { data: orderCounts } = await supabase
-      .from('orders')
-      .select('user_id')
-      .not('user_id', 'is', null);
+    const orderCounts = await fetchAllRows<{ user_id: string }>('orders', 'user_id');
+    const relevantOrders = orderCounts.filter(o => o.user_id != null);
 
     const countMap = new Map<string, number>();
-    for (const o of orderCounts || []) {
+    for (const o of relevantOrders) {
       countMap.set(o.user_id, (countMap.get(o.user_id) || 0) + 1);
     }
 
