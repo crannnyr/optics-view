@@ -281,6 +281,8 @@ export default function UsersTab() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
             <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider text-gray-400">
               <div className="col-span-4">User</div>
               <div className="col-span-3">Joined</div>
@@ -339,6 +341,8 @@ export default function UsersTab() {
                 </div>
               )
             }
+            </div>
+            </div>
           </div>
         </>
       )}
@@ -361,6 +365,8 @@ export default function UsersTab() {
           </div>
 
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+            <div className="min-w-[640px]">
             <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider text-gray-400">
               <div className="col-span-3">Customer</div>
               <div className="col-span-2">Amount</div>
@@ -412,6 +418,8 @@ export default function UsersTab() {
                 </div>
               )
             }
+            </div>
+            </div>
           </div>
         </>
       )}

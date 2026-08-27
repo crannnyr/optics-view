@@ -54,23 +54,26 @@ export default function Admin() {
         </nav>
       </aside>
 
-      {/* Mobile Navigation */}
-      <div className="md:hidden fixed top-16 left-0 right-0 bg-white border-b z-10 flex justify-around p-2">
+      {/* Mobile Navigation — horizontally scrollable so 8 tabs never squeeze
+          or overflow the layout on narrow screens; buttons are flex-shrink-0
+          so they stay a consistent minimal size instead of deforming. */}
+      <div className="md:hidden fixed top-16 left-0 right-0 bg-white border-b z-10 flex items-center gap-1 overflow-x-auto px-2 py-1.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setActiveTab(item.id)}
-            className={`p-2 rounded ${
+            className={`shrink-0 flex flex-col items-center gap-0.5 px-2.5 py-1.5 rounded text-[9px] tracking-wide transition-colors ${
               activeTab === item.id ? 'bg-gray-100 text-[#0d2818]' : 'text-gray-400'
             }`}
           >
-            <item.icon size={20} />
+            <item.icon size={17} />
+            <span className="whitespace-nowrap">{item.label}</span>
           </button>
         ))}
       </div>
 
       {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-6 md:p-12 mt-12 md:mt-0">
+      <main className="flex-1 md:ml-64 p-6 md:p-12 mt-16 md:mt-0">
         <div className="max-w-7xl mx-auto">
           {activeTab === 'products'      && <ProductsTab />}
           {activeTab === 'orders'        && <OrdersTab />}

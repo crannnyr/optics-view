@@ -157,6 +157,11 @@ export default function ProductsTab() {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {/* Fixed-width 12-col table — scrolls horizontally on narrow
+              screens instead of squeezing every column and breaking the
+              layout on mobile. */}
+          <div className="overflow-x-auto">
+          <div className="min-w-[720px]">
           {/* Table header */}
           <div className="grid grid-cols-12 gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider text-gray-400">
             <div className="col-span-1" />
@@ -239,6 +244,8 @@ export default function ProductsTab() {
               ))}
             </div>
           )}
+          </div>
+          </div>
         </div>
       )}
 
