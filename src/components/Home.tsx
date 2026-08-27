@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, Fragment } from 'react';
 import { ShoppingBag } from 'lucide-react';
 import { Product, CartItem } from '../lib/supabase';
 
@@ -7,6 +7,7 @@ import ProductCard from './home/ProductCard';
 import HomeHeader from './home/sections/HomeHeader';
 import HomeHero from './home/sections/HomeHero';
 import CategoryFilter from './home/sections/CategoryFilter';
+import SearchBar from './home/sections/SearchBar';
 import HomeFooter from './home/sections/HomeFooter';
 import Cart from './Cart';
 import AuthModal from './AuthModal';
@@ -94,6 +95,8 @@ export default function Home({
           user={user}
         />
 
+        <SearchBar themeColor={store.themeColor} onViewDetails={onViewProduct} />
+
         <CategoryFilter
           selectedCategory={selectedCategory}
           setSelectedCategory={setSelectedCategory}
@@ -105,13 +108,36 @@ export default function Home({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
             {productsLoading
               ? Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)
-              : filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToCart={onAddToCart}
-                    onViewDetails={onViewProduct}
-                  />
+              : filteredProducts.map((product, idx) => (
+                  <Fragment key={product.id}>
+                    <ProductCard
+                      product={product}
+                      onAddToCart={onAddToCart}
+                      onViewDetails={onViewProduct}
+                    />
+                    {/* Mobile-only banner, right after the first row (2 items
+                        on the mobile grid-cols-2 layout). col-span-2 makes it
+                        take the full row by itself; md:hidden removes it from
+                        the grid entirely on desktop, so the 3-col layout
+                        continues uninterrupted there. */}
+                    {idx === 1 && (
+                      <a
+                        key="china-banner"
+                        href="https://qafrica.store/recommendations"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="col-span-2 md:hidden flex items-center justify-center gap-2 bg-red-600 text-white py-3 px-4 rounded-sm shadow-sm"
+                      >
+                        <span className="text-lg leading-none">🇨🇳</span>
+                        <span
+                          className="text-xs font-bold tracking-wide uppercase"
+                          style={{ animation: 'blink 1.4s ease-in-out infinite' }}
+                        >
+                          🔥 Hot — Click to Order Directly from China
+                        </span>
+                      </a>
+                    )}
+                  </Fragment>
                 ))
             }
           </div>

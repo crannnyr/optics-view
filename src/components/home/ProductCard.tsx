@@ -16,6 +16,14 @@ function formatSoldCount(count: number): string {
   return count.toLocaleString();
 }
 
+// Long product names were overflowing the card's bounds with nothing to
+// stop them — cap the displayed name at 10 characters (full name still
+// shown as the title attribute and on the product detail page).
+function truncateName(name: string, max = 10): string {
+  if (!name) return '';
+  return name.length > max ? `${name.slice(0, max).trimEnd()}…` : name;
+}
+
 export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
@@ -111,10 +119,11 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
         <div className="flex-1 text-left">
           <h3
             onClick={() => onViewDetails(product)}
+            title={product.name}
             className="text-sm font-light mb-1 cursor-pointer hover:opacity-70"
             style={{ color: store.themeColor }}
           >
-            {product.name}
+            {truncateName(product.name)}
           </h3>
           <p className="text-base font-medium" style={{ color: store.themeColor }}>
             ₦{product.price.toLocaleString()}
