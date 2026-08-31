@@ -11,6 +11,7 @@ const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
 const VendorLandingPage = lazy(() => import('./components/vendor/VendorLandingPage'));
+const VendorRegisterPage = lazy(() => import('./components/vendor/VendorRegisterPage'));
 const VendorDashboardPage = lazy(() => import('./components/vendor/VendorDashboardPage'));
 
 const SESSION_TIMEOUT_MS = 15 * 1000;
@@ -139,7 +140,7 @@ function App() {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
 
   const [currentView, setCurrentView] = useState<
-    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'vendor-landing' | 'vendor-dashboard'
+    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'vendor-landing' | 'vendor-register' | 'vendor-dashboard'
   >('shop');
   const [user, setUser]                       = useState<any>(null);
   const [authLoading, setAuthLoading]         = useState(true);
@@ -176,6 +177,7 @@ function App() {
     if (path === '/orders')           return 'orders';
     if (path === '/checkout')         return 'checkout';
     if (path === '/become-a-vendor')  return 'vendor-landing';
+    if (path === '/become-a-vendor/register') return 'vendor-register';
     if (path === '/vendor-dashboard') return 'vendor-dashboard';
     if (path.startsWith('/product/')) return 'details';
     return 'shop';
@@ -410,7 +412,7 @@ function App() {
     return (
       <Suspense fallback={<PageLoader />}>
         <VendorDashboardPage
-          onNavigateToVendorSignup={() => navigateTo('vendor-landing', '/become-a-vendor')}
+          onNavigateToVendorSignup={() => navigateTo('vendor-register', '/become-a-vendor/register')}
         />
       </Suspense>
     );
@@ -421,7 +423,18 @@ function App() {
       <Suspense fallback={<PageLoader />}>
         <VendorLandingPage
           onBack={() => navigateTo('shop', '/')}
-          onNavigateToDashboard={() => navigateTo('vendor-dashboard', '/vendor-dashboard')}
+          onNavigateToRegister={() => navigateTo('vendor-register', '/become-a-vendor/register')}
+        />
+      </Suspense>
+    );
+  }
+
+  if (currentView === 'vendor-register') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <VendorRegisterPage
+          onBack={() => navigateTo('vendor-landing', '/become-a-vendor')}
+          onGoToDashboard={() => navigateTo('vendor-dashboard', '/vendor-dashboard')}
         />
       </Suspense>
     );

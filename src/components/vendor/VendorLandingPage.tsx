@@ -1,4 +1,3 @@
-import { useRef, useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { useVendorProgramRules } from './useVendorProgramRules';
@@ -6,24 +5,21 @@ import { useVendorManifest } from './hooks/useVendorManifest';
 import VendorHero from './sections/VendorHero';
 import VendorHowItWorks from './sections/VendorHowItWorks';
 import VendorProgramDetails from './sections/VendorProgramDetails';
-import VendorSignupForm from './sections/VendorSignupForm';
-import VendorAuth from './VendorAuth';
-import { useVendorAuth } from './hooks/useVendorAuth';
 
 interface VendorLandingPageProps {
   onBack: () => void;
-  onNavigateToDashboard: () => void;
+  onNavigateToRegister: () => void;
 }
 
-export default function VendorLandingPage({ onBack, onNavigateToDashboard }: VendorLandingPageProps) {
+// Marketing-only page now — the actual sign-up/registration form used to be
+// embedded here as a scroll-section (VendorSignupForm), which meant "signing
+// up" was really just scrolling further down a landing page. That's been
+// pulled out into its own standalone page (VendorRegisterPage); this page's
+// job is purely to make the case and hand off via a clear CTA.
+export default function VendorLandingPage({ onBack, onNavigateToRegister }: VendorLandingPageProps) {
   useVendorManifest();
   const { store } = useStore();
   const { rules } = useVendorProgramRules();
-  const { user } = useVendorAuth();
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const signupRef = useRef<HTMLDivElement>(null);
-
-  const scrollToSignup = () => signupRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
   return (
     <div className="min-h-screen bg-white">
@@ -37,28 +33,25 @@ export default function VendorLandingPage({ onBack, onNavigateToDashboard }: Ven
         </button>
       </div>
 
-      <VendorHero themeColor={store.themeColor} onGetStarted={scrollToSignup} />
+      <VendorHero themeColor={store.themeColor} onGetStarted={onNavigateToRegister} />
       <VendorHowItWorks themeColor={store.themeColor} rules={rules} />
       <VendorProgramDetails themeColor={store.themeColor} rules={rules} />
-      <VendorSignupForm
-        ref={signupRef}
-        user={user}
-        themeColor={store.themeColor}
-        onRequestSignIn={() => setIsAuthOpen(true)}
-        onGoToDashboard={onNavigateToDashboard}
-      />
 
-      {isAuthOpen && (
-        <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-          <button
-            onClick={() => setIsAuthOpen(false)}
-            className="absolute top-4 left-4 z-10 flex items-center gap-2 text-xs tracking-widest text-gray-400 hover:text-gray-600"
-          >
-            <ArrowLeft size={15} /> BACK
-          </button>
-          <VendorAuth themeColor={store.themeColor} onSignedIn={() => setIsAuthOpen(false)} />
-        </div>
-      )}
+      <div className="max-w-xl mx-auto px-6 py-16 md:py-20 text-center">
+        <h2 className="text-2xl md:text-3xl mb-3 text-gray-900" style={{ fontFamily: "'Playfair Display', serif" }}>
+          Ready to get started?
+        </h2>
+        <p className="text-sm text-gray-500 mb-8">
+          Sign up, tell us what you sell, and you're ready to list your first product.
+        </p>
+        <button
+          onClick={onNavigateToRegister}
+          className="inline-flex items-center gap-2 text-white px-8 py-3.5 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: store.themeColor }}
+        >
+          Get Started
+        </button>
+      </div>
     </div>
   );
 }
