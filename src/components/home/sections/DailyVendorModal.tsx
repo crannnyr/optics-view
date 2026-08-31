@@ -19,11 +19,13 @@ export default function DailyVendorModal({ themeColor, onNavigateToVendor }: Dai
     const today = new Date().toISOString().split('T')[0];
     const lastShown = localStorage.getItem(STORAGE_KEY);
     if (lastShown !== today) {
-      // Small delay so it doesn't compete with the initial page render.
+      // Delayed well past the first-visit China promo modal (which fires at
+      // 800ms) so the two never stack on top of each other for a brand-new
+      // visitor's very first session.
       const timer = setTimeout(() => {
         setOpen(true);
         localStorage.setItem(STORAGE_KEY, today);
-      }, 800);
+      }, 6000);
       return () => clearTimeout(timer);
     }
   }, []);
