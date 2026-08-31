@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, ShoppingBag, ImageOff } from 'lucide-react';
-import { Product } from '../../lib/supabase';
+import { Product, supabase } from '../../lib/supabase';
 import { useStore } from '../../context/StoreContext';
 
 interface ProductCardProps {
   product: Product;
   onAddToCart: (product: Product) => void;
   onViewDetails: (product: Product) => void;
+  isSponsored?: boolean;
 }
 
 function formatSoldCount(count: number): string {
@@ -24,7 +25,7 @@ function truncateName(name: string, max = 10): string {
   return name.length > max ? `${name.slice(0, max).trimEnd()}…` : name;
 }
 
-export default function ProductCard({ product, onAddToCart, onViewDetails }: ProductCardProps) {
+export default function ProductCard({ product, onAddToCart, onViewDetails, isSponsored = false }: ProductCardProps) {
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [imgError, setImgError] = useState(false);
@@ -37,6 +38,23 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
   const isPopular = product.units_sold >= 1000;
 
   useEffect(() => { setImgError(false); }, [currentImageIdx]);
+
+  // Fire once per mount when this card is showing as sponsored — approximates
+  // an "impression". Fire-and-forget: shopper's experience never waits on it,
+  // and a failure here shouldn't be visible to them.
+  useEffect(() => {
+    if (isSponsored) {
+      supabase.rpc('record_ad_impression', { p_product_id: product.id }).then(() => {}, () => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSponsored, product.id]);
+
+  const handleViewDetails = () => {
+    if (isSponsored) {
+      supabase.rpc('record_ad_click', { p_product_id: product.id }).then(() => {}, () => {});
+    }
+    onViewDetails(product);
+  };
 
   // Auto-shuffle disabled — was cycling every 5s regardless of interaction,
   // adding unnecessary re-renders/load. Manual arrows still work below.
@@ -54,7 +72,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
   return (
     <div className="group" ref={cardRef}>
       <div
-        onClick={() => onViewDetails(product)}
+        onClick={handleViewDetails}
         className="relative bg-gray-100 mb-4 overflow-hidden cursor-pointer aspect-square"
       >
         {!imgError ? (
@@ -78,6 +96,14 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
         {isPopular && (
           <div className="absolute top-2 left-2 bg-amber-500 text-white text-[8px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded-sm">
             Trending
+          </div>
+        )}
+
+        {isSponsored && (
+          <div
+            className="absolute top-2 right-2 bg-white/90 text-gray-500 text-[8px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded-sm border border-gray-200"
+          >
+            Sponsored
           </div>
         )}
 
@@ -118,7 +144,7 @@ export default function ProductCard({ product, onAddToCart, onViewDetails }: Pro
       <div className="flex justify-between items-center gap-2">
         <div className="flex-1 text-left">
           <h3
-            onClick={() => onViewDetails(product)}
+            onClick={handleViewDetails}
             title={product.name}
             className="text-sm font-light mb-1 cursor-pointer hover:opacity-70"
             style={{ color: store.themeColor }}

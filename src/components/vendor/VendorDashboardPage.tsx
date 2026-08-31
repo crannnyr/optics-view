@@ -13,20 +13,20 @@ import PostProductForm from './sections/PostProductForm';
 import MyProductsList from './sections/MyProductsList';
 import VendorOrdersList from './sections/VendorOrdersList';
 import PromotionPaywall from './sections/PromotionPaywall';
-import SponsorshipPanel from './sections/SponsorshipPanel';
+import AdsPanel from './sections/AdsPanel';
 
 interface VendorDashboardPageProps {
   onNavigateToVendorSignup: () => void;
 }
 
-type TabKey = 'overview' | 'post' | 'products' | 'orders' | 'sponsor';
+type TabKey = 'overview' | 'post' | 'products' | 'orders' | 'ads';
 
 const TABS: { key: TabKey; label: string; short: string; icon: typeof LayoutDashboard }[] = [
   { key: 'overview', label: 'Overview',       short: 'Home',     icon: LayoutDashboard },
   { key: 'post',     label: 'Post a Product', short: 'Post',     icon: PlusCircle },
   { key: 'products', label: 'My Products',    short: 'Products', icon: Package },
   { key: 'orders',   label: 'My Orders',      short: 'Orders',   icon: Truck },
-  { key: 'sponsor',  label: 'Sponsorship',    short: 'Sponsor',  icon: Sparkles },
+  { key: 'ads',      label: 'Ads',            short: 'Ads',      icon: Sparkles },
 ];
 
 function CenteredState({ children }: { children: React.ReactNode }) {
@@ -241,8 +241,8 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
 
           {tab === 'products' && <MyProductsList vendor={vendor} refreshKey={refreshKey} />}
           {tab === 'orders' && <VendorOrdersList vendor={vendor} themeColor={themeColor} />}
-          {tab === 'sponsor' && (
-            <SponsorshipPanel vendor={vendor} rules={rules} userEmail={user.email} themeColor={themeColor} />
+          {tab === 'ads' && (
+            <AdsPanel vendor={vendor} rules={rules} userEmail={user.email} themeColor={themeColor} />
           )}
         </main>
       </div>

@@ -1,6 +1,6 @@
-import { useEffect, useRef, Fragment } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { ShoppingBag } from 'lucide-react';
-import { Product, CartItem } from '../lib/supabase';
+import { Product, CartItem, supabase } from '../lib/supabase';
 
 import { useHome } from './home/hooks/useHome';
 import ProductCard from './home/ProductCard';
@@ -59,6 +59,24 @@ export default function Home({
 
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
+  // Which products currently have an active CPC ad running. Refetched every
+  // couple minutes since an ad can pause mid-session (wallet runs out) or a
+  // vendor can switch products — a shopper browsing for a while should still
+  // see reasonably current sponsorship state.
+  const [sponsoredProductIds, setSponsoredProductIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSponsored = () => {
+      supabase.from('sponsored_products').select('product_id').then(({ data }) => {
+        if (cancelled || !data) return;
+        setSponsoredProductIds(new Set(data.map((r: { product_id: string }) => r.product_id)));
+      });
+    };
+    fetchSponsored();
+    const interval = setInterval(fetchSponsored, 120000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -115,6 +133,7 @@ export default function Home({
                       product={product}
                       onAddToCart={onAddToCart}
                       onViewDetails={onViewProduct}
+                      isSponsored={sponsoredProductIds.has(product.id)}
                     />
                     {/* Mobile-only banner, right after the first row (2 items
                         on the mobile grid-cols-2 layout). col-span-2 makes it
