@@ -59,7 +59,7 @@ export default function MyProductsList({ vendor, refreshKey }: MyProductsListPro
   }
 
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {applications.map(app => {
         const style = STATUS_STYLES[app.status] || STATUS_STYLES.draft;
         return (

@@ -11,12 +11,27 @@ export interface VendorAnalytics {
   totalEarned: number;
   pendingOrders: number;
   topProducts: { id: string; name: string; image_url: string; views_count: number; unitsSold: number }[];
+  salesTrend: { date: string; units: number }[];
+  ads: { impressions: number; clicks: number; totalSpent: number; status: string } | null;
 }
 
 const EMPTY: VendorAnalytics = {
   liveProducts: 0, totalViews: 0, unitsSold: 0, activeResellers: 0,
   walletBalance: 0, totalEarned: 0, pendingOrders: 0, topProducts: [],
+  salesTrend: [], ads: null,
 };
+
+const TREND_DAYS = 14;
+
+function buildEmptyTrend(): { date: string; units: number }[] {
+  const days = [];
+  for (let i = TREND_DAYS - 1; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    days.push({ date: d.toISOString().split('T')[0], units: 0 });
+  }
+  return days;
+}
 
 export function useVendorAnalytics(vendor: VendorAccount) {
   const [analytics, setAnalytics] = useState<VendorAnalytics>(EMPTY);
@@ -37,22 +52,36 @@ export function useVendorAnalytics(vendor: VendorAccount) {
       const productIds = (liveApps || []).map(a => a.product_id).filter(Boolean) as string[];
 
       if (productIds.length === 0) {
-        const { data: wallet } = await supabase
-          .from('vendor_wallets').select('balance, total_earned').eq('vendor_id', vendor.id).maybeSingle();
+        const [{ data: wallet }, { data: adRow }] = await Promise.all([
+          supabase.from('vendor_wallets').select('balance, total_earned').eq('vendor_id', vendor.id).maybeSingle(),
+          supabase.from('vendor_ads').select('impressions, clicks, total_spent, status').eq('vendor_id', vendor.id).maybeSingle(),
+        ]);
         if (!cancelled) {
-          setAnalytics({ ...EMPTY, walletBalance: wallet?.balance || 0, totalEarned: wallet?.total_earned || 0 });
+          setAnalytics({
+            ...EMPTY,
+            walletBalance: wallet?.balance || 0,
+            totalEarned: wallet?.total_earned || 0,
+            salesTrend: buildEmptyTrend(),
+            ads: adRow ? { impressions: adRow.impressions, clicks: adRow.clicks, totalSpent: adRow.total_spent, status: adRow.status } : null,
+          });
           setLoading(false);
         }
         return;
       }
 
-      const [productsRes, orderItemsRes, resellersRes, walletRes, pendingRes] = await Promise.all([
+      const trendSince = new Date();
+      trendSince.setDate(trendSince.getDate() - (TREND_DAYS - 1));
+      trendSince.setHours(0, 0, 0, 0);
+
+      const [productsRes, orderItemsRes, resellersRes, walletRes, pendingRes, trendRes, adRes] = await Promise.all([
         supabase.from('products').select('id, name, image_url, views_count').in('id', productIds),
         supabase.from('order_items').select('product_id, quantity').in('product_id', productIds),
         supabase.from('retailer_products').select('retailer_id').in('product_id', productIds),
         supabase.from('vendor_wallets').select('balance, total_earned').eq('vendor_id', vendor.id).maybeSingle(),
         supabase.from('vendor_order_fulfillments').select('id', { count: 'exact', head: true })
           .eq('vendor_id', vendor.id).in('status', ['pending_approval', 'approved']),
+        supabase.from('order_items').select('quantity, created_at').in('product_id', productIds).gte('created_at', trendSince.toISOString()),
+        supabase.from('vendor_ads').select('impressions, clicks, total_spent, status').eq('vendor_id', vendor.id).maybeSingle(),
       ]);
 
       const products = productsRes.data || [];
@@ -71,6 +100,16 @@ export function useVendorAnalytics(vendor: VendorAccount) {
         .sort((a, b) => b.views_count - a.views_count)
         .slice(0, 5);
 
+      const trend = buildEmptyTrend();
+      const trendByDate: Record<string, number> = {};
+      (trendRes.data || []).forEach(row => {
+        const date = row.created_at.split('T')[0];
+        trendByDate[date] = (trendByDate[date] || 0) + row.quantity;
+      });
+      trend.forEach(t => { t.units = trendByDate[t.date] || 0; });
+
+      const adRow = adRes.data;
+
       if (!cancelled) {
         setAnalytics({
           liveProducts: productIds.length,
@@ -81,6 +120,8 @@ export function useVendorAnalytics(vendor: VendorAccount) {
           totalEarned: walletRes.data?.total_earned || 0,
           pendingOrders: pendingRes.count || 0,
           topProducts,
+          salesTrend: trend,
+          ads: adRow ? { impressions: adRow.impressions, clicks: adRow.clicks, totalSpent: adRow.total_spent, status: adRow.status } : null,
         });
         setLoading(false);
       }

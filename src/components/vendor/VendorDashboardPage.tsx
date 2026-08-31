@@ -90,7 +90,7 @@ export default function VendorDashboardPage({ onNavigateToVendorSignup }: Vendor
 function VendorHeader({ vendor, children }: { vendor: VendorAccount; children?: React.ReactNode }) {
   return (
     <header className="bg-white border-b border-gray-100 sticky top-0 z-20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-gray-400">Vendor Dashboard</p>
           <h1 className="text-sm sm:text-base font-medium text-gray-900 truncate">{vendor.business_name}</h1>
@@ -164,7 +164,7 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
     return (
       <div className="min-h-screen bg-gray-50">
         <VendorHeader vendor={vendor} />
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex justify-center">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 flex justify-center">
           <PromotionPaywall
             vendor={vendor}
             rules={rules}
@@ -187,7 +187,7 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
         </span>
       </VendorHeader>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 md:py-8 md:flex md:gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 md:py-8 md:flex md:gap-8">
         <nav className="hidden md:block w-52 shrink-0">
           <div className="sticky top-24 space-y-1">
             {TABS.map(t => {

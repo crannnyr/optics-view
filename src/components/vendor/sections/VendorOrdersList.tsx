@@ -73,7 +73,7 @@ export default function VendorOrdersList({ vendor, themeColor }: { vendor: Vendo
   }
 
   return (
-    <div className="space-y-3 max-w-2xl">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {fulfillments.map(f => (
         <Row key={f.id} fulfillment={f} marking={markingId === f.id} onMarkShipped={() => markShipped(f)} themeColor={themeColor} />
       ))}
