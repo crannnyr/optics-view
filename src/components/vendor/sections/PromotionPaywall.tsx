@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { PaystackButton } from 'react-paystack';
-import { Check, Loader2, TrendingUp, Package, BarChart3, Sparkles } from 'lucide-react';
+import { usePaystackPayment } from 'react-paystack';
+import { Check, Loader2, TrendingUp, Package, BarChart3, Sparkles, LayoutDashboard } from 'lucide-react';
 import { VendorAccount } from '../hooks/useVendorAccess';
 import { VendorProgramRules } from '../useVendorProgramRules';
 import { useVendorPromotion } from '../hooks/useVendorPromotion';
+import { PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 
 interface PromotionPaywallProps {
   vendor: VendorAccount;
@@ -12,14 +13,23 @@ interface PromotionPaywallProps {
   themeColor: string;
   pendingProductCount: number;
   onActivated: () => void;
+  onSkip: () => void;
 }
 
 export default function PromotionPaywall({
-  vendor, rules, userEmail, themeColor, pendingProductCount, onActivated,
+  vendor, rules, userEmail, themeColor, pendingProductCount, onActivated, onSkip,
 }: PromotionPaywallProps) {
-  const { paystackConfig, preparing, preparePayment, confirmPayment } = useVendorPromotion(vendor, rules);
+  const { preparing, preparePayment, confirmPayment } = useVendorPromotion(vendor, rules);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // usePaystackPayment gives us an imperative initializePayment() call, so we
+  // can open the popup ourselves the moment preparePayment resolves — in the
+  // same click handler, no second click needed. (The old <PaystackButton>
+  // approach only rendered the real Paystack button *after* paystackConfig
+  // was set, which meant the user's first click just swapped in a new
+  // button underneath their cursor instead of opening anything.)
+  const initializePaystackPopup = usePaystackPayment({ publicKey: PAYSTACK_PUBLIC_KEY });
 
   const savings = rules.promo_list_price - rules.promo_intro_price;
   const discountPct = Math.round((savings / rules.promo_list_price) * 100);
@@ -39,8 +49,34 @@ export default function PromotionPaywall({
     else setError("Payment went through but we couldn't activate the campaign. Please contact support with your reference.");
   };
 
+  const handlePayClick = async () => {
+    setError(null);
+    const result = await preparePayment(userEmail);
+    if (!result) {
+      setError('Could not start the payment. Please try again.');
+      return;
+    }
+    const { publicKey: _publicKey, ...popupConfig } = result.config;
+    initializePaystackPopup({
+      config: popupConfig as any,
+      onSuccess: handleSuccess,
+      onClose: () => setError('Payment was cancelled. Your product is saved — you can pay whenever you\'re ready.'),
+    });
+  };
+
   return (
     <div className="max-w-2xl">
+      {/* Skip option — the campaign is no longer required to reach the
+          dashboard, so this needs to be impossible to miss, well above the
+          payment prompt below. */}
+      <button
+        onClick={onSkip}
+        className="w-full mb-4 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border-2 border-red-500 bg-red-50 text-red-700 text-sm font-semibold animate-pulse hover:bg-red-100 transition-colors"
+      >
+        <LayoutDashboard size={16} />
+        Skip &amp; Go to My Dashboard
+      </button>
+
       <div className="rounded-2xl border-2 overflow-hidden" style={{ borderColor: themeColor }}>
         <div className="px-6 py-5 text-white" style={{ backgroundColor: themeColor }}>
           <div className="flex items-center gap-2 mb-2">
@@ -97,23 +133,9 @@ export default function PromotionPaywall({
             <div className="w-full py-3.5 flex items-center justify-center gap-2 text-sm text-gray-500">
               <Loader2 size={15} className="animate-spin" /> Activating your campaign...
             </div>
-          ) : paystackConfig ? (
-            <div className="rounded-full overflow-hidden" style={{ backgroundColor: themeColor }}>
-              <PaystackButton
-                {...paystackConfig}
-                text={`Pay ₦${rules.promo_intro_price.toLocaleString()} & Start My Campaign`}
-                onSuccess={handleSuccess}
-                onClose={() => setError('Payment was cancelled. Your product is saved — you can pay whenever you\'re ready.')}
-                className="w-full text-white py-3.5 text-sm font-semibold hover:opacity-90 transition-opacity"
-              />
-            </div>
           ) : (
             <button
-              onClick={async () => {
-                setError(null);
-                const result = await preparePayment(userEmail);
-                if (!result) setError('Could not start the payment. Please try again.');
-              }}
+              onClick={handlePayClick}
               disabled={preparing}
               className="w-full text-white py-3.5 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
               style={{ backgroundColor: themeColor }}

@@ -123,6 +123,19 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [draftCount, setDraftCount] = useState(0);
 
+  // Paying for the Sold Out Campaign is no longer required to reach the
+  // dashboard — vendors can skip it. Persisted per-vendor in localStorage
+  // (same pattern as the daily vendor-recruitment modal) so skipping once
+  // doesn't mean hitting the wall again on every visit.
+  const skipStorageKey = `ov_vendor_skipped_paywall_${vendor.id}`;
+  const [skippedPaywall, setSkippedPaywall] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem(skipStorageKey) === 'true'
+  );
+  const skipPaywall = () => {
+    localStorage.setItem(skipStorageKey, 'true');
+    setSkippedPaywall(true);
+  };
+
   const hasActivePromotion = !!promotion;
 
   // The paywall gates the whole dashboard, so anyone reaching the post form
@@ -145,9 +158,9 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
     );
   }
 
-  // The dashboard is gated: until the Sold Out Campaign is paid for, this
-  // is the only screen a newly-registered vendor can reach.
-  if (!hasActivePromotion) {
+  // The campaign prompt is shown until paid for or skipped — either one
+  // unlocks the rest of the dashboard below.
+  if (!hasActivePromotion && !skippedPaywall) {
     return (
       <div className="min-h-screen bg-gray-50">
         <VendorHeader vendor={vendor} />
@@ -159,6 +172,7 @@ function VendorDashboardShell({ user, vendor, rules, themeColor }: ShellProps) {
             themeColor={themeColor}
             pendingProductCount={draftCount}
             onActivated={() => { refreshPromo(); setRefreshKey(k => k + 1); setDraftCount(0); }}
+            onSkip={skipPaywall}
           />
         </div>
       </div>
