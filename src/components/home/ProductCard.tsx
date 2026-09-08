@@ -94,6 +94,12 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
           </div>
         )}
 
+        {!!product.import_fee_tier_id && (
+          <div className={`absolute ${isPopular ? 'top-8' : 'top-2'} left-2 bg-red-50 text-red-600 text-[8px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded-sm`}>
+            🇨🇳 Import
+          </div>
+        )}
+
         <div
           className="absolute bottom-1.5 right-1.5 bg-white/95 px-1.5 py-1 text-[7px] tracking-[0.15em] font-light rounded-sm"
           style={{ color: store.themeColor }}

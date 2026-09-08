@@ -8,6 +8,7 @@ const Admin             = lazy(() => import('./components/Admin'));
 const CustomerProfile   = lazy(() => import('./components/profile/CustomerProfile'));
 const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
+const ShippingExplainer = lazy(() => import('./components/ShippingExplainer'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
 const VendorLandingPage = lazy(() => import('./components/vendor/VendorLandingPage'));
@@ -140,7 +141,7 @@ function App() {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
 
   const [currentView, setCurrentView] = useState<
-    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'vendor-landing' | 'vendor-register' | 'vendor-dashboard'
+    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'shipping-info' | 'vendor-landing' | 'vendor-register' | 'vendor-dashboard'
   >('shop');
   const [user, setUser]                       = useState<any>(null);
   const [authLoading, setAuthLoading]         = useState(true);
@@ -174,6 +175,7 @@ function App() {
     if (path === '/retailer')         return 'retailer';
     if (path === '/privacy-policy')   return 'legal-privacy';
     if (path === '/terms-conditions') return 'legal-terms';
+    if (path === '/shipping-info')    return 'shipping-info';
     if (path === '/orders')           return 'orders';
     if (path === '/checkout')         return 'checkout';
     if (path === '/become-a-vendor')  return 'vendor-landing';
@@ -476,6 +478,13 @@ function App() {
       </Suspense>
     );
   }
+  if (currentView === 'shipping-info') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <ShippingExplainer onBack={() => navigateTo('shop', '/')} />
+      </Suspense>
+    );
+  }
 
   if (currentView === 'admin') {
     const isAdmin = !!user && isAdminUser === true;
@@ -608,6 +617,7 @@ function App() {
           onRemoveFromCart={removeFromCart}
           onNavigateToProduct={viewProduct}
           onNavigateToCheckout={() => navigateToCheckout()}
+          onNavigateToShippingInfo={() => navigateTo('shipping-info', '/shipping-info')}
         />
       </Suspense>
     );

@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase, Product, Review, CartItem } from '../lib/supabase';
-import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
+import AskQuestionModal from './AskQuestionModal';
 import Cart from './Cart';
 
 interface ProductDetailsProps {
@@ -13,6 +15,7 @@ interface ProductDetailsProps {
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
   onNavigateToProduct: (product: Product) => void;
   onNavigateToCheckout: () => void;
+  onNavigateToShippingInfo: () => void;
 }
 
 function formatSoldCount(count: number): string {
@@ -24,7 +27,7 @@ function formatSoldCount(count: number): string {
 
 export default function ProductDetails({
   product, onBack, onAddToCart, cart, onUpdateQuantity, onRemoveFromCart,
-  onNavigateToProduct, onNavigateToCheckout
+  onNavigateToProduct, onNavigateToCheckout, onNavigateToShippingInfo
 }: ProductDetailsProps) {
   const { store } = useStore();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -38,6 +41,10 @@ export default function ProductDetails({
   const [categoryProducts, setCategoryProducts] = useState<Product[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
+  const [showAskQuestion, setShowAskQuestion] = useState(false);
+  const currencyRates = useCurrencyRates();
+
+  const isImportProduct = !!product.import_fee_tier_id;
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -200,11 +207,16 @@ export default function ProductDetails({
         </div>
 
         <div>
+          {isImportProduct && (
+            <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[10px] font-semibold tracking-wide uppercase px-2 py-1 rounded-sm mb-2">
+              🇨🇳 Import
+            </span>
+          )}
           <h1 className="text-2xl md:text-3xl font-light mb-2" style={{ color: store.themeColor }}>
             {product.name}
           </h1>
 
-          <div className="flex flex-wrap items-baseline gap-3 md:gap-4 mb-3">
+          <div className="flex flex-wrap items-baseline gap-3 md:gap-4 mb-1">
             {product.compare_at_price && product.compare_at_price > product.price && (
               <span className="text-lg md:text-xl text-gray-400 line-through">₦{product.compare_at_price.toLocaleString()}</span>
             )}
@@ -215,6 +227,18 @@ export default function ProductDetails({
               </span>
             )}
           </div>
+
+          {isImportProduct && (
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                {formatUsd(product.price, currencyRates)} USD
+              </span>
+              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                {formatCny(product.price, currencyRates)} CNY
+              </span>
+              <span className="text-[10px] text-gray-400">per unit</span>
+            </div>
+          )}
 
           <div className="flex items-center gap-1 mb-6 md:mb-8">
             {[1,2,3,4,5].map(star => (
@@ -227,6 +251,43 @@ export default function ProductDetails({
               {formatSoldCount(product.units_sold)} sold
             </span>
           </div>
+
+          {isImportProduct && (
+            <div className="border border-gray-100 rounded-lg p-4 mb-6 md:mb-8 space-y-3">
+              {product.origin_country && (
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <ShieldCheck size={14} style={{ color: store.themeColor }} />
+                  Sourced from verified manufacturers in {product.origin_country}
+                </div>
+              )}
+              <div className="flex items-center gap-4 text-xs text-gray-600">
+                <span className="flex items-center gap-1.5">
+                  <Plane size={14} style={{ color: store.themeColor }} />
+                  Flight 20–30 days
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Ship size={14} style={{ color: store.themeColor }} />
+                  Sea 60–90 days
+                </span>
+              </div>
+              <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
+                <button
+                  onClick={() => setShowAskQuestion(true)}
+                  className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70"
+                  style={{ color: store.themeColor }}
+                >
+                  <HelpCircle size={14} /> Ask about this product
+                </button>
+                <button
+                  onClick={onNavigateToShippingInfo}
+                  className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70"
+                  style={{ color: store.themeColor }}
+                >
+                  <Truck size={14} /> Shipping calculation
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="mb-6 md:mb-8">
             <p className="text-gray-600 leading-relaxed text-sm">
@@ -378,6 +439,15 @@ export default function ProductDetails({
 
       <Cart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} items={cart}
         onUpdateQuantity={onUpdateQuantity} onRemove={onRemoveFromCart} onCheckout={handleCheckout} />
+
+      {showAskQuestion && (
+        <AskQuestionModal
+          productId={product.id}
+          productName={product.name}
+          themeColor={store.themeColor}
+          onClose={() => setShowAskQuestion(false)}
+        />
+      )}
     </div>
   );
 }

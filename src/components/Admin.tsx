@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store, Users, PackageSearch, Truck, Building2 } from 'lucide-react';
+import { Package, Settings, Upload, Store, Users, PackageSearch, Truck, Building2, MessageCircleQuestion } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
@@ -8,8 +8,9 @@ import UsersTab from './admin/UsersTab';
 import VendorApplicationsTab from './admin/VendorApplicationsTab';
 import VendorOrdersTab from './admin/VendorOrdersTab';
 import VendorManagementTab from './admin/VendorManagementTab';
+import AdminProductQuestionsTab from './admin/AdminProductQuestionsTab';
 
-type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'vendor-manage' | 'users' | 'settings';
+type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'vendor-manage' | 'users' | 'questions' | 'settings';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
@@ -21,6 +22,7 @@ export default function Admin() {
     { id: 'vendors'       as const, label: 'Listings',      icon: PackageSearch },
     { id: 'vendor-manage' as const, label: 'Vendors',       icon: Building2 },
     { id: 'vendor-orders' as const, label: 'Vendor Orders', icon: Truck },
+    { id: 'questions'     as const, label: 'Questions',     icon: MessageCircleQuestion },
     { id: 'users'         as const, label: 'Users',         icon: Users },
     { id: 'settings'      as const, label: 'Settings',      icon: Settings },
   ];
@@ -81,6 +83,7 @@ export default function Admin() {
           {activeTab === 'vendors'       && <VendorApplicationsTab />}
           {activeTab === 'vendor-orders' && <VendorOrdersTab />}
           {activeTab === 'vendor-manage' && <VendorManagementTab />}
+          {activeTab === 'questions'     && <AdminProductQuestionsTab />}
           {activeTab === 'users'         && <UsersTab />}
           {activeTab === 'settings'      && <SettingsTab />}
         </div>
