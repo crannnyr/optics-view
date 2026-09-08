@@ -197,8 +197,8 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
     e.preventDefault();
     setError('');
 
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -263,7 +263,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
 
@@ -450,8 +450,8 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
                   required
-                  minLength={6}
-                  placeholder="Min. 6 characters"
+                  minLength={8}
+                  placeholder="Min. 8 characters"
                 />
               </div>
               <div>
@@ -462,7 +462,7 @@ export default function AuthModal({ isOpen, onClose, onViewTerms, onViewPrivacy 
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full border p-3 text-sm focus:border-[#0d2818] outline-none"
                   required
-                  minLength={6}
+                  minLength={8}
                 />
               </div>
               {error && <p className="text-red-500 text-xs">{error}</p>}

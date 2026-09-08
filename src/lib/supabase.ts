@@ -38,6 +38,7 @@ export interface Product {
   images: string[];
   stock: number;
   category: string;
+  department?: 'Men\'s' | 'Women\'s' | 'Unisex';
   product_type?: string;
   supplier?: string;
   units_sold: number; 
@@ -48,7 +49,27 @@ export interface Product {
   video_urls?: string[];
   custom_delivery_fee?: number;
 
+  // Import / shipping logic (admin-sourced products only — supplier
+  // 'jumia'/'shein'). Vendor products leave these null and use the
+  // existing domestic delivery_settings flow untouched.
+  import_type?: 'fly' | 'ship' | null;
+  origin_country?: string | null;
+  import_fee_tier_id?: string | null;
+  length_cm?: number | null;
+  width_cm?: number | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+
   created_at: string;
+}
+
+export interface ImportFeeTier {
+  id: string;
+  name: string;
+  shipping_fee: number;
+  clearance_fee: number;
+  additional_item_discount_percent: number;
+  sort_order: number;
 }
 
 export interface Review {

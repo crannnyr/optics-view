@@ -3,7 +3,13 @@ import { Loader2, Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { vendorSupabase } from '../../lib/vendorSupabase';
 import { sendEmail } from '../../lib/email';
 
-type Mode = 'signin' | 'signup' | 'reset';
+// 'reset' (request the code) -> 'enter_code' -> 'new_password'. This
+// mirrors the customer/retailer flow in AuthModal.tsx exactly: same
+// send-emails 'password_reset' template, same real Supabase recovery
+// OTP under the hood, same verifyOtp()+updateUser() finish. Vendors
+// used to fall back to Supabase's raw default reset email (unbranded,
+// link-based, low default deliverability) — this brings them to parity.
+type Mode = 'signin' | 'signup' | 'reset' | 'enter_code' | 'new_password';
 
 interface VendorAuthProps {
   themeColor: string;
@@ -15,11 +21,72 @@ export default function VendorAuth({ themeColor, onSignedIn }: VendorAuthProps) 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [resetCode, setResetCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const reset = (next: Mode) => { setMode(next); setError(null); setNotice(null); };
+  const reset = (next: Mode) => {
+    setMode(next); setError(null); setNotice(null);
+    setResetCode(''); setNewPassword(''); setConfirmPassword('');
+  };
+
+  const requestCode = async () => {
+    const result = await sendEmail({ type: 'password_reset', to_email: email.trim(), data: { email: email.trim() } });
+    if (result.success) {
+      setMode('enter_code');
+      setNotice(null);
+    } else {
+      setError(result.error || 'Something went wrong. Please try again.');
+    }
+  };
+
+  const handleResendCode = async () => {
+    setResending(true);
+    setError(null);
+    try {
+      const result = await sendEmail({ type: 'password_reset', to_email: email.trim(), data: { email: email.trim() } });
+      if (result.success) setNotice('A new code has been sent.');
+      else setError(result.error || 'Could not resend the code. Please try again.');
+    } catch (err: any) {
+      setError(err?.message || 'Could not resend the code. Please try again.');
+    }
+    setResending(false);
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (resetCode.trim().length < 6) { setError('Enter the 6-digit code from your email.'); return; }
+    setBusy(true);
+    try {
+      const { error } = await vendorSupabase.auth.verifyOtp({ email: email.trim(), token: resetCode.trim(), type: 'recovery' });
+      if (error) throw error;
+      setMode('new_password');
+    } catch (err: any) {
+      setError(err?.message || 'That code is invalid or has expired. Please request a new one.');
+    }
+    setBusy(false);
+  };
+
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+    if (newPassword !== confirmPassword) { setError('Passwords do not match.'); return; }
+    setBusy(true);
+    try {
+      const { error } = await vendorSupabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      onSignedIn();
+    } catch (err: any) {
+      setError(err?.message || 'Failed to update password. Please request a new code and try again.');
+    }
+    setBusy(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,12 +126,8 @@ export default function VendorAuth({ themeColor, onSignedIn }: VendorAuthProps) 
         if (data.session) onSignedIn();
         else setNotice('Check your inbox to confirm your email address, then sign in.');
 
-      } else {
-        const { error } = await vendorSupabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/vendor-dashboard`,
-        });
-        if (error) throw error;
-        setNotice("If that email is registered, a password reset link is on its way.");
+      } else if (mode === 'reset') {
+        await requestCode();
       }
     } catch (err: any) {
       setError(err?.message || 'Something went wrong. Please try again.');
@@ -74,6 +137,8 @@ export default function VendorAuth({ themeColor, onSignedIn }: VendorAuthProps) 
 
   const heading = mode === 'signin' ? 'Vendor sign in'
     : mode === 'signup' ? 'Create your vendor account'
+    : mode === 'enter_code' ? 'Enter your code'
+    : mode === 'new_password' ? 'Set a new password'
     : 'Reset your password';
 
   return (
@@ -92,49 +157,114 @@ export default function VendorAuth({ themeColor, onSignedIn }: VendorAuthProps) 
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {mode === 'signup' && (
+        {mode === 'enter_code' ? (
+          <form onSubmit={handleVerifyCode} className="space-y-4">
+            <p className="text-xs text-gray-500 -mt-2">
+              We sent a 6-digit code to <span className="font-medium text-gray-800">{email}</span>. Enter it below.
+            </p>
             <div>
-              <label className="block text-xs uppercase text-gray-500 mb-1.5">Your Name</label>
+              <label className="block text-xs uppercase text-gray-500 mb-1.5">Reset Code</label>
               <input
-                required value={fullName} onChange={e => setFullName(e.target.value)}
-                className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
-                placeholder="Full name"
+                required inputMode="numeric" maxLength={6} value={resetCode}
+                onChange={e => setResetCode(e.target.value.replace(/\D/g, ''))}
+                className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black tracking-[0.4em] text-center"
+                placeholder="000000"
               />
             </div>
-          )}
 
-          <div>
-            <label className="block text-xs uppercase text-gray-500 mb-1.5">Email</label>
-            <input
-              required type="email" value={email} onChange={e => setEmail(e.target.value)}
-              className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
-              placeholder="you@business.com"
-            />
-          </div>
+            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
 
-          {mode !== 'reset' && (
+            <button
+              type="submit" disabled={busy}
+              className="w-full text-white py-3 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ backgroundColor: themeColor }}
+            >
+              {busy && <Loader2 size={15} className="animate-spin" />}
+              Verify Code
+            </button>
+
+            <button
+              type="button" disabled={resending} onClick={handleResendCode}
+              className="w-full text-xs text-gray-500 hover:text-gray-700 disabled:opacity-50"
+            >
+              {resending ? 'Resending…' : "Didn't get a code? Resend"}
+            </button>
+          </form>
+        ) : mode === 'new_password' ? (
+          <form onSubmit={handleSetNewPassword} className="space-y-4">
             <div>
-              <label className="block text-xs uppercase text-gray-500 mb-1.5">Password</label>
+              <label className="block text-xs uppercase text-gray-500 mb-1.5">New Password</label>
               <input
-                required type="password" minLength={6} value={password} onChange={e => setPassword(e.target.value)}
+                required type="password" minLength={8} value={newPassword} onChange={e => setNewPassword(e.target.value)}
                 className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
-                placeholder="••••••••"
+                placeholder="At least 8 characters"
               />
             </div>
-          )}
+            <div>
+              <label className="block text-xs uppercase text-gray-500 mb-1.5">Confirm Password</label>
+              <input
+                required type="password" minLength={8} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
+                placeholder="Re-enter password"
+              />
+            </div>
 
-          {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
+            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
 
-          <button
-            type="submit" disabled={busy}
-            className="w-full text-white py-3 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ backgroundColor: themeColor }}
-          >
-            {busy && <Loader2 size={15} className="animate-spin" />}
-            {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
-          </button>
-        </form>
+            <button
+              type="submit" disabled={busy}
+              className="w-full text-white py-3 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ backgroundColor: themeColor }}
+            >
+              {busy && <Loader2 size={15} className="animate-spin" />}
+              Set New Password
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && (
+              <div>
+                <label className="block text-xs uppercase text-gray-500 mb-1.5">Your Name</label>
+                <input
+                  required value={fullName} onChange={e => setFullName(e.target.value)}
+                  className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
+                  placeholder="Full name"
+                />
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs uppercase text-gray-500 mb-1.5">Email</label>
+              <input
+                required type="email" value={email} onChange={e => setEmail(e.target.value)}
+                className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
+                placeholder="you@business.com"
+              />
+            </div>
+
+            {mode !== 'reset' && (
+              <div>
+                <label className="block text-xs uppercase text-gray-500 mb-1.5">Password</label>
+                <input
+                  required type="password" minLength={8} value={password} onChange={e => setPassword(e.target.value)}
+                  className="w-full border p-2.5 text-sm rounded-lg bg-gray-50 focus:bg-white outline-none focus:border-black"
+                  placeholder="At least 8 characters"
+                />
+              </div>
+            )}
+
+            {error && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg p-2.5">{error}</p>}
+
+            <button
+              type="submit" disabled={busy}
+              className="w-full text-white py-3 text-sm font-semibold rounded-full hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+              style={{ backgroundColor: themeColor }}
+            >
+              {busy && <Loader2 size={15} className="animate-spin" />}
+              {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Code'}
+            </button>
+          </form>
+        )}
 
         <div className="mt-5 space-y-2 text-center">
           {mode === 'signin' && (
@@ -158,7 +288,7 @@ export default function VendorAuth({ themeColor, onSignedIn }: VendorAuthProps) 
               </button>
             </p>
           )}
-          {mode === 'reset' && (
+          {(mode === 'reset' || mode === 'enter_code' || mode === 'new_password') && (
             <button onClick={() => reset('signin')} className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1.5 mx-auto">
               <ArrowLeft size={12} /> Back to sign in
             </button>

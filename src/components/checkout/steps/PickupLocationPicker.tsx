@@ -21,6 +21,11 @@ interface PickupLocationPickerProps {
   pickupEta: string;
   homeEta: string;
   themeColor?: string;
+  // True once any imported item is in the cart. Import batches clear
+  // customs and move through the Jumia network as one consolidated
+  // shipment — there is no "send to a home address" option for them, so
+  // Home Delivery is hidden entirely rather than shown-then-blocked.
+  forcePickupOnly?: boolean;
 }
 
 function StationRow({
@@ -48,7 +53,7 @@ function StationRow({
 
 export default function PickupLocationPicker({
   state, deliveryMethod, setDeliveryMethod, selectedStation, onSelectStation,
-  homeDeliveryFee, pickupFee, pickupEta, homeEta, themeColor = '#0d2818',
+  homeDeliveryFee, pickupFee, pickupEta, homeEta, themeColor = '#0d2818', forcePickupOnly = false,
 }: PickupLocationPickerProps) {
   const [query, setQuery] = useState('');
   const {
@@ -62,37 +67,51 @@ export default function PickupLocationPicker({
     <div className="space-y-4">
       <label className="block text-xs uppercase text-gray-500">Delivery Method</label>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => setDeliveryMethod('pickup')}
-          className="p-4 rounded-lg border-2 text-left transition-colors"
-          style={deliveryMethod === 'pickup' ? { borderColor: themeColor, backgroundColor: `${themeColor}0d` } : { borderColor: '#e5e7eb' }}
-        >
+      {forcePickupOnly ? (
+        <div className="p-4 rounded-lg border-2 text-left" style={{ borderColor: themeColor, backgroundColor: `${themeColor}0d` }}>
           <div className="flex items-center gap-2 mb-1">
-            <MapPin size={16} style={{ color: deliveryMethod === 'pickup' ? themeColor : '#9ca3af' }} />
+            <MapPin size={16} style={{ color: themeColor }} />
             <span className="text-sm font-bold">Pickup Station</span>
           </div>
-          <p className="text-xs text-gray-500">₦{pickupFee.toLocaleString()} · via Jumia Express</p>
+          <p className="text-xs text-gray-500">via Jumia Express</p>
           <p className="text-[11px] text-gray-400 mt-0.5">{pickupEta}</p>
-        </button>
+          <p className="text-[11px] text-gray-400 mt-1.5">
+            Imported items ship as one consolidated batch and can only be collected at a pickup station.
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setDeliveryMethod('pickup')}
+            className="p-4 rounded-lg border-2 text-left transition-colors"
+            style={deliveryMethod === 'pickup' ? { borderColor: themeColor, backgroundColor: `${themeColor}0d` } : { borderColor: '#e5e7eb' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <MapPin size={16} style={{ color: deliveryMethod === 'pickup' ? themeColor : '#9ca3af' }} />
+              <span className="text-sm font-bold">Pickup Station</span>
+            </div>
+            <p className="text-xs text-gray-500">₦{pickupFee.toLocaleString()} · via Jumia Express</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{pickupEta}</p>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setDeliveryMethod('home')}
-          className="p-4 rounded-lg border-2 text-left transition-colors"
-          style={deliveryMethod === 'home' ? { borderColor: themeColor, backgroundColor: `${themeColor}0d` } : { borderColor: '#e5e7eb' }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <Truck size={16} style={{ color: deliveryMethod === 'home' ? themeColor : '#9ca3af' }} />
-            <span className="text-sm font-bold">Home Delivery</span>
-          </div>
-          <p className="text-xs text-gray-500">₦{homeDeliveryFee.toLocaleString()}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">{homeEta}</p>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => setDeliveryMethod('home')}
+            className="p-4 rounded-lg border-2 text-left transition-colors"
+            style={deliveryMethod === 'home' ? { borderColor: themeColor, backgroundColor: `${themeColor}0d` } : { borderColor: '#e5e7eb' }}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Truck size={16} style={{ color: deliveryMethod === 'home' ? themeColor : '#9ca3af' }} />
+              <span className="text-sm font-bold">Home Delivery</span>
+            </div>
+            <p className="text-xs text-gray-500">₦{homeDeliveryFee.toLocaleString()}</p>
+            <p className="text-[11px] text-gray-400 mt-0.5">{homeEta}</p>
+          </button>
+        </div>
+      )}
 
-      {deliveryMethod === 'home' && (
+      {!forcePickupOnly && deliveryMethod === 'home' && (
         <p className="text-xs text-gray-500 bg-gray-50 border border-gray-100 rounded-lg p-3">
           Your order will be delivered to the address you enter below, typically within {homeEta.toLowerCase()}.
           Home delivery costs more than pickup because it needs a dedicated rider, and takes longer.

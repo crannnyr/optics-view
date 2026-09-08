@@ -50,49 +50,18 @@ function JumiaExpressBadge() {
 }
 
 const JUMIA_STORE_URL = 'https://jforce.jumia.com.ng/s/C6tCHzq';
-const CHINA_IMPORT_URL = 'https://qafrica.store/recommendations';
 
-// Secondary option, sits to the left of the Jumia button — outlined red so it
-// reads as a quieter alternative rather than competing with the star action.
-function ChinaImportButton() {
-  return (
-    <a
-      href={CHINA_IMPORT_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 bg-white/90 backdrop-blur-sm border-[1.5px] border-[#de2910] text-[#de2910] text-[10px] md:text-xs font-bold text-center leading-tight px-2.5 md:px-4 py-2.5 md:py-3 rounded-full whitespace-normal hover:bg-[#de2910] hover:text-white transition-all"
-    >
-      <span className="text-sm md:text-base leading-none">🇨🇳</span>
-      Order Direct from China
-    </a>
-  );
-}
-
-// The star of the cluster — bigger, gradient, shine sweep, gentle pulse.
-// Max visibility per the approved preview.
+// Sole promo action on the hero now — restyled quiet and solid instead of
+// gradient/shine/pulse, so it reads as one calm CTA rather than a banner ad.
 function JumiaStoreButton() {
   return (
     <a
       href={JUMIA_STORE_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 md:gap-2 text-white text-[11px] md:text-sm font-extrabold text-center leading-tight px-3 md:px-5 py-3 md:py-4 rounded-full overflow-hidden hover:-translate-y-0.5 transition-transform"
-      style={{
-        background: 'linear-gradient(115deg, #ffb648 0%, #f68b1e 45%, #d9720a 100%)',
-        boxShadow: '0 8px 24px rgba(246,139,30,0.45), inset 0 1px 0 rgba(255,255,255,0.4)',
-        animation: 'jumiaPulse 2.4s ease-in-out infinite',
-      }}
+      className="inline-flex items-center justify-center gap-2 bg-white text-gray-900 text-xs md:text-sm font-medium text-center leading-tight px-5 md:px-6 py-2.5 md:py-3 rounded-full hover:bg-gray-100 transition-colors"
     >
-      <span
-        className="absolute top-0 -left-[60%] w-2/5 h-full pointer-events-none"
-        style={{
-          background: 'linear-gradient(115deg, transparent, rgba(255,255,255,0.55), transparent)',
-          transform: 'skewX(-20deg)',
-          animation: 'jumiaShine 3.2s ease-in-out infinite',
-        }}
-      />
-      <span className="text-[10px] md:text-xs">★</span>
-      Purchase from our JUMIA Store
+      Shop our Jumia store
     </a>
   );
 }
@@ -257,13 +226,10 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
           </>
         )}
 
-        {/* China + Jumia buttons, side by side, floating over the bottom edge
-            of the hero image. Jumia is styled as the primary/star action;
-            China is the quieter secondary option to its left.
+        {/* Single quiet Jumia CTA, bottom-left of the hero image.
             Main store only — never on a retailer's store. */}
         {showGlobalButtons && (
-          <div className="absolute left-3 right-3 md:left-5 md:right-5 bottom-3 md:bottom-5 z-10 flex items-center gap-2 md:gap-3">
-            <ChinaImportButton />
+          <div className="absolute left-3 md:left-5 bottom-3 md:bottom-5 z-10">
             <JumiaStoreButton />
           </div>
         )}
@@ -312,17 +278,6 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
         </section>
       )}
 
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes jumiaShine {
-          0%   { left: -60%; }
-          35%  { left: 130%; }
-          100% { left: 130%; }
-        }
-        @keyframes jumiaPulse {
-          0%, 100% { box-shadow: 0 8px 24px rgba(246,139,30,0.45), inset 0 1px 0 rgba(255,255,255,0.4); }
-          50%      { box-shadow: 0 8px 30px rgba(246,139,30,0.7), inset 0 1px 0 rgba(255,255,255,0.4); }
-        }
-      `}} />
     </>
   );
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { supabase, CartItem, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
+import { supabase, CartItem, ImportFeeTier, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
 import { sendEmail } from '../../../lib/email';
+import { calculateImportFees, cartHasImportItems, cartHasNonImportItems } from '../../../lib/importFees';
 
 export const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
@@ -101,6 +102,22 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [senderBankName, setSenderBankName] = useState('');
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
+  const [importFeeTiers, setImportFeeTiers] = useState<ImportFeeTier[]>([]);
+
+  const hasImportItems = cartHasImportItems(items);
+  const hasNonImportItems = cartHasNonImportItems(items);
+  const importFeeBreakdown = calculateImportFees(items, importFeeTiers);
+
+  // Imported items ship as part of a consolidated batch that clears
+  // customs and moves through the Jumia network as one unit — there's no
+  // "send this batch to a home address" option, so once any import item
+  // is in the cart, pickup at a Jumia station becomes mandatory. Purely
+  // domestic (vendor) items keep the existing home/pickup choice.
+  useEffect(() => {
+    if (hasImportItems && shippingData.deliveryMethod !== 'pickup') {
+      setShippingData(prev => ({ ...prev, deliveryMethod: 'pickup' }));
+    }
+  }, [hasImportItems]);
 
   const [retryOrder, setRetryOrder] = useState<RetryOrder | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -184,6 +201,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
       deliveryData.forEach(row => { map[row.state] = row.delivery_fee; });
       setDeliveryFees(map);
     }
+
+    const { data: tiersData } = await supabase
+      .from('import_fee_tiers')
+      .select('id, name, shipping_fee, clearance_fee, additional_item_discount_percent, sort_order')
+      .order('sort_order');
+    if (tiersData) setImportFeeTiers(tiersData as ImportFeeTier[]);
   };
 
   const loadRetryOrder = async (orderId: string) => {
@@ -238,14 +261,26 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const calculateShipping = () => {
     if (!shippingData.state) return 0;
 
-    // Pickup uses the existing per-state delivery_settings fee (flat ₦1,000
-    // across every state today), falling back to the configured default.
-    // Home delivery is a separate, higher flat fee — the per-state table is
-    // deliberately NOT used for it.
-    if (shippingData.deliveryMethod === 'pickup') {
-      return deliveryFees[shippingData.state] ?? shippingConfig.pickup_fee_default;
+    // Import items (admin-sourced, supplier jumia/shein) carry their own
+    // shipping+clearance fee that already covers the full China → Nigeria
+    // → Jumia pickup station journey — the per-state delivery_settings fee
+    // below does NOT apply to them. Vendor items are unrelated domestic
+    // stock and keep using the existing per-state/home fee untouched.
+    // When a cart mixes both, the two fees stack because they really are
+    // two separate shipments arriving on two different timelines.
+    let total = importFeeBreakdown.total;
+
+    if (hasNonImportItems) {
+      // Pickup uses the existing per-state delivery_settings fee (flat ₦1,000
+      // across every state today), falling back to the configured default.
+      // Home delivery is a separate, higher flat fee — the per-state table is
+      // deliberately NOT used for it.
+      total += shippingData.deliveryMethod === 'pickup'
+        ? (deliveryFees[shippingData.state] ?? shippingConfig.pickup_fee_default)
+        : shippingConfig.home_fee;
     }
-    return shippingConfig.home_fee;
+
+    return total;
   };
 
   const subtotal = items.reduce((sum, item) => {
@@ -549,6 +584,9 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     retryError,
     calculateShipping,
     shippingConfig,
+    hasImportItems,
+    hasNonImportItems,
+    importFeeBreakdown,
     pickupFee: shippingData.state
       ? (deliveryFees[shippingData.state] ?? shippingConfig.pickup_fee_default)
       : shippingConfig.pickup_fee_default,

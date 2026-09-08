@@ -1,5 +1,6 @@
 import { NIGERIAN_STATES } from '../hooks/useCheckout';
 import PickupLocationPicker from './PickupLocationPicker';
+import { ImportFeeBreakdown } from '../../../lib/importFees';
 
 interface ShippingData {
   state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
@@ -23,6 +24,9 @@ interface ShippingStepProps {
   pickupFee: number;
   pickupEta: string;
   homeEta: string;
+  hasImportItems: boolean;
+  hasNonImportItems: boolean;
+  importFeeBreakdown: ImportFeeBreakdown;
 }
 
 export default function ShippingStep({
@@ -39,6 +43,9 @@ export default function ShippingStep({
   pickupFee,
   pickupEta,
   homeEta,
+  hasImportItems,
+  hasNonImportItems,
+  importFeeBreakdown,
 }: ShippingStepProps) {
   return (
     <form onSubmit={handleShippingSubmit} className="space-y-5">
@@ -88,20 +95,40 @@ export default function ShippingStep({
         pickupEta={pickupEta}
         homeEta={homeEta}
         themeColor={themeColor}
+        forcePickupOnly={hasImportItems}
       />
 
       {shippingData.state && (
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-3.5 space-y-1.5">
           <p className="text-xs font-medium text-gray-700">What happens next</p>
-          <p className="text-xs text-gray-500 leading-relaxed">
-            Your order arrives in{' '}
-            <strong className="text-gray-700">
-              {shippingData.deliveryMethod === 'pickup' ? pickupEta.toLowerCase() : homeEta.toLowerCase()}
-            </strong>
-            {shippingData.deliveryMethod === 'pickup'
-              ? ', and you\'ll pick it up from the station you chose above.'
-              : ', delivered to the address you entered.'}
-          </p>
+
+          {hasImportItems && hasNonImportItems ? (
+            <>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                This order arrives in two parts: local items typically arrive in{' '}
+                <strong className="text-gray-700">{pickupEta.toLowerCase()}</strong>, while imported
+                items take longer as they clear customs — you'll see each item's expected timeline on
+                the product page. Both are collected from the pickup station you chose above.
+              </p>
+            </>
+          ) : hasImportItems ? (
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Your imported item(s) are grouped with other orders into one shipment from China. Delivery
+              timing depends on whether an item ships by air or sea — check each product page for its
+              exact estimate — and you'll pick it up from the station you chose above.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Your order arrives in{' '}
+              <strong className="text-gray-700">
+                {shippingData.deliveryMethod === 'pickup' ? pickupEta.toLowerCase() : homeEta.toLowerCase()}
+              </strong>
+              {shippingData.deliveryMethod === 'pickup'
+                ? ', and you\'ll pick it up from the station you chose above.'
+                : ', delivered to the address you entered.'}
+            </p>
+          )}
+
           <p className="text-xs text-gray-500 leading-relaxed">
             Our team will reach out on WhatsApp using the number you provide below to confirm your
             order before it ships — please keep an eye out for that call or message.
@@ -189,10 +216,35 @@ export default function ShippingStep({
           <span className="text-gray-600">Items ({totalItems})</span>
           <span>₦{subtotal.toLocaleString()}</span>
         </div>
-        <div className="flex justify-between text-sm">
-          <span className="text-gray-600">Shipping</span>
-          <span>₦{calculateShipping().toLocaleString()}</span>
-        </div>
+
+        {hasImportItems ? (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              Import shipping & clearance
+              {importFeeBreakdown.lines.length > 1 && (
+                <span className="text-[11px] text-gray-400"> ({importFeeBreakdown.lines.length} items)</span>
+              )}
+            </span>
+            <span>₦{importFeeBreakdown.total.toLocaleString()}</span>
+          </div>
+        ) : null}
+
+        {hasNonImportItems && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-600">
+              {hasImportItems ? 'Local delivery' : 'Shipping'}
+            </span>
+            <span>₦{(calculateShipping() - importFeeBreakdown.total).toLocaleString()}</span>
+          </div>
+        )}
+
+        {hasImportItems && importFeeBreakdown.lines.length > 1 && (
+          <p className="text-[11px] text-gray-400 leading-relaxed pt-0.5">
+            Only your highest-fee imported item is charged in full — every other imported item in this
+            order gets a discount on its shipping &amp; clearance fee.
+          </p>
+        )}
+
         <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-200 mt-2">
           <span>Total</span>
           <span>₦{totalOrderAmount.toLocaleString()}</span>

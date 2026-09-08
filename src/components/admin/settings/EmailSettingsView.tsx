@@ -40,11 +40,8 @@ export default function EmailSettingsView() {
   const [queuedEmails, setQueuedEmails] = useState<any[]>([]);
   const [sentEmails, setSentEmails] = useState<any[]>([]);
   const [failedEmails, setFailedEmails] = useState<any[]>([]);
-  const [dailyLimit, setDailyLimit] = useState(95);
-  const [newLimit, setNewLimit] = useState('');
   const [todayCount, setTodayCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [savingLimit, setSavingLimit] = useState(false);
   const [sendingAll, setSendingAll] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [typeControls, setTypeControls] = useState<Record<string, boolean>>({});
@@ -64,16 +61,6 @@ export default function EmailSettingsView() {
   };
 
   const fetchSettings = async () => {
-    const { data } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'email_settings')
-      .single();
-    if (data?.value?.daily_limit) {
-      setDailyLimit(data.value.daily_limit);
-      setNewLimit(String(data.value.daily_limit));
-    }
-
     const { data: controlsRow } = await supabase
       .from('app_settings')
       .select('value')
@@ -121,28 +108,8 @@ export default function EmailSettingsView() {
     if (failed) setFailedEmails(failed);
   };
 
-  const saveLimit = async () => {
-    const val = parseInt(newLimit);
-    if (isNaN(val) || val < 1) return;
-    setSavingLimit(true);
-
-    const { data: existing } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'email_settings')
-      .single();
-
-    await supabase
-      .from('app_settings')
-      .update({ value: { ...(existing?.value || {}), daily_limit: val } })
-      .eq('key', 'email_settings');
-
-    setDailyLimit(val);
-    setSavingLimit(false);
-  };
-
   const sendAll = async () => {
-    if (!confirm(`Send all ${queuedEmails.length} queued emails now? This bypasses the daily limit.`)) return;
+    if (!confirm(`Send all ${queuedEmails.length} queued emails now?`)) return;
     setSendingAll(true);
 
     try {
@@ -153,7 +120,7 @@ export default function EmailSettingsView() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
         },
-        body: JSON.stringify({ bypass_limit: true }),
+        body: JSON.stringify({}),
       });
       await fetchAll();
     } catch (err) {
@@ -225,9 +192,6 @@ export default function EmailSettingsView() {
     }
   };
 
-  const usagePercent = Math.min(100, Math.round((todayCount / dailyLimit) * 100));
-  const usageColor = usagePercent >= 90 ? 'bg-red-500' : usagePercent >= 70 ? 'bg-orange-400' : 'bg-[#0d2818]';
-
   const formatDate = (d: string) =>
     new Date(d).toLocaleString('en-NG', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -243,10 +207,9 @@ export default function EmailSettingsView() {
     <div className="space-y-8 max-w-4xl">
 
       {/* ── Stats Row ─────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
           { label: 'Sent Today',   value: todayCount,            icon: <Send size={16} />,        color: 'text-[#0d2818]' },
-          { label: 'Daily Limit',  value: dailyLimit,            icon: <Settings size={16} />,    color: 'text-gray-600' },
           { label: 'Queued',       value: queuedEmails.length,   icon: <Clock size={16} />,       color: 'text-orange-500' },
           { label: 'Failed',       value: failedEmails.length,   icon: <XCircle size={16} />,     color: 'text-red-500' },
         ].map(stat => (
@@ -260,58 +223,17 @@ export default function EmailSettingsView() {
         ))}
       </div>
 
-      {/* ── Usage Bar ─────────────────────────────── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <div className="flex justify-between items-center mb-2">
-          <p className="text-xs uppercase tracking-wider text-gray-400">Today's Usage</p>
-          <p className="text-xs font-medium text-gray-600">{todayCount} / {dailyLimit} sent ({usagePercent}%)</p>
+      {/* ── Auto-processing note ──────────────────── */}
+      <div className="bg-white border border-gray-200 rounded-lg p-5 flex items-start gap-3">
+        <Zap size={16} className="text-[#0d2818] mt-0.5 shrink-0" />
+        <div>
+          <p className="text-xs font-medium text-gray-700">No daily send limit — queue processes automatically</p>
+          <p className="text-xs text-gray-400 mt-1">
+            A background job runs every 15 minutes and sends any pending queued email. Throughput is only bounded by
+            your Resend account's real sending limits, which show up here as individual failed sends rather than a
+            frozen queue. Use "Send All" below to force an immediate run instead of waiting for the next cycle.
+          </p>
         </div>
-        <div className="w-full bg-gray-100 rounded-full h-2">
-          <div
-            className={`h-2 rounded-full transition-all ${usageColor}`}
-            style={{ width: `${usagePercent}%` }}
-          />
-        </div>
-        {usagePercent >= 90 && (
-          <p className="text-xs text-red-500 mt-2">⚠️ Approaching daily limit — new emails will be queued for tomorrow.</p>
-        )}
-      </div>
-
-      {/* ── Daily Limit Control ───────────────────── */}
-      <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <p className="text-xs uppercase tracking-wider text-gray-400 mb-4">Daily Send Limit</p>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setNewLimit(String(Math.max(1, parseInt(newLimit || '0') - 5)))}
-            className="p-2 border border-gray-200 rounded hover:bg-gray-50"
-          >
-            <ChevronDown size={16} />
-          </button>
-          <input
-            type="number"
-            value={newLimit}
-            onChange={e => setNewLimit(e.target.value)}
-            className="w-24 border border-gray-200 rounded p-2 text-center text-sm font-medium outline-none focus:border-[#0d2818]"
-            min={1}
-          />
-          <button
-            onClick={() => setNewLimit(String(parseInt(newLimit || '0') + 5))}
-            className="p-2 border border-gray-200 rounded hover:bg-gray-50"
-          >
-            <ChevronUp size={16} />
-          </button>
-          <button
-            onClick={saveLimit}
-            disabled={savingLimit || parseInt(newLimit) === dailyLimit}
-            className="px-4 py-2 bg-[#0d2818] text-white text-xs tracking-widest rounded hover:opacity-90 disabled:opacity-40 flex items-center gap-2"
-          >
-            {savingLimit ? <Loader2 size={12} className="animate-spin" /> : null}
-            SAVE
-          </button>
-        </div>
-        <p className="text-xs text-gray-400 mt-3">
-          Emails exceeding this limit are automatically queued for the next day. Increase this when you upgrade to Resend Pro.
-        </p>
       </div>
 
       {/* ── Queue / Sent / Failed Tabs ────────────── */}

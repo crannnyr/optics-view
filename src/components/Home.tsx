@@ -7,9 +7,8 @@ import ProductCard from './home/ProductCard';
 import HomeHeader from './home/sections/HomeHeader';
 import HomeHero from './home/sections/HomeHero';
 import CategoryFilter from './home/sections/CategoryFilter';
-import SearchBar from './home/sections/SearchBar';
+import ProductSlider, { SliderMode } from './home/sections/ProductSlider';
 import DailyVendorModal from './home/sections/DailyVendorModal';
-import ChinaPromoModal from './home/sections/ChinaPromoModal';
 import HomeFooter from './home/sections/HomeFooter';
 import Cart from './Cart';
 import AuthModal from './AuthModal';
@@ -105,6 +104,7 @@ export default function Home({
         setIsUserMenuOpen={setIsUserMenuOpen} onNavigateToOrders={onNavigateToOrders}
         onNavigateToVendor={onNavigateToVendor}
         handleSignOut={handleSignOut} setIsAuthOpen={setIsAuthOpen}
+        onViewProduct={onViewProduct}
       />
 
       <main className="flex-grow w-full">
@@ -114,8 +114,6 @@ export default function Home({
           hasApplied={hasApplied}
           user={user}
         />
-
-        <SearchBar themeColor={store.themeColor} onViewDetails={onViewProduct} />
 
         <CategoryFilter
           selectedCategory={selectedCategory}
@@ -128,38 +126,35 @@ export default function Home({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
             {productsLoading
               ? Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)
-              : filteredProducts.map((product, idx) => (
-                  <Fragment key={product.id}>
-                    <ProductCard
-                      product={product}
-                      onAddToCart={onAddToCart}
-                      onViewDetails={onViewProduct}
-                      isSponsored={sponsoredProductIds.has(product.id)}
-                    />
-                    {/* Mobile-only banner, right after the first row (2 items
-                        on the mobile grid-cols-2 layout). col-span-2 makes it
-                        take the full row by itself; md:hidden removes it from
-                        the grid entirely on desktop, so the 3-col layout
-                        continues uninterrupted there. */}
-                    {idx === 1 && (
-                      <a
-                        key="china-banner"
-                        href="https://qafrica.store/recommendations"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="col-span-2 md:hidden flex items-center justify-center gap-2 bg-red-600 text-white py-3 px-4 rounded-sm shadow-sm"
-                      >
-                        <span className="text-lg leading-none">🇨🇳</span>
-                        <span
-                          className="text-xs font-bold tracking-wide uppercase"
-                          style={{ animation: 'blink 1.4s ease-in-out infinite' }}
-                        >
-                          🔥 Hot — Click to Order Directly from China
-                        </span>
-                      </a>
-                    )}
-                  </Fragment>
-                ))
+              : filteredProducts.map((product, idx) => {
+                  // A slider break every 3 rows of the mobile 2-col grid (every
+                  // 6th item) — cycling through trending, then the three price
+                  // tiers, then repeating if the person keeps scrolling.
+                  // col-span-full breaks it out of the grid to sit full-width
+                  // between rows on every screen size. Only on the default
+                  // "All" view — a filtered category shouldn't interrupt
+                  // itself with unrelated sliders.
+                  const showSlider =
+                    selectedCategory === 'all' && idx > 0 && idx % 6 === 0;
+                  const sliderCycle: SliderMode[] = ['trending', 'under_5000', 'under_3000', 'under_10000'];
+                  const sliderMode = sliderCycle[((idx / 6) - 1) % sliderCycle.length];
+
+                  return (
+                    <Fragment key={product.id}>
+                      {showSlider && (
+                        <div className="col-span-2 md:col-span-3 -mx-6">
+                          <ProductSlider mode={sliderMode} isRetailer={!!store.isRetailer} onViewDetails={onViewProduct} />
+                        </div>
+                      )}
+                      <ProductCard
+                        product={product}
+                        onAddToCart={onAddToCart}
+                        onViewDetails={onViewProduct}
+                        isSponsored={sponsoredProductIds.has(product.id)}
+                      />
+                    </Fragment>
+                  );
+                })
             }
           </div>
 
@@ -215,7 +210,6 @@ export default function Home({
         referringRetailerId={store.id} />
 
       <DailyVendorModal themeColor={store.themeColor} onNavigateToVendor={onNavigateToVendor} />
-      <ChinaPromoModal />
 
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }

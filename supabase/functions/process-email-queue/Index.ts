@@ -19,37 +19,16 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const bypassLimit = body.bypass_limit === true;
+    await req.json().catch(() => ({}));
 
-    // Get daily limit
-    const { data: settingsRow } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'email_settings')
-      .single();
-
-    const settings = settingsRow?.value || { daily_limit: 95 };
-    const dailyLimit = settings.daily_limit;
-
+    // Daily send-limit removed (2026 cleanup) — the artificial cap here
+    // was unrelated to any real provider limit and was the actual cause
+    // of the multi-thousand-row pending backlog: emails just piled up
+    // once the cap was hit each day. Every pending, due email is now
+    // processed on each run; throughput is bounded only by Resend's
+    // actual account limits, which surface as real per-email failures
+    // instead of a silent local queue freeze.
     const today = new Date().toISOString().split('T')[0];
-
-    // Count already sent today
-    const { count: sentToday } = await supabase
-      .from('email_logs')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'sent')
-      .gte('created_at', `${today}T00:00:00Z`);
-
-    const alreadySent = sentToday || 0;
-    const remaining = bypassLimit ? 99999 : dailyLimit - alreadySent;
-
-    if (remaining <= 0) {
-      return new Response(
-        JSON.stringify({ message: 'Daily limit already reached', sent: 0 }),
-        { status: 200 }
-      );
-    }
 
     // Get pending emails scheduled for today or earlier
     const { data: pendingEmails } = await supabase
@@ -58,7 +37,7 @@ serve(async (req) => {
       .eq('status', 'pending')
       .lte('scheduled_for', today)
       .order('created_at', { ascending: true })
-      .limit(remaining);
+      .limit(500);
 
     if (!pendingEmails || pendingEmails.length === 0) {
       return new Response(
@@ -140,7 +119,7 @@ serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, sent, failed, skipped_stopped: skippedStopped, bypass: bypassLimit }),
+      JSON.stringify({ success: true, sent, failed, skipped_stopped: skippedStopped }),
       { status: 200 }
     );
 

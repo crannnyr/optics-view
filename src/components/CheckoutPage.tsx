@@ -40,6 +40,9 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
     retryError,
     calculateShipping,
     shippingConfig,
+    hasImportItems,
+    hasNonImportItems,
+    importFeeBreakdown,
     pickupFee,
     handleShippingSubmit,
     handleCopyAccount,
@@ -137,6 +140,9 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
               pickupFee={pickupFee}
               pickupEta={`${shippingConfig.pickup_eta_min_days}–${shippingConfig.pickup_eta_max_days} working days`}
               homeEta={`${shippingConfig.home_eta_min_days}–${shippingConfig.home_eta_max_days} working days`}
+              hasImportItems={hasImportItems}
+              hasNonImportItems={hasNonImportItems}
+              importFeeBreakdown={importFeeBreakdown}
             />
           )}
 
