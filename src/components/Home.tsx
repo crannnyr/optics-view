@@ -33,10 +33,14 @@ interface HomeProps {
 
 function ProductSkeleton() {
   return (
-    <div className="group animate-pulse">
-      <div className="bg-gradient-to-br from-gray-200 to-gray-100 aspect-square mb-4 rounded-sm" />
-      <div className="h-3 bg-gray-200 rounded w-3/4 mb-2" />
-      <div className="h-4 bg-gray-200 rounded w-1/3" />
+    <div className="animate-pulse bg-white border border-gray-100 rounded-lg overflow-hidden">
+      <div className="bg-gray-100 aspect-square" />
+      <div className="p-2.5 space-y-2">
+        <div className="h-2.5 bg-gray-200 rounded w-full" />
+        <div className="h-2.5 bg-gray-200 rounded w-2/3" />
+        <div className="h-3.5 bg-gray-200 rounded w-1/2 mt-2" />
+        <div className="h-7 bg-gray-200 rounded-full w-full mt-2" />
+      </div>
     </div>
   );
 }
@@ -122,8 +126,8 @@ export default function Home({
           themeColor={store.themeColor}
         />
 
-        <section className="max-w-7xl mx-auto px-6 pb-20">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 md:gap-x-8 md:gap-y-12">
+        <section className="max-w-7xl mx-auto px-4 pb-20">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             {productsLoading
               ? Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)
               : filteredProducts.map((product, idx) => {
@@ -142,7 +146,7 @@ export default function Home({
                   return (
                     <Fragment key={product.id}>
                       {showSlider && (
-                        <div className="col-span-2 md:col-span-3 -mx-6">
+                        <div className="col-span-2 md:col-span-3 lg:col-span-4 -mx-4">
                           <ProductSlider mode={sliderMode} isRetailer={!!store.isRetailer} onViewDetails={onViewProduct} />
                         </div>
                       )}

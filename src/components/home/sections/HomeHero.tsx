@@ -237,7 +237,7 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
 
       {/* ── CTA row ── */}
       {!hasApplied && (
-        <section className="max-w-7xl mx-auto px-6 py-8">
+        <section className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex items-center gap-4 flex-wrap">
             <button
               onClick={onRetailerClick}
@@ -258,7 +258,7 @@ export default function HomeHero({ themeColor, onRetailerClick, hasApplied, user
       )}
 
       {hasApplied && user && (
-        <section className="max-w-7xl mx-auto px-6 py-8">
+        <section className="max-w-7xl mx-auto px-4 py-8">
           <div className="flex items-center gap-4 flex-wrap">
             <a
               href="/retailer"

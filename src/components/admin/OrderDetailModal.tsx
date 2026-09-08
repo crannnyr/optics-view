@@ -10,6 +10,7 @@ interface Props {
   order: any;
   onClose: () => void;
   onUpdateStatus: (orderId: string, status: string) => void;
+  onUpdateImportStatus: (orderId: string, importStatus: string) => void;
   onMarkUnavailable: (orderId: string) => void;
   onMarkRefunded: (orderId: string) => void;
   statusLoading: string | null;
@@ -23,6 +24,24 @@ const STATUS_COLORS: Record<string, string> = {
   rejected:    'bg-red-100 text-red-800',
   unavailable: 'bg-orange-100 text-orange-800',
   refunded:    'bg-gray-100 text-gray-600',
+};
+
+const IMPORT_STATUS_LABELS: Record<string, string> = {
+  to_pay:     'To Pay',
+  confirmed:  'Confirmed',
+  billed:     'Billed',
+  shipped:    'Shipped',
+  to_receive: 'To Receive',
+  refunded:   'Refunded',
+};
+
+// What "advance to next stage" means from each import status. 'to_pay' isn't
+// here — that only advances via payment verification (the regular Verify &
+// Approve button above), not a manual click.
+const NEXT_IMPORT_STATUS: Record<string, string> = {
+  confirmed:  'billed',
+  billed:     'shipped',
+  shipped:    'to_receive',
 };
 
 const SUPPLIER_LABELS: Record<string, string> = {
@@ -160,7 +179,7 @@ function ShippingModal({ order, onConfirm, onCancel }: ShippingModalProps) {
 
 // ── Main Modal ─────────────────────────────────────────────────────────────────
 export default function OrderDetailModal({
-  order, onClose, onUpdateStatus,
+  order, onClose, onUpdateStatus, onUpdateImportStatus,
   onMarkUnavailable, onMarkRefunded, statusLoading
 }: Props) {
   const [liveOrder, setLiveOrder]         = useState(order);
@@ -427,6 +446,37 @@ export default function OrderDetailModal({
             </div>
           </div>
 
+          {/* Import pipeline — only appears when this order has at least one
+              import item. Separate from the vendor status pipeline above;
+              'to_pay' -> 'confirmed' happens automatically when payment is
+              verified, everything after that is advanced manually here. */}
+          {liveOrder.import_status && (
+            <div className="mx-6 mb-4 bg-amber-50 border border-amber-200 rounded p-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] text-amber-700 uppercase tracking-wide mb-1">Import order status</p>
+                <span className={`text-xs px-2.5 py-1 rounded ${STATUS_COLORS[liveOrder.import_status === 'to_pay' ? 'pending' : liveOrder.import_status === 'refunded' ? 'refunded' : 'approved']}`}>
+                  {IMPORT_STATUS_LABELS[liveOrder.import_status] ?? liveOrder.import_status}
+                </span>
+              </div>
+              {NEXT_IMPORT_STATUS[liveOrder.import_status] && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onUpdateImportStatus(liveOrder.id, NEXT_IMPORT_STATUS[liveOrder.import_status])}
+                    className="px-4 py-2 text-xs bg-[#0d2818] text-white rounded hover:opacity-90"
+                  >
+                    Advance to {IMPORT_STATUS_LABELS[NEXT_IMPORT_STATUS[liveOrder.import_status]]}
+                  </button>
+                  <button
+                    onClick={() => onUpdateImportStatus(liveOrder.id, 'refunded')}
+                    className="px-4 py-2 text-xs bg-white text-gray-600 border border-gray-200 rounded hover:bg-gray-50"
+                  >
+                    Refund instead
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Action footer */}
           <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex flex-wrap justify-end gap-2">
             {isLoading ? (
@@ -497,8 +547,7 @@ export default function OrderDetailModal({
                   >
                     <RotateCcw size={13} /> Mark Refunded
                   </button>
-                )}
-              </>
+                )}              </>
             )}
           </div>
         </div>

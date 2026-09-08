@@ -415,6 +415,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
             pickup_station_address: isPickup ? shippingData.pickupStationAddress : null,
             total_amount: totalOrderAmount,
             status: 'pending',
+            import_status: hasImportItems ? 'to_pay' : null,
             payment_method: method,
             manual_payment_verified: false,
             paystack_reference: orderReference,

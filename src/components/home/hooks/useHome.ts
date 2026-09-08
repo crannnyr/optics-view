@@ -217,28 +217,32 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToChe
         catSlugs = reg?.selected_categories ?? [];
       }
 
-      const [catsRes, imagesRes] = await Promise.all([
-        (() => {
-          let q = supabase.from('categories').select('slug, name').order('sort_order');
-          if (catSlugs.length > 0) q = q.in('slug', catSlugs);
-          return q;
-        })(),
-        supabase
-          .from('products')
-          .select('category, images, image_url')
-          .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(80),
-      ]);
+      let q = supabase.from('categories').select('slug, name').order('sort_order');
+      if (catSlugs.length > 0) q = q.in('slug', catSlugs);
+      const catsRes = await q;
 
       if (!catsRes.data) return;
 
-      const imageBySlug = new Map<string, string | null>();
-      for (const p of imagesRes.data ?? []) {
-        if (!imageBySlug.has(p.category)) {
-          imageBySlug.set(p.category, p.images?.[0] ?? p.image_url ?? null);
-        }
-      }
+      // One small query per category, each grabbing its own most-recent
+      // active product image — guarantees every category gets a
+      // representative image regardless of how recently its products were
+      // added. Sampling from a single "80 most recent products overall"
+      // query (the previous approach) silently starved every category
+      // except whichever one a bulk import had just landed in.
+      const imageEntries = await Promise.all(
+        catsRes.data.map(async cat => {
+          const { data } = await supabase
+            .from('products')
+            .select('images, image_url')
+            .eq('category', cat.slug)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          return [cat.slug, data?.images?.[0] ?? data?.image_url ?? null] as const;
+        })
+      );
+      const imageBySlug = new Map(imageEntries);
 
       setCategories(
         catsRes.data.map(cat => ({ ...cat, image: imageBySlug.get(cat.slug) ?? null }))

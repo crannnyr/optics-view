@@ -64,10 +64,10 @@ export default function CategoryFilter({
                   <img src={cat.image} alt={cat.name} className="w-full h-full object-cover" />
                 ) : (
                   <div
-                    className="w-full h-full flex items-center justify-center text-white text-[9px] font-bold tracking-widest"
+                    className="w-full h-full flex items-center justify-center text-white text-[11px] font-bold tracking-widest"
                     style={{ backgroundColor: themeColor }}
                   >
-                    ALL
+                    {cat.slug === 'all' ? 'ALL' : cat.name.charAt(0).toUpperCase()}
                   </div>
                 )}
               </div>

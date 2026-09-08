@@ -60,8 +60,8 @@ export default function ProductSlider({ mode, isRetailer, onViewDetails }: Produ
 
   return (
     <section className="py-6">
-      <h2 className="text-base font-light text-gray-800 px-6 mb-3">{config.title}</h2>
-      <div className="flex gap-4 overflow-x-auto scrollbar-hide px-6" style={{ scrollbarWidth: 'none' }}>
+      <h2 className="text-base font-light text-gray-800 px-4 mb-3">{config.title}</h2>
+      <div className="flex gap-3 overflow-x-auto scrollbar-hide px-4" style={{ scrollbarWidth: 'none' }}>
         {products.map(product => (
           <CompactProductCard key={product.id} product={product} onViewDetails={onViewDetails} />
         ))}

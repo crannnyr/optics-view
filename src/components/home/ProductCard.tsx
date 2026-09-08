@@ -17,14 +17,6 @@ function formatSoldCount(count: number): string {
   return count.toLocaleString();
 }
 
-// Long product names were overflowing the card's bounds with nothing to
-// stop them — cap the displayed name at 10 characters (full name still
-// shown as the title attribute and on the product detail page).
-function truncateName(name: string, max = 10): string {
-  if (!name) return '';
-  return name.length > max ? `${name.slice(0, max).trimEnd()}…` : name;
-}
-
 export default function ProductCard({ product, onAddToCart, onViewDetails, isSponsored = false }: ProductCardProps) {
   const { store } = useStore();
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
@@ -56,9 +48,6 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
     onViewDetails(product);
   };
 
-  // Auto-shuffle disabled — was cycling every 5s regardless of interaction,
-  // adding unnecessary re-renders/load. Manual arrows still work below.
-
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentImageIdx((prev) => (prev + 1) % images.length);
@@ -70,10 +59,10 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
   };
 
   return (
-    <div className="group" ref={cardRef}>
+    <div ref={cardRef} className="group bg-white border border-gray-100 rounded-lg overflow-hidden flex flex-col">
       <div
         onClick={handleViewDetails}
-        className="relative bg-gray-100 mb-4 overflow-hidden cursor-pointer aspect-square"
+        className="relative bg-gray-100 overflow-hidden cursor-pointer aspect-square"
       >
         {!imgError ? (
           <img
@@ -86,8 +75,8 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center bg-gray-100 text-gray-300">
-            <ImageOff size={32} />
-            <span className="text-[10px] mt-2 tracking-wider">Image unavailable</span>
+            <ImageOff size={28} />
+            <span className="text-[9px] mt-2 tracking-wider">Image unavailable</span>
           </div>
         )}
 
@@ -100,15 +89,13 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
         )}
 
         {isSponsored && (
-          <div
-            className="absolute top-2 right-2 bg-white/90 text-gray-500 text-[8px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded-sm border border-gray-200"
-          >
+          <div className="absolute top-2 right-2 bg-white/90 text-gray-500 text-[8px] font-medium tracking-wider uppercase px-1.5 py-0.5 rounded-sm border border-gray-200">
             Sponsored
           </div>
         )}
 
         <div
-          className="absolute bottom-0 right-0 bg-white px-3 py-2.5 text-[8px] tracking-[0.2em] font-light border-l border-t border-gray-200"
+          className="absolute bottom-1.5 right-1.5 bg-white/95 px-1.5 py-1 text-[7px] tracking-[0.15em] font-light rounded-sm"
           style={{ color: store.themeColor }}
         >
           {store.name.toUpperCase()}
@@ -118,21 +105,21 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
           <>
             <button
               onClick={prevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+              className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={14} />
             </button>
             <button
               onClick={nextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-white/80 p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={14} />
             </button>
-            <div className="absolute bottom-2 left-2 flex gap-1.5">
+            <div className="absolute bottom-1.5 left-1.5 flex gap-1">
               {images.map((_, idx) => (
                 <div
                   key={idx}
-                  className="w-1.5 h-1.5 rounded-full transition-colors"
+                  className="w-1 h-1 rounded-full transition-colors"
                   style={{ backgroundColor: idx === currentImageIdx ? store.themeColor : 'rgba(255,255,255,0.6)' }}
                 />
               ))}
@@ -141,34 +128,36 @@ export default function ProductCard({ product, onAddToCart, onViewDetails, isSpo
         )}
       </div>
 
-      <div className="flex justify-between items-center gap-2">
-        <div className="flex-1 text-left">
-          <h3
-            onClick={handleViewDetails}
-            title={product.name}
-            className="text-sm font-light mb-1 cursor-pointer hover:opacity-70"
-            style={{ color: store.themeColor }}
-          >
-            {truncateName(product.name)}
-          </h3>
-          <p className="text-base font-medium" style={{ color: store.themeColor }}>
-            ₦{product.price.toLocaleString()}
-          </p>
-        </div>
+      <div className="p-2.5 flex flex-col flex-1">
+        {/* Fixed two-line height (leading-tight * 2 lines) so every card in a
+            row lands the same height regardless of name length — short
+            names leave a little empty space, long ones wrap to two lines
+            and clip with an ellipsis rather than overflowing the card. */}
+        <h3
+          onClick={handleViewDetails}
+          title={product.name}
+          className="text-[11px] leading-tight text-gray-700 cursor-pointer hover:opacity-70 line-clamp-2 mb-1.5"
+          style={{ minHeight: '2.4em' }}
+        >
+          {product.name}
+        </h3>
 
-        <div className="shrink-0 flex flex-col items-end gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
-            className="text-white px-3 py-1.5 text-[10px] tracking-wider hover:opacity-90 transition-opacity flex items-center gap-1.5"
-            style={{ backgroundColor: store.themeColor }}
-          >
-            <ShoppingBag size={12} />
-            BUY
-          </button>
-          <span className={`text-[10px] ${isPopular ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
-            {formatSoldCount(product.units_sold)} sold
-          </span>
-        </div>
+        <p className="text-sm font-semibold mb-0.5" style={{ color: store.themeColor }}>
+          ₦{product.price.toLocaleString()}
+        </p>
+
+        <p className={`text-[10px] mb-2.5 ${isPopular ? 'text-amber-500 font-medium' : 'text-gray-400'}`}>
+          {formatSoldCount(product.units_sold)} sold
+        </p>
+
+        <button
+          onClick={(e) => { e.stopPropagation(); onAddToCart(product); }}
+          className="mt-auto w-full text-white py-2 text-[10px] tracking-wider rounded-full hover:opacity-90 transition-opacity flex items-center justify-center gap-1.5"
+          style={{ backgroundColor: store.themeColor }}
+        >
+          <ShoppingBag size={11} />
+          ADD TO CART
+        </button>
       </div>
     </div>
   );

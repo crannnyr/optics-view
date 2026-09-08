@@ -24,7 +24,7 @@ export function useOrders() {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, items:order_items(*, products(name, images, image_url, supplier))')
+      .select('*, items:order_items(*, products(name, images, image_url, supplier, import_fee_tier_id))')
       .order('created_at', { ascending: false });
     if (data) setOrders(data);
   };
@@ -153,11 +153,18 @@ export function useOrders() {
         }
 
       } else if (newStatus === 'approved') {
+        // If this order has import items, payment verification also
+        // advances the separate import pipeline from 'to_pay' to
+        // 'confirmed' — the vendor-item status and the import-item status
+        // move together at this one trigger point, then diverge afterward
+        // (import orders continue on through billed/shipped/to_receive
+        // independently of the vendor pipeline).
         await supabase.from('orders').update({
           status: 'approved',
           manual_payment_verified: true,
           payment_verified_via: 'admin_manual',
           verified_at: new Date().toISOString(),
+          ...(order?.import_status === 'to_pay' ? { import_status: 'confirmed' } : {}),
         }).eq('id', orderId);
 
         if (order?.user_id) {
@@ -187,6 +194,34 @@ export function useOrders() {
       alert('Failed to update status. Please try again.');
     }
 
+    await fetchOrders();
+    setStatusLoading(null);
+  };
+
+  // Advances the separate import-order pipeline (Billed → Shipped →
+  // To Receive → Refunded). 'to_pay' and 'confirmed' are handled above,
+  // tied to payment verification — this covers the stages after that,
+  // which only apply to import orders and have no equivalent in the
+  // vendor-item status pipeline.
+  const updateImportStatus = async (orderId: string, newImportStatus: string) => {
+    setStatusLoading(orderId);
+    try {
+      await supabase.from('orders').update({ import_status: newImportStatus }).eq('id', orderId);
+
+      const order = orders.find(o => o.id === orderId);
+      if (order?.user_id) {
+        await writeNotification(
+          order.user_id,
+          'Import order update',
+          `Your import order is now: ${newImportStatus.replace('_', ' ')}.`,
+          'info',
+          orderId
+        );
+      }
+    } catch (err) {
+      console.error('updateImportStatus error:', err);
+      alert('Failed to update import status. Please try again.');
+    }
     await fetchOrders();
     setStatusLoading(null);
   };
@@ -405,6 +440,7 @@ export function useOrders() {
     unverifiedCount,
     pendingWithdrawals,
     updateStatus,
+    updateImportStatus,
     verifyPayment,
     markUnavailable,
     markRefunded,
@@ -418,3 +454,8 @@ export function useOrders() {
 // the list at all, filtered out above).
 export const hasVendorItems = (order: any) =>
   !!order.items?.some((item: any) => item.products?.supplier === 'vendor');
+
+// Mirrors isImportProduct() in lib/importFees.ts, but against the joined
+// order_items shape (item.products) rather than a live CartItem.
+export const hasImportItems = (order: any) =>
+  !!order.items?.some((item: any) => !!item.products?.import_fee_tier_id);

@@ -31,6 +31,7 @@ export default function OrdersTab() {
     setCustomDateRange,
     setStatusFilter,
     updateStatus,
+    updateImportStatus,
     verifyPayment,
     markUnavailable,
     markRefunded,
@@ -119,6 +120,7 @@ export default function OrdersTab() {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onUpdateStatus={updateStatus}
+          onUpdateImportStatus={updateImportStatus}
           onMarkUnavailable={markUnavailable}
           onMarkRefunded={markRefunded}
           statusLoading={statusLoading}

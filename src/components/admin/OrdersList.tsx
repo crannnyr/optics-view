@@ -1,4 +1,4 @@
-import { hasVendorItems } from './hooks/useOrders';
+import { hasVendorItems, hasImportItems } from './hooks/useOrders';
 
 const STATUS_COLORS: Record<string, string> = {
   pending:     'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -8,6 +8,24 @@ const STATUS_COLORS: Record<string, string> = {
   rejected:    'bg-red-100 text-red-800 border-red-200',
   unavailable: 'bg-orange-100 text-orange-800 border-orange-200',
   refunded:    'bg-gray-100 text-gray-600 border-gray-200',
+};
+
+const IMPORT_STATUS_LABELS: Record<string, string> = {
+  to_pay:     'To Pay',
+  confirmed:  'Confirmed',
+  billed:     'Billed',
+  shipped:    'Shipped',
+  to_receive: 'To Receive',
+  refunded:   'Refunded',
+};
+
+const IMPORT_STATUS_COLORS: Record<string, string> = {
+  to_pay:     'bg-yellow-100 text-yellow-800 border-yellow-200',
+  confirmed:  'bg-blue-100 text-blue-800 border-blue-200',
+  billed:     'bg-indigo-100 text-indigo-800 border-indigo-200',
+  shipped:    'bg-purple-100 text-purple-800 border-purple-200',
+  to_receive: 'bg-teal-100 text-teal-800 border-teal-200',
+  refunded:   'bg-gray-100 text-gray-600 border-gray-200',
 };
 
 interface Props {
@@ -55,6 +73,11 @@ export default function OrdersList({ orders, onSelectOrder }: Props) {
                 {hasVendorItems(order) && (
                   <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-100 px-2 py-0.5 rounded">
                     + vendor items
+                  </span>
+                )}
+                {hasImportItems(order) && order.import_status && (
+                  <span className={`text-[10px] uppercase px-2 py-0.5 rounded border ${IMPORT_STATUS_COLORS[order.import_status] ?? 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                    Import: {IMPORT_STATUS_LABELS[order.import_status] ?? order.import_status}
                   </span>
                 )}
               </div>

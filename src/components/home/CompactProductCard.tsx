@@ -8,11 +8,6 @@ interface CompactProductCardProps {
   onViewDetails: (product: Product) => void;
 }
 
-function truncateName(name: string, max = 22): string {
-  if (!name) return '';
-  return name.length > max ? `${name.slice(0, max).trimEnd()}…` : name;
-}
-
 // Smaller sibling of ProductCard, built for horizontal sliders (Trending Now,
 // Under ₦X). No add-to-cart button or image carousel — tapping goes straight
 // to product details, keeping each card lightweight so more fit on screen.
@@ -26,7 +21,7 @@ export default function CompactProductCard({ product, onViewDetails }: CompactPr
       onClick={() => onViewDetails(product)}
       className="group w-32 sm:w-40 shrink-0 text-left"
     >
-      <div className="relative bg-gray-100 mb-2 overflow-hidden aspect-square rounded-sm">
+      <div className="relative bg-gray-100 mb-2 overflow-hidden aspect-square rounded-lg">
         {!imgError && image ? (
           <img
             src={image}
@@ -42,10 +37,14 @@ export default function CompactProductCard({ product, onViewDetails }: CompactPr
           </div>
         )}
       </div>
-      <p className="text-xs font-light text-gray-700 mb-0.5 leading-snug" title={product.name}>
-        {truncateName(product.name)}
+      <p
+        className="text-[11px] leading-tight text-gray-700 mb-1"
+        title={product.name}
+        style={{ minHeight: '2.4em' }}
+      >
+        <span className="line-clamp-2">{product.name}</span>
       </p>
-      <p className="text-sm font-medium" style={{ color: store.themeColor }}>
+      <p className="text-sm font-semibold" style={{ color: store.themeColor }}>
         ₦{Number(product.price).toLocaleString()}
       </p>
     </button>

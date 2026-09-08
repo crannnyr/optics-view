@@ -235,7 +235,7 @@ export default function HomeHeader({
                         onClick={() => { onNavigateToOrders(); setIsUserMenuOpen(false); }}
                         className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center gap-2"
                       >
-                        <Package size={16} /> My Purchases
+                        <Package size={16} /> My Profile
                       </button>
                       <button
                         onClick={() => { onNavigateToVendor(); setIsUserMenuOpen(false); }}

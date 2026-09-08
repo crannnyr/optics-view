@@ -5,7 +5,7 @@ import { Lock, Loader2, SearchX, WifiOff, RefreshCw } from 'lucide-react';
 import { useStore } from './context/StoreContext';
 
 const Admin             = lazy(() => import('./components/Admin'));
-const OrderHistory      = lazy(() => import('./components/OrderHistory'));
+const CustomerProfile   = lazy(() => import('./components/profile/CustomerProfile'));
 const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
@@ -558,9 +558,11 @@ function App() {
   if (currentView === 'orders') {
     return (
       <Suspense fallback={<PageLoader />}>
-        <OrderHistory
+        <CustomerProfile
           onBack={() => navigateTo('shop', '/')}
           onRetryPayment={(orderId) => navigateToCheckout(orderId)}
+          onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
+          onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
         />
       </Suspense>
     );
