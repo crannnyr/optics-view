@@ -208,94 +208,94 @@ export default function ProductDetails({
 
         <div>
           {isImportProduct && (
-            <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[10px] font-semibold tracking-wide uppercase px-2 py-1 rounded-sm mb-2">
+            <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 text-[9px] font-semibold tracking-wide uppercase px-1.5 py-0.5 rounded-sm mb-1.5">
               🇨🇳 Import
             </span>
           )}
-          <h1 className="text-2xl md:text-3xl font-light mb-2" style={{ color: store.themeColor }}>
+          <h1 className="text-xl md:text-2xl font-light mb-1.5" style={{ color: store.themeColor }}>
             {product.name}
           </h1>
 
-          <div className="flex flex-wrap items-baseline gap-3 md:gap-4 mb-1">
+          <div className="flex flex-wrap items-baseline gap-2 md:gap-3 mb-1">
             {product.compare_at_price && product.compare_at_price > product.price && (
-              <span className="text-lg md:text-xl text-gray-400 line-through">₦{product.compare_at_price.toLocaleString()}</span>
+              <span className="text-sm md:text-base text-gray-400 line-through">₦{product.compare_at_price.toLocaleString()}</span>
             )}
-            <span className="text-xl md:text-2xl font-medium">₦{product.price.toLocaleString()}</span>
+            <span className="text-lg md:text-xl font-medium">₦{product.price.toLocaleString()}</span>
             {!store.isRetailer && product.wholesale_price && (
-              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+              <span className="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded">
                 Buy {wholesaleMinQty}+ get {calculateDiscount()}% OFF (₦{product.wholesale_price.toLocaleString()} ea)
               </span>
             )}
           </div>
 
           {isImportProduct && (
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                 {formatUsd(product.price, currencyRates)} USD
               </span>
-              <span className="text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded">
+              <span className="text-[10px] text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded">
                 {formatCny(product.price, currencyRates)} CNY
               </span>
-              <span className="text-[10px] text-gray-400">per unit</span>
+              <span className="text-[9px] text-gray-400">per unit</span>
             </div>
           )}
 
-          <div className="flex items-center gap-1 mb-6 md:mb-8">
+          <div className="flex items-center gap-1 mb-5 md:mb-6">
             {[1,2,3,4,5].map(star => (
-              <Star key={star} size={14} className={star <= 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
+              <Star key={star} size={12} className={star <= 4 ? "fill-yellow-400 text-yellow-400" : "text-gray-300"} />
             ))}
-            <span className="text-xs text-gray-500 ml-2">({reviews.length} reviews)</span>
-            <span className="text-gray-300 mx-1.5">·</span>
-            <span className={`flex items-center gap-1 text-xs ${product.units_sold >= 1000 ? 'text-amber-500 font-medium' : 'text-gray-500'}`}>
-              <TrendingUp size={12} />
+            <span className="text-[11px] text-gray-500 ml-1.5">({reviews.length} reviews)</span>
+            <span className="text-gray-300 mx-1">·</span>
+            <span className={`flex items-center gap-1 text-[11px] ${product.units_sold >= 1000 ? 'text-amber-500 font-medium' : 'text-gray-500'}`}>
+              <TrendingUp size={11} />
               {formatSoldCount(product.units_sold)} sold
             </span>
           </div>
 
           {isImportProduct && (
-            <div className="border border-gray-100 rounded-lg p-4 mb-6 md:mb-8 space-y-3">
+            <div className="border border-gray-100 rounded-lg p-3 mb-5 md:mb-6 space-y-2">
               {product.origin_country && (
-                <div className="flex items-center gap-2 text-xs text-gray-600">
-                  <ShieldCheck size={14} style={{ color: store.themeColor }} />
+                <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
+                  <ShieldCheck size={12} style={{ color: store.themeColor }} />
                   Sourced from verified manufacturers in {product.origin_country}
                 </div>
               )}
-              <div className="flex items-center gap-4 text-xs text-gray-600">
-                <span className="flex items-center gap-1.5">
-                  <Plane size={14} style={{ color: store.themeColor }} />
+              <div className="flex items-center gap-3 text-[11px] text-gray-600">
+                <span className="flex items-center gap-1">
+                  <Plane size={12} style={{ color: store.themeColor }} />
                   Flight 20–30 days
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Ship size={14} style={{ color: store.themeColor }} />
+                <span className="flex items-center gap-1">
+                  <Ship size={12} style={{ color: store.themeColor }} />
                   Sea 60–90 days
                 </span>
               </div>
-              <div className="flex items-center gap-4 pt-2 border-t border-gray-100">
+              <div className="flex items-center gap-3 pt-1.5 border-t border-gray-100">
                 <button
                   onClick={() => setShowAskQuestion(true)}
-                  className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70"
+                  className="flex items-center gap-1 text-[11px] font-medium hover:opacity-70"
                   style={{ color: store.themeColor }}
                 >
-                  <HelpCircle size={14} /> Ask about this product
+                  <HelpCircle size={12} /> Ask about this product
                 </button>
                 <button
                   onClick={onNavigateToShippingInfo}
-                  className="flex items-center gap-1.5 text-xs font-medium hover:opacity-70"
+                  className="flex items-center gap-1 text-[11px] font-medium hover:opacity-70"
                   style={{ color: store.themeColor }}
                 >
-                  <Truck size={14} /> Shipping calculation
+                  <Truck size={12} /> Shipping calculation
                 </button>
               </div>
             </div>
           )}
 
-          <div className="mb-6 md:mb-8">
-            <p className="text-gray-600 leading-relaxed text-sm">
+          <div className="mb-5 md:mb-6">
+            <p className="text-gray-600 leading-relaxed text-[13px]">
               {showFullDescription ? product.description : truncatedDescription}
               {shouldTruncate && !showFullDescription && '...'}
               {shouldTruncate && (
                 <button onClick={() => setShowFullDescription(!showFullDescription)}
-                  className="ml-2 underline hover:opacity-70 text-xs" style={{ color: store.themeColor }}>
+                  className="ml-2 underline hover:opacity-70 text-[11px]" style={{ color: store.themeColor }}>
                   {showFullDescription ? 'see less' : 'see more'}
                 </button>
               )}

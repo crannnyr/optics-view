@@ -126,28 +126,37 @@ export default function Home({
           themeColor={store.themeColor}
         />
 
+        {/* Trending sits above the grid on every category tab — scoped to
+            that category when one is active, site-wide on "All". */}
+        {!productsLoading && (
+          <ProductSlider
+            mode="trending"
+            isRetailer={!!store.isRetailer}
+            onViewDetails={onViewProduct}
+            category={selectedCategory}
+          />
+        )}
+
         <section className="max-w-7xl mx-auto px-4 pb-20">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
             {productsLoading
               ? Array.from({ length: 12 }).map((_, i) => <ProductSkeleton key={i} />)
               : filteredProducts.map((product, idx) => {
                   // A slider break every 3 rows of the mobile 2-col grid (every
-                  // 6th item) — cycling through trending, then the three price
-                  // tiers, then repeating if the person keeps scrolling.
-                  // col-span-full breaks it out of the grid to sit full-width
-                  // between rows on every screen size. Only on the default
-                  // "All" view — a filtered category shouldn't interrupt
-                  // itself with unrelated sliders.
-                  const showSlider =
-                    selectedCategory === 'all' && idx > 0 && idx % 6 === 0;
-                  const sliderCycle: SliderMode[] = ['trending', 'under_5000', 'under_3000', 'under_10000'];
+                  // 6th item) — cycling through the three price tiers. Trending
+                  // already has its own spot above the grid, so it isn't
+                  // repeated here. col-span-full breaks it out of the grid to
+                  // sit full-width between rows on every screen size. Present
+                  // on every category tab, scoped to that category.
+                  const showSlider = idx > 0 && idx % 6 === 0;
+                  const sliderCycle: SliderMode[] = ['under_5000', 'under_3000', 'under_10000'];
                   const sliderMode = sliderCycle[((idx / 6) - 1) % sliderCycle.length];
 
                   return (
                     <Fragment key={product.id}>
                       {showSlider && (
                         <div className="col-span-2 md:col-span-3 lg:col-span-4 -mx-4">
-                          <ProductSlider mode={sliderMode} isRetailer={!!store.isRetailer} onViewDetails={onViewProduct} />
+                          <ProductSlider mode={sliderMode} isRetailer={!!store.isRetailer} onViewDetails={onViewProduct} category={selectedCategory} />
                         </div>
                       )}
                       <ProductCard
