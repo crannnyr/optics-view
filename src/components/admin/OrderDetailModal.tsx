@@ -430,6 +430,16 @@ export default function OrderDetailModal({
                               {item.selected_type}
                             </span>
                           )}
+                          {item.products?.source_url && (
+                            <a
+                              href={item.products.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[10px] text-orange-600 hover:underline"
+                            >
+                              1688 <ExternalLink size={9} />
+                            </a>
+                          )}
                         </div>
                       </div>
                       <p className="text-sm font-mono text-gray-600">₦{(item.quantity * item.price).toLocaleString()}</p>

@@ -3,6 +3,7 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
+import { useShippingTimingEnabled } from '../lib/shippingSettings';
 import { getVariantAdjustedPrice } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
 import VariantPicker from './VariantPicker';
@@ -47,6 +48,7 @@ export default function ProductDetails({
   const currencyRates = useCurrencyRates();
 
   const isImportProduct = !!product.import_fee_tier_id;
+  const showShippingTiming = useShippingTimingEnabled();
 
   // The price actually charged once color/type/size are picked — base price
   // plus whatever delta each selected option carries. Most options carry no
@@ -267,14 +269,18 @@ export default function ProductDetails({
                 </div>
               )}
               <div className="flex items-center gap-3 text-[11px] text-gray-600">
-                <span className="flex items-center gap-1">
-                  <Plane size={12} style={{ color: store.themeColor }} />
-                  Flight 20–30 days
-                </span>
-                <span className="flex items-center gap-1">
-                  <Ship size={12} style={{ color: store.themeColor }} />
-                  Sea 60–90 days
-                </span>
+                {showShippingTiming && (
+                  <>
+                    <span className="flex items-center gap-1">
+                      <Plane size={12} style={{ color: store.themeColor }} />
+                      Flight 20–30 days
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Ship size={12} style={{ color: store.themeColor }} />
+                      Sea 60–90 days
+                    </span>
+                  </>
+                )}
               </div>
               <div className="flex items-center gap-3 pt-1.5 border-t border-gray-100">
                 <button

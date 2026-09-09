@@ -16,11 +16,27 @@ export default function AskQuestionModal({ productId, productName, themeColor, o
   const [error, setError] = useState<string | null>(null);
   const [pastQuestions, setPastQuestions] = useState<any[]>([]);
   const [loadingPast, setLoadingPast] = useState(true);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
 
+  // Checked once, up front, so a signed-out shopper sees "please sign in"
+  // immediately instead of typing a full question and only finding out
+  // after they hit send.
   useEffect(() => {
-    const load = async () => {
+    const checkAuthAndLoad = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoadingPast(false); return; }
+      setCheckingAuth(false);
+
+      if (!user) { setIsSignedIn(false); setLoadingPast(false); return; }
+
+      setIsSignedIn(true);
+      setUserId(user.id);
+      setUserEmail(user.email ?? null);
+      setUserName(user.user_metadata?.full_name ?? null);
+
       const { data } = await supabase
         .from('product_questions')
         .select('*')
@@ -30,27 +46,20 @@ export default function AskQuestionModal({ productId, productName, themeColor, o
       setPastQuestions(data ?? []);
       setLoadingPast(false);
     };
-    load();
+    checkAuthAndLoad();
   }, [productId]);
 
   const handleSubmit = async () => {
-    if (!question.trim()) return;
+    if (!question.trim() || !userId || !userEmail) return;
     setSubmitting(true);
     setError(null);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError('Please sign in to ask a question.');
-        setSubmitting(false);
-        return;
-      }
-
       const { error: insertError } = await supabase.from('product_questions').insert({
         product_id: productId,
-        user_id: user.id,
-        customer_name: user.user_metadata?.full_name || null,
-        customer_email: user.email,
+        user_id: userId,
+        customer_name: userName,
+        customer_email: userEmail,
         question: question.trim(),
       });
 
@@ -80,7 +89,19 @@ export default function AskQuestionModal({ productId, productName, themeColor, o
         <div className="px-6 pb-6">
           <p className="text-xs text-gray-500 mb-4 line-clamp-1">{productName}</p>
 
-          {submitted ? (
+          {checkingAuth ? (
+            <div className="flex justify-center py-8">
+              <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-400 rounded-full animate-spin" />
+            </div>
+          ) : !isSignedIn ? (
+            <div className="text-center py-8">
+              <HelpCircle size={28} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-sm font-medium text-gray-800 mb-1">Sign in to ask a question</p>
+              <p className="text-xs text-gray-500">
+                We need to know who to email once we reply — please sign in first, then come back to ask.
+              </p>
+            </div>
+          ) : submitted ? (
             <div className="text-center py-8">
               <CheckCircle2 size={32} className="mx-auto mb-3 text-green-500" />
               <p className="text-sm font-medium text-gray-800 mb-1">Question sent</p>

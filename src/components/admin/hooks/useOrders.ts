@@ -24,7 +24,7 @@ export function useOrders() {
   const fetchOrders = async () => {
     const { data } = await supabase
       .from('orders')
-      .select('*, items:order_items(*, products(name, images, image_url, supplier, import_fee_tier_id))')
+      .select('*, items:order_items(*, products(name, images, image_url, supplier, import_fee_tier_id, source_url))')
       .order('created_at', { ascending: false });
     if (data) setOrders(data);
   };
