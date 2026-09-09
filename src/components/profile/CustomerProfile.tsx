@@ -6,6 +6,7 @@ import AvatarPickerModal from './AvatarPickerModal';
 import QuickActionsGrid from './QuickActionsGrid';
 import ImportationSection from './ImportationSection';
 import VendorSection from './VendorSection';
+import OrderListPanel from './OrderListPanel';
 import ShippingAddressModal from './ShippingAddressModal';
 import InfoModal from './InfoModal';
 import TrackOrderModal from './TrackOrderModal';
@@ -27,6 +28,17 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
   const { store } = useStore();
   const { profile, orders, loading, error, userId, refetch, updateProfile } = useCustomerProfile();
   const [openModal, setOpenModal] = useState<ModalKind>(null);
+  const [activeSection, setActiveSection] = useState<'import' | 'vendor' | null>(null);
+  const [activeStatus, setActiveStatus] = useState<string | null>(null);
+
+  const selectImportTab = (tab: string | null) => {
+    setActiveSection(tab ? 'import' : null);
+    setActiveStatus(tab);
+  };
+  const selectVendorTab = (tab: string | null) => {
+    setActiveSection(tab ? 'vendor' : null);
+    setActiveStatus(tab);
+  };
 
   if (loading) {
     return (
@@ -107,8 +119,18 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
           </div>
         </div>
 
-        <ImportationSection orders={orders} themeColor={store.themeColor} />
-        <VendorSection orders={orders} themeColor={store.themeColor} onRetryPayment={onRetryPayment} />
+        <ImportationSection
+          orders={orders}
+          themeColor={store.themeColor}
+          activeTab={activeSection === 'import' ? activeStatus : null}
+          onSelectTab={selectImportTab}
+        />
+        <VendorSection
+          orders={orders}
+          themeColor={store.themeColor}
+          activeTab={activeSection === 'vendor' ? activeStatus : null}
+          onSelectTab={selectVendorTab}
+        />
 
         <QuickActionsGrid
           themeColor={store.themeColor}
@@ -119,6 +141,18 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
           onPolicies={() => setOpenModal('policies')}
           onWhyTrustUs={() => setOpenModal('trust')}
           onTrack={() => setOpenModal('track')}
+        />
+
+        {/* The order list for whichever status was tapped above renders
+            here — one fixed spot below Quick Actions/Why Trust Us/Track,
+            regardless of which section (Importation or Vendor) triggered
+            it. Tapping a status icon never pushes anything else down. */}
+        <OrderListPanel
+          orders={orders}
+          themeColor={store.themeColor}
+          activeSection={activeSection}
+          activeStatus={activeStatus}
+          onRetryPayment={onRetryPayment}
         />
 
         {orders.length === 0 && (
