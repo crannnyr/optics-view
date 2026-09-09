@@ -46,6 +46,9 @@ export interface Product {
   color_options?: string[];
   type_options?: string[];
   size_options?: string[];
+  color_option_deltas?: Record<string, number>;
+  type_option_deltas?: Record<string, number>;
+  size_option_deltas?: Record<string, number>;
   video_urls?: string[];
   custom_delivery_fee?: number;
 

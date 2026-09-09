@@ -1,6 +1,7 @@
 import { X, Minus, Plus, ShoppingBag } from 'lucide-react';
 import { CartItem } from '../lib/supabase';
 import { useStore } from '../context/StoreContext';
+import { getVariantAdjustedPrice } from '../lib/variantPricing';
 
 interface CartProps {
   isOpen: boolean;
@@ -27,8 +28,8 @@ export default function Cart({
   const wholesaleEnabled = !store.isRetailer;
 
   const subtotal = items.reduce((sum, item) => {
-    const isWholesale = wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price;
-    const priceToUse = isWholesale ? item.product.wholesale_price! : item.product.price;
+    const isWholesale = !!(wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price);
+    const priceToUse = getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale);
     return sum + (priceToUse * item.quantity);
   }, 0);
 
@@ -60,7 +61,8 @@ export default function Cart({
           ) : (
             items.map((item) => {
               const itemKey = `${item.product.id}-${item.selectedColor ?? ''}-${item.selectedType ?? ''}`;
-              const isWholesale = wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price;
+              const isWholesale = !!(wholesaleEnabled && item.quantity >= 7 && item.product.wholesale_price);
+              const unitPrice = getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale);
 
               return (
                 <div key={itemKey} className="flex gap-4">
@@ -76,7 +78,7 @@ export default function Cart({
                       <div className="flex justify-between items-start mb-1">
                         <h3 className="text-sm font-medium text-[#0d2818]">{item.product.name}</h3>
                         <p className="text-sm font-medium">
-                          ₦{(isWholesale ? item.product.wholesale_price! : item.product.price).toLocaleString()}
+                          ₦{unitPrice.toLocaleString()}
                         </p>
                       </div>
                       <p className="text-xs text-gray-500 line-clamp-1">{item.product.description}</p>

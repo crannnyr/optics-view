@@ -40,8 +40,6 @@ export default function ImportationSection({ orders, themeColor }: ImportationSe
 
   const filtered = importOrders.filter(o => o.import_status === activeTab);
 
-  if (importOrders.length === 0) return null;
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 px-1">

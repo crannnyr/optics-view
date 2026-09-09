@@ -3,6 +3,7 @@ import { supabase, CartItem, ImportFeeTier, PAYSTACK_PUBLIC_KEY } from '../../..
 import { useStore } from '../../../context/StoreContext';
 import { sendEmail } from '../../../lib/email';
 import { calculateImportFees, cartHasImportItems, cartHasNonImportItems } from '../../../lib/importFees';
+import { getVariantAdjustedPrice } from '../../../lib/variantPricing';
 
 export const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
@@ -285,9 +286,8 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
   const subtotal = items.reduce((sum, item) => {
     const threshold = item.product.wholesale_min_qty || 7;
-    const price = (item.quantity >= threshold && item.product.wholesale_price)
-      ? item.product.wholesale_price
-      : item.product.price;
+    const isWholesale = !!(item.quantity >= threshold && item.product.wholesale_price);
+    const price = getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale);
     return sum + (price * item.quantity);
   }, 0);
 
@@ -378,7 +378,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         if (store?.isRetailer && store?.id) {
           for (const item of items) {
             const costPrice = item.product.dropship_price || item.product.wholesale_price || 0;
-            const soldPrice = item.product.price;
+            const soldPrice = getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize);
             if (soldPrice > costPrice) {
               retailerProfit += (soldPrice - costPrice) * item.quantity;
             }
@@ -432,15 +432,15 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
         const orderItems = items.map(item => {
           const threshold = item.product.wholesale_min_qty || 7;
+          const isWholesale = !!(item.quantity >= threshold && item.product.wholesale_price);
           return {
             order_id: order.id,
             product_id: item.product.id,
             quantity: item.quantity,
-            price: (item.quantity >= threshold && item.product.wholesale_price)
-              ? item.product.wholesale_price
-              : item.product.price,
+            price: getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale),
             selected_color: item.selectedColor || null,
-            selected_type: item.selectedType || null
+            selected_type: item.selectedType || null,
+            selected_size: item.selectedSize || null
           };
         });
 

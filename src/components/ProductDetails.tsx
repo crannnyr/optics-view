@@ -3,6 +3,7 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
+import { getVariantAdjustedPrice, getOptionDelta } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
 import Cart from './Cart';
 
@@ -45,6 +46,11 @@ export default function ProductDetails({
   const currencyRates = useCurrencyRates();
 
   const isImportProduct = !!product.import_fee_tier_id;
+
+  // The price actually charged once color/type/size are picked — base price
+  // plus whatever delta each selected option carries. Most options carry no
+  // delta (0); some (a bigger storage tier, a premium finish) do.
+  const effectivePrice = getVariantAdjustedPrice(product, selectedColor, selectedType, selectedSize);
 
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
@@ -220,7 +226,10 @@ export default function ProductDetails({
             {product.compare_at_price && product.compare_at_price > product.price && (
               <span className="text-sm md:text-base text-gray-400 line-through">₦{product.compare_at_price.toLocaleString()}</span>
             )}
-            <span className="text-lg md:text-xl font-medium">₦{product.price.toLocaleString()}</span>
+            <span className="text-lg md:text-xl font-medium">₦{effectivePrice.toLocaleString()}</span>
+            {effectivePrice !== product.price && (
+              <span className="text-[10px] text-gray-400">(base ₦{product.price.toLocaleString()} + selected options)</span>
+            )}
             {!store.isRetailer && product.wholesale_price && (
               <span className="bg-green-100 text-green-800 text-[10px] px-1.5 py-0.5 rounded">
                 Buy {wholesaleMinQty}+ get {calculateDiscount()}% OFF (₦{product.wholesale_price.toLocaleString()} ea)
@@ -311,13 +320,16 @@ export default function ProductDetails({
                     {selectedColor && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedColor}</span>}
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {product.color_options!.map(color => (
-                      <button key={color} onClick={() => setSelectedColor(color)}
-                        className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedColor === color ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                        style={variantBtnStyle(selectedColor === color)}>
-                        {color}
-                      </button>
-                    ))}
+                    {product.color_options!.map(color => {
+                      const delta = getOptionDelta(product, 'color', color);
+                      return (
+                        <button key={color} onClick={() => setSelectedColor(color)}
+                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedColor === color ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
+                          style={variantBtnStyle(selectedColor === color)}>
+                          {color}{delta > 0 && ` (+₦${delta.toLocaleString()})`}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -329,13 +341,16 @@ export default function ProductDetails({
                     {selectedType && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedType}</span>}
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {product.type_options!.map(type => (
-                      <button key={type} onClick={() => setSelectedType(type)}
-                        className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedType === type ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                        style={variantBtnStyle(selectedType === type)}>
-                        {type}
-                      </button>
-                    ))}
+                    {product.type_options!.map(type => {
+                      const delta = getOptionDelta(product, 'type', type);
+                      return (
+                        <button key={type} onClick={() => setSelectedType(type)}
+                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedType === type ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
+                          style={variantBtnStyle(selectedType === type)}>
+                          {type}{delta > 0 && ` (+₦${delta.toLocaleString()})`}{delta < 0 && ` (₦${delta.toLocaleString()})`}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -347,13 +362,16 @@ export default function ProductDetails({
                     {selectedSize && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedSize}</span>}
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(product as any).size_options.map((size: string) => (
-                      <button key={size} onClick={() => setSelectedSize(size)}
-                        className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedSize === size ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                        style={variantBtnStyle(selectedSize === size)}>
-                        {size}
-                      </button>
-                    ))}
+                    {(product as any).size_options.map((size: string) => {
+                      const delta = getOptionDelta(product, 'size', size);
+                      return (
+                        <button key={size} onClick={() => setSelectedSize(size)}
+                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedSize === size ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
+                          style={variantBtnStyle(selectedSize === size)}>
+                          {size}{delta > 0 && ` (+₦${delta.toLocaleString()})`}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

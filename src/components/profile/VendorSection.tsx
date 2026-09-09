@@ -55,8 +55,6 @@ export default function VendorSection({ orders, themeColor, onRetryPayment }: Ve
     return `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
   };
 
-  if (vendorOrders.length === 0) return null;
-
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 px-1">
