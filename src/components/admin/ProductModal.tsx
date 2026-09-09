@@ -24,6 +24,12 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
     colorOptions,
     typeOptions,
     sizeOptions,
+    colorOptionDeltas,
+    typeOptionDeltas,
+    sizeOptionDeltas,
+    setColorDelta,
+    setTypeDelta,
+    setSizeDelta,
     newColor,
     setNewColor,
     newType,
@@ -86,6 +92,12 @@ export default function ProductModal({ product, onClose, onSuccess }: ProductMod
               colorOptions={colorOptions}
               typeOptions={typeOptions}
               sizeOptions={sizeOptions}
+              colorOptionDeltas={colorOptionDeltas}
+              typeOptionDeltas={typeOptionDeltas}
+              sizeOptionDeltas={sizeOptionDeltas}
+              setColorDelta={setColorDelta}
+              setTypeDelta={setTypeDelta}
+              setSizeDelta={setSizeDelta}
               newColor={newColor}
               setNewColor={setNewColor}
               newType={newType}

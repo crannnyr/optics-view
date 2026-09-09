@@ -107,6 +107,9 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
           </div>
         </div>
 
+        <ImportationSection orders={orders} themeColor={store.themeColor} />
+        <VendorSection orders={orders} themeColor={store.themeColor} onRetryPayment={onRetryPayment} />
+
         <QuickActionsGrid
           themeColor={store.themeColor}
           onShippingAddress={() => setOpenModal('address')}
@@ -117,9 +120,6 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
           onWhyTrustUs={() => setOpenModal('trust')}
           onTrack={() => setOpenModal('track')}
         />
-
-        <ImportationSection orders={orders} themeColor={store.themeColor} />
-        <VendorSection orders={orders} themeColor={store.themeColor} onRetryPayment={onRetryPayment} />
 
         {orders.length === 0 && (
           <div className="text-center py-16 text-gray-400">

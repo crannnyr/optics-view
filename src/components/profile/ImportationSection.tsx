@@ -22,7 +22,7 @@ const IMPORT_TABS: StatusTabDef[] = [
 // import items — the vendor items in a mixed order are handled entirely by
 // VendorSection, never duplicated here.
 export default function ImportationSection({ orders, themeColor }: ImportationSectionProps) {
-  const [activeTab, setActiveTab] = useState('to_pay');
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const importOrders = useMemo(() => {
     return orders
@@ -38,7 +38,7 @@ export default function ImportationSection({ orders, themeColor }: ImportationSe
     return c;
   }, [importOrders]);
 
-  const filtered = importOrders.filter(o => o.import_status === activeTab);
+  const filtered = activeTab ? importOrders.filter(o => o.import_status === activeTab) : [];
 
   return (
     <div className="space-y-4">
@@ -49,35 +49,44 @@ export default function ImportationSection({ orders, themeColor }: ImportationSe
         <p className="text-xs text-gray-400">China-sourced orders, tracked separately</p>
       </div>
 
-      <StatusTabRow tabs={IMPORT_TABS} activeTab={activeTab} onSelect={setActiveTab} counts={counts} themeColor={themeColor} />
+      <StatusTabRow
+        tabs={IMPORT_TABS}
+        activeTab={activeTab}
+        onSelect={key => setActiveTab(prev => prev === key ? null : key)}
+        counts={counts}
+        themeColor={themeColor}
+      />
 
-      <div className="space-y-4">
-        {filtered.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">
-            <Package size={28} className="mx-auto mb-2 opacity-30" />
-            <p className="text-xs">No orders here yet</p>
-          </div>
-        ) : (
-          filtered.map(order => (
-            <div key={order.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                <div>
-                  <p className="font-mono text-[10px] text-gray-400">#{order.id.slice(0, 8)}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {new Date(order.created_at).toLocaleDateString('en-NG')}
+      {/* No list, no reserved space, until a status icon is tapped. */}
+      {activeTab && (
+        <div className="space-y-4">
+          {filtered.length === 0 ? (
+            <div className="text-center py-10 text-gray-400">
+              <Package size={28} className="mx-auto mb-2 opacity-30" />
+              <p className="text-xs">No orders here yet</p>
+            </div>
+          ) : (
+            filtered.map(order => (
+              <div key={order.id} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                  <div>
+                    <p className="font-mono text-[10px] text-gray-400">#{order.id.slice(0, 8)}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {new Date(order.created_at).toLocaleDateString('en-NG')}
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium" style={{ color: themeColor }}>
+                    ₦{order.items.reduce((sum: number, i: any) => sum + i.quantity * i.price, 0).toLocaleString()}
                   </p>
                 </div>
-                <p className="text-sm font-medium" style={{ color: themeColor }}>
-                  ₦{order.items.reduce((sum: number, i: any) => sum + i.quantity * i.price, 0).toLocaleString()}
-                </p>
+                <div className="p-4 space-y-3">
+                  {order.items.map((item: any) => <OrderItemRow key={item.id} item={item} />)}
+                </div>
               </div>
-              <div className="p-4 space-y-3">
-                {order.items.map((item: any) => <OrderItemRow key={item.id} item={item} />)}
-              </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }

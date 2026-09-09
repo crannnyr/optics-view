@@ -7,6 +7,12 @@ interface ProductVariantsProps {
   colorOptions: string[];
   typeOptions: string[];
   sizeOptions: string[];
+  colorOptionDeltas: Record<string, number>;
+  typeOptionDeltas: Record<string, number>;
+  sizeOptionDeltas: Record<string, number>;
+  setColorDelta: (option: string, delta: number) => void;
+  setTypeDelta: (option: string, delta: number) => void;
+  setSizeDelta: (option: string, delta: number) => void;
   newColor: string;
   setNewColor: (v: string) => void;
   newType: string;
@@ -21,8 +27,27 @@ interface ProductVariantsProps {
   removeSize: (v: string) => void;
 }
 
+// A small "+₦" input sitting next to each variant pill — lets admin set how
+// much more (or, with a negative number, less) that specific option costs
+// over the product's base price. Left blank/0 means the option carries no
+// price change, which is the common case.
+function DeltaInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <input
+      type="number"
+      value={value || ''}
+      onChange={e => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+      placeholder="+₦0"
+      title="Price added when this option is selected"
+      className="w-20 border border-gray-200 px-1.5 py-0.5 text-[10px] rounded outline-none focus:border-[#0d2818]"
+    />
+  );
+}
+
 export default function ProductVariants({
   colorOptions, typeOptions, sizeOptions,
+  colorOptionDeltas, typeOptionDeltas, sizeOptionDeltas,
+  setColorDelta, setTypeDelta, setSizeDelta,
   newColor, setNewColor, newType, setNewType, newSize, setNewSize,
   addColor, removeColor, addType, removeType, addSize, removeSize,
 }: ProductVariantsProps) {
@@ -59,6 +84,7 @@ export default function ProductVariants({
           {colorOptions.map((color, i) => (
             <div key={i} className="bg-gray-100 px-3 py-1 text-xs flex items-center gap-2 rounded">
               <span>{color}</span>
+              <DeltaInput value={colorOptionDeltas[color] ?? 0} onChange={v => setColorDelta(color, v)} />
               <button type="button" onClick={() => removeColor(color)} className="text-red-500 hover:text-red-700">
                 <X size={12} />
               </button>
@@ -88,6 +114,7 @@ export default function ProductVariants({
           {typeOptions.map((type, i) => (
             <div key={i} className="bg-gray-100 px-3 py-1 text-xs flex items-center gap-2 rounded">
               <span>{type}</span>
+              <DeltaInput value={typeOptionDeltas[type] ?? 0} onChange={v => setTypeDelta(type, v)} />
               <button type="button" onClick={() => removeType(type)} className="text-red-500 hover:text-red-700">
                 <X size={12} />
               </button>
@@ -171,6 +198,7 @@ export default function ProductVariants({
           {sizeOptions.map((size, i) => (
             <div key={i} className="bg-gray-100 px-3 py-1 text-xs flex items-center gap-2 rounded">
               <span>{size}</span>
+              <DeltaInput value={sizeOptionDeltas[size] ?? 0} onChange={v => setSizeDelta(size, v)} />
               <button type="button" onClick={() => removeSize(size)} className="text-red-500 hover:text-red-700">
                 <X size={12} />
               </button>

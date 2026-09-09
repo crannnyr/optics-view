@@ -29,6 +29,9 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
   const [colorOptions, setColorOptions] = useState<string[]>([]);
   const [typeOptions, setTypeOptions] = useState<string[]>([]);
   const [sizeOptions, setSizeOptions] = useState<string[]>([]);
+  const [colorOptionDeltas, setColorOptionDeltas] = useState<Record<string, number>>({});
+  const [typeOptionDeltas, setTypeOptionDeltas] = useState<Record<string, number>>({});
+  const [sizeOptionDeltas, setSizeOptionDeltas] = useState<Record<string, number>>({});
   const [newColor, setNewColor] = useState('');
   const [newType, setNewType] = useState('');
   const [newSize, setNewSize] = useState('');
@@ -100,6 +103,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       setImages(product.images || [product.image_url]);
       setColorOptions(product.color_options || []);
       setTypeOptions(product.type_options || []);
+      setSizeOptions(product.size_options || []);
+      setColorOptionDeltas(product.color_option_deltas || {});
+      setTypeOptionDeltas(product.type_option_deltas || {});
+      setSizeOptionDeltas(product.size_option_deltas || {});
     }
   }, [product]);
 
@@ -191,7 +198,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     setNewColor('');
   };
 
-  const removeColor = (color: string) => setColorOptions(colorOptions.filter(c => c !== color));
+  const removeColor = (color: string) => {
+    setColorOptions(colorOptions.filter(c => c !== color));
+    setColorOptionDeltas(prev => { const next = { ...prev }; delete next[color]; return next; });
+  };
 
   const addType = () => {
     if (!newType.trim()) return;
@@ -200,7 +210,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     setNewType('');
   };
 
-  const removeType = (type: string) => setTypeOptions(typeOptions.filter(t => t !== type));
+  const removeType = (type: string) => {
+    setTypeOptions(typeOptions.filter(t => t !== type));
+    setTypeOptionDeltas(prev => { const next = { ...prev }; delete next[type]; return next; });
+  };
 
   const addSize = () => {
     if (!newSize.trim()) return;
@@ -209,7 +222,23 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     setNewSize('');
   };
 
-  const removeSize = (size: string) => setSizeOptions(sizeOptions.filter(s => s !== size));
+  const removeSize = (size: string) => {
+    setSizeOptions(sizeOptions.filter(s => s !== size));
+    setSizeOptionDeltas(prev => { const next = { ...prev }; delete next[size]; return next; });
+  };
+
+  // Sets (or clears, at 0) the NGN amount added to the base price when this
+  // specific color/type/size option is picked at checkout. Most options
+  // carry no delta — only set one where the option genuinely costs more
+  // (a bigger storage tier, a premium finish, a larger size).
+  const setColorDelta = (color: string, delta: number) =>
+    setColorOptionDeltas(prev => delta === 0 ? (({ [color]: _, ...rest }) => rest)(prev) : { ...prev, [color]: delta });
+
+  const setTypeDelta = (type: string, delta: number) =>
+    setTypeOptionDeltas(prev => delta === 0 ? (({ [type]: _, ...rest }) => rest)(prev) : { ...prev, [type]: delta });
+
+  const setSizeDelta = (size: string, delta: number) =>
+    setSizeOptionDeltas(prev => delta === 0 ? (({ [size]: _, ...rest }) => rest)(prev) : { ...prev, [size]: delta });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,6 +265,10 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
       images,
       color_options: colorOptions.length > 0 ? colorOptions : null,
       type_options: typeOptions.length > 0 ? typeOptions : null,
+      size_options: sizeOptions.length > 0 ? sizeOptions : null,
+      color_option_deltas: colorOptionDeltas,
+      type_option_deltas: typeOptionDeltas,
+      size_option_deltas: sizeOptionDeltas,
       is_active: true,
     };
 
@@ -301,6 +334,12 @@ export function useProductModal({ product, onSuccess }: UseProductModalProps) {
     colorOptions,
     typeOptions,
     sizeOptions,
+    colorOptionDeltas,
+    typeOptionDeltas,
+    sizeOptionDeltas,
+    setColorDelta,
+    setTypeDelta,
+    setSizeDelta,
     newColor,
     setNewColor,
     newType,

@@ -26,7 +26,7 @@ const SUPPORT_EMAIL = 'support@opticsview.store';
 // using the pre-existing orders.status pipeline this platform already runs
 // on (pending/approved/shipped/delivered/rejected/unavailable/refunded).
 export default function VendorSection({ orders, themeColor, onRetryPayment }: VendorSectionProps) {
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState<string | null>(null);
 
   const vendorOrders = useMemo(() => {
     return orders
@@ -42,7 +42,7 @@ export default function VendorSection({ orders, themeColor, onRetryPayment }: Ve
     return c;
   }, [vendorOrders]);
 
-  const filtered = vendorOrders.filter(o => o.status === activeTab);
+  const filtered = activeTab ? vendorOrders.filter(o => o.status === activeTab) : [];
 
   const canRetryPayment = (order: any) =>
     order.status === 'pending' && (!order.payments || order.payments.length === 0);
@@ -64,8 +64,15 @@ export default function VendorSection({ orders, themeColor, onRetryPayment }: Ve
         <p className="text-xs text-gray-400">Everything else from OpticsView's marketplace</p>
       </div>
 
-      <StatusTabRow tabs={VENDOR_TABS} activeTab={activeTab} onSelect={setActiveTab} counts={counts} themeColor={themeColor} />
+      <StatusTabRow
+        tabs={VENDOR_TABS}
+        activeTab={activeTab}
+        onSelect={key => setActiveTab(prev => prev === key ? null : key)}
+        counts={counts}
+        themeColor={themeColor}
+      />
 
+      {activeTab && (
       <div className="space-y-4">
         {filtered.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
@@ -153,6 +160,7 @@ export default function VendorSection({ orders, themeColor, onRetryPayment }: Ve
           })
         )}
       </div>
+      )}
     </div>
   );
 }

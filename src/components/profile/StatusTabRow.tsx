@@ -8,7 +8,7 @@ export interface StatusTabDef {
 
 interface StatusTabRowProps {
   tabs: StatusTabDef[];
-  activeTab: string;
+  activeTab: string | null;
   onSelect: (key: string) => void;
   counts: Record<string, number>;
   themeColor: string;

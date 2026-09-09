@@ -3,8 +3,9 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
-import { getVariantAdjustedPrice, getOptionDelta } from '../lib/variantPricing';
+import { getVariantAdjustedPrice } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
+import VariantPicker from './VariantPicker';
 import Cart from './Cart';
 
 interface ProductDetailsProps {
@@ -154,10 +155,6 @@ export default function ProductDetails({
   const suggestedProducts = categoryProducts.filter(p => p.id !== product.id).slice(0, 6);
   const currentCategoryIndex = categoryProducts.findIndex(p => p.id === product.id);
   const totalInCategory = categoryProducts.length;
-
-  const variantBtnStyle = (active: boolean) => ({
-    ...(active ? { backgroundColor: store.themeColor, borderColor: store.themeColor } : {}),
-  });
 
   return (
     <div className="min-h-screen bg-white pb-20" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -314,66 +311,24 @@ export default function ProductDetails({
           {(hasColors || hasTypes || hasSizes) && (
             <div className="border-t border-b border-gray-100 py-4 md:py-6 mb-6 md:mb-8 space-y-4">
               {hasColors && (
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-500 mb-3">
-                    Select Color
-                    {selectedColor && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedColor}</span>}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {product.color_options!.map(color => {
-                      const delta = getOptionDelta(product, 'color', color);
-                      return (
-                        <button key={color} onClick={() => setSelectedColor(color)}
-                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedColor === color ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                          style={variantBtnStyle(selectedColor === color)}>
-                          {color}{delta > 0 && ` (+₦${delta.toLocaleString()})`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <VariantPicker
+                  label="Color" options={product.color_options!} selected={selectedColor}
+                  onSelect={setSelectedColor} kind="color" product={product} themeColor={store.themeColor}
+                />
               )}
 
               {hasTypes && (
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-500 mb-3">
-                    Select Type
-                    {selectedType && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedType}</span>}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {product.type_options!.map(type => {
-                      const delta = getOptionDelta(product, 'type', type);
-                      return (
-                        <button key={type} onClick={() => setSelectedType(type)}
-                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedType === type ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                          style={variantBtnStyle(selectedType === type)}>
-                          {type}{delta > 0 && ` (+₦${delta.toLocaleString()})`}{delta < 0 && ` (₦${delta.toLocaleString()})`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <VariantPicker
+                  label="Type" options={product.type_options!} selected={selectedType}
+                  onSelect={setSelectedType} kind="type" product={product} themeColor={store.themeColor}
+                />
               )}
 
               {hasSizes && (
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-gray-500 mb-3">
-                    Select Size
-                    {selectedSize && <span className="ml-2 normal-case font-medium" style={{ color: store.themeColor }}>— {selectedSize}</span>}
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {(product as any).size_options.map((size: string) => {
-                      const delta = getOptionDelta(product, 'size', size);
-                      return (
-                        <button key={size} onClick={() => setSelectedSize(size)}
-                          className={`px-3 md:px-4 py-2 text-xs md:text-sm border transition-colors ${selectedSize === size ? 'text-white' : 'bg-white text-gray-700 border-gray-300'}`}
-                          style={variantBtnStyle(selectedSize === size)}>
-                          {size}{delta > 0 && ` (+₦${delta.toLocaleString()})`}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <VariantPicker
+                  label="Size" options={(product as any).size_options} selected={selectedSize}
+                  onSelect={setSelectedSize} kind="size" product={product} themeColor={store.themeColor}
+                />
               )}
             </div>
           )}
@@ -400,7 +355,7 @@ export default function ProductDetails({
             {loadingReviews ? (
               <p className="text-xs text-gray-400">Loading reviews...</p>
             ) : reviews.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No reviews yet.</p>
+              <p className="text-xs text-gray-400 italic">Be the first to review.</p>
             ) : (
               <div className="space-y-4 md:space-y-6">
                 {reviews.map(review => (
