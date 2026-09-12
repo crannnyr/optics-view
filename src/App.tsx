@@ -339,42 +339,44 @@ function App() {
     navigateTo('checkout', '/checkout');
   };
 
-  const addToCart = (product: Product, quantity = 1, selectedColor?: string, selectedType?: string) => {
+  const addToCart = (product: Product, quantity = 1, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air' | 'sea') => {
     setCart(prev => {
       const exists = prev.find(item =>
         item.product.id === product.id &&
         item.selectedColor === selectedColor &&
-        item.selectedType === selectedType
+        item.selectedType === selectedType &&
+        item.selectedSize === selectedSize
       );
       if (exists) {
         return prev.map(item =>
           item.product.id === product.id &&
           item.selectedColor === selectedColor &&
-          item.selectedType === selectedType
+          item.selectedType === selectedType &&
+          item.selectedSize === selectedSize
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
       }
-      return [...prev, { product, quantity, selectedColor, selectedType }];
+      return [...prev, { product, quantity, selectedColor, selectedType, selectedSize, selectedShipping }];
     });
   };
 
-  const updateQuantity = (id: string, qty: number, selectedColor?: string, selectedType?: string) => {
+  const updateQuantity = (id: string, qty: number, selectedColor?: string, selectedType?: string, selectedSize?: string) => {
     if (qty <= 0) {
       setCart(prev => prev.filter(i =>
-        !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType)
+        !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType && i.selectedSize === selectedSize)
       ));
     } else {
       setCart(prev => prev.map(i =>
-        i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType
+        i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType && i.selectedSize === selectedSize
           ? { ...i, quantity: qty } : i
       ));
     }
   };
 
-  const removeFromCart = (id: string, selectedColor?: string, selectedType?: string) => {
+  const removeFromCart = (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => {
     setCart(prev => prev.filter(i =>
-      !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType)
+      !(i.product.id === id && i.selectedColor === selectedColor && i.selectedType === selectedType && i.selectedSize === selectedSize)
     ));
   };
 

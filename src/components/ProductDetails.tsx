@@ -3,6 +3,7 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
+import { useImportShippingRates, calculateAirFee, calculateSeaFee, isHeavyShipOnly } from '../lib/importShippingCalc';
 import { useShippingTimingEnabled } from '../lib/shippingSettings';
 import { getVariantAdjustedPrice } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
@@ -12,7 +13,7 @@ import Cart from './Cart';
 interface ProductDetailsProps {
   product: Product;
   onBack: () => void;
-  onAddToCart: (product: Product, quantity: number, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
+  onAddToCart: (product: Product, quantity: number, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air' | 'sea') => void;
   cart: CartItem[];
   onUpdateQuantity: (id: string, qty: number, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
@@ -45,10 +46,13 @@ export default function ProductDetails({
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [addedToCart, setAddedToCart] = useState(false);
   const [showAskQuestion, setShowAskQuestion] = useState(false);
-  const currencyRates = useCurrencyRates();
 
   const isImportProduct = !!product.import_fee_tier_id;
   const showShippingTiming = useShippingTimingEnabled();
+  const importRates = useImportShippingRates();
+  const currencyRates = useCurrencyRates();
+  const [selectedShipping, setSelectedShipping] = useState<'air' | 'sea' | null>(null);
+  const heavyShipOnly = isHeavyShipOnly(product);
 
   // The price actually charged once color/type/size are picked — base price
   // plus whatever delta each selected option carries. Most options carry no
@@ -138,7 +142,8 @@ export default function ProductDetails({
     if (hasColors && !selectedColor) { alert('Please select a color'); return; }
     if (hasTypes && !selectedType) { alert('Please select a type'); return; }
     if (hasSizes && !selectedSize) { alert('Please select a size'); return; }
-    onAddToCart(product, quantity, selectedColor, selectedType, selectedSize);
+    if (isImportProduct && !heavyShipOnly && !selectedShipping) { alert('Please choose Flight or Sea shipping'); return; }
+    onAddToCart(product, quantity, selectedColor, selectedType, selectedSize, isImportProduct ? (heavyShipOnly ? 'sea' : selectedShipping ?? undefined) : undefined);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
   };
@@ -261,27 +266,66 @@ export default function ProductDetails({
           </div>
 
           {isImportProduct && (
-            <div className="border border-gray-100 rounded-lg p-3 mb-5 md:mb-6 space-y-2">
+            <div className="border border-gray-100 rounded-lg p-3 mb-5 md:mb-6 space-y-3">
               {product.origin_country && (
                 <div className="flex items-center gap-1.5 text-[11px] text-gray-600">
                   <ShieldCheck size={12} style={{ color: store.themeColor }} />
                   Sourced from verified manufacturers in {product.origin_country}
                 </div>
               )}
-              <div className="flex items-center gap-3 text-[11px] text-gray-600">
-                {showShippingTiming && (
-                  <>
-                    <span className="flex items-center gap-1">
-                      <Plane size={12} style={{ color: store.themeColor }} />
-                      Flight 20–30 days
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Ship size={12} style={{ color: store.themeColor }} />
-                      Sea 60–90 days
-                    </span>
-                  </>
-                )}
-              </div>
+
+              {heavyShipOnly ? (
+                // Bulky/heavy items skip the choice entirely — sea only, flat rate.
+                <div className="flex items-center justify-between bg-gray-50 rounded-md p-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] text-gray-700">
+                    <Ship size={13} style={{ color: store.themeColor }} />
+                    {showShippingTiming ? 'Sea shipping · 60–90 days' : 'Sea shipping'}
+                    <span className="text-[10px] text-gray-400">(large item — sea only)</span>
+                  </div>
+                  <span className="text-xs font-medium" style={{ color: store.themeColor }}>
+                    +₦{importRates.heavy_flat_fee_ngn.toLocaleString()}
+                  </span>
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-gray-400 uppercase tracking-wide">Choose how it ships</p>
+                  {(['air', 'sea'] as const).map(method => {
+                    const fee = method === 'air'
+                      ? calculateAirFee(product, importRates)
+                      : calculateSeaFee(product, importRates, currencyRates.usd_to_ngn);
+                    const isSelected = selectedShipping === method;
+                    return (
+                      <button
+                        key={method}
+                        onClick={() => setSelectedShipping(method)}
+                        className="w-full flex items-center justify-between rounded-md p-2.5 border transition-colors"
+                        style={isSelected
+                          ? { borderColor: store.themeColor, backgroundColor: `${store.themeColor}0d` }
+                          : { borderColor: '#e5e7eb' }}
+                      >
+                        <div className="flex items-center gap-1.5 text-[11px] text-gray-700">
+                          {method === 'air'
+                            ? <Plane size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />
+                            : <Ship size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />}
+                          {method === 'air' ? 'Flight' : 'Sea'}
+                          {showShippingTiming && (
+                            <span className="text-[10px] text-gray-400">
+                              {method === 'air' ? '· 20–30 days' : '· 60–90 days'}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-medium" style={{ color: isSelected ? store.themeColor : '#374151' }}>
+                          +₦{fee.toLocaleString()}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  {!selectedShipping && (
+                    <p className="text-[10px] text-amber-600">Pick a shipping method before adding to cart</p>
+                  )}
+                </div>
+              )}
+
               <div className="flex items-center gap-3 pt-1.5 border-t border-gray-100">
                 <button
                   onClick={() => setShowAskQuestion(true)}
