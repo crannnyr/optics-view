@@ -7,7 +7,7 @@ interface SeaMinTier {
   min_fee_ngn: number;
 }
 
-interface ImportShippingRates {
+export interface ImportShippingRates {
   air_ngn_per_gram: number;
   sea_usd_per_cbm: number;
   sea_min_tiers: SeaMinTier[];

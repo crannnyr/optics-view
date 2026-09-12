@@ -1,6 +1,6 @@
 import { NIGERIAN_STATES } from '../hooks/useCheckout';
 import PickupLocationPicker from './PickupLocationPicker';
-import { ImportFeeBreakdown } from '../../../lib/importFees';
+import { ImportShippingBreakdown } from '../../../lib/importFees';
 
 interface ShippingData {
   state: string; city: string; lga: string; landmark: string; area: string; phone1: string; phone2: string;
@@ -26,7 +26,7 @@ interface ShippingStepProps {
   homeEta: string;
   hasImportItems: boolean;
   hasNonImportItems: boolean;
-  importFeeBreakdown: ImportFeeBreakdown;
+  importFeeBreakdown: ImportShippingBreakdown;
 }
 
 export default function ShippingStep({
@@ -238,10 +238,10 @@ export default function ShippingStep({
           </div>
         )}
 
-        {hasImportItems && importFeeBreakdown.lines.length > 1 && (
+        {hasImportItems && (
           <p className="text-[11px] text-gray-400 leading-relaxed pt-0.5">
-            Only your highest-fee imported item is charged in full — every other imported item in this
-            order gets a discount on its shipping &amp; clearance fee.
+            Each imported item is priced individually by its own weight/size and the shipping
+            method you chose (flight or sea) on its product page.
           </p>
         )}
 

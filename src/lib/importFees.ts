@@ -1,99 +1,65 @@
-import { CartItem, ImportFeeTier } from './supabase';
+import { CartItem } from './supabase';
+import { calculateAirFee, calculateSeaFee, isHeavyShipOnly, ImportShippingRates } from './importShippingCalc';
 
-// Shared shipping+clearance calculation for imported (admin-sourced,
-// supplier 'jumia'/'shein') products. Vendor products never touch this —
+// Shared import (admin-sourced, supplier 'jumia'/'shein') shipping
+// calculation for the checkout total. Vendor products never touch this —
 // they keep using the existing per-state delivery_settings flow in
-// useCheckout.ts untouched.
+// useCheckout.ts, completely untouched and unaffected by anything here.
 //
-// Rule agreed with Jenny: within the import portion of the cart, the
-// single MOST EXPENSIVE unit (by its own tier's combined fee) is charged
-// in full; every other imported unit — regardless of which product it is —
-// is charged at (100 - discount%) of ITS OWN tier's combined fee. This
-// mirrors real batching economics (packing more items barely adds handling
-// cost per extra unit) while staying simple: each item is always discounted
-// against its own fee, never against someone else's.
+// Each import line is priced on its own real weight/dimensions and the
+// method the customer picked on the product page (air or sea), or the flat
+// heavy rate for ship_only bulky items. There is no cart-wide discount —
+// unlike the old flat-tier system, this pricing already reflects each
+// item's actual footprint, so no additional adjustment is layered on top.
 
-export interface ImportFeeLine {
+export interface ImportShippingLine {
   cartItemIndex: number;
   productName: string;
-  unitIndex: number; // which physical unit within that line (0-based)
-  tierName: string;
-  fullFee: number;
-  chargedFee: number;
-  isFullPriceUnit: boolean;
+  method: 'air' | 'sea' | 'heavy';
+  quantity: number;
+  unitFee: number;
+  lineTotal: number;
 }
 
-export interface ImportFeeBreakdown {
+export interface ImportShippingBreakdown {
   hasImportItems: boolean;
-  lines: ImportFeeLine[];
+  lines: ImportShippingLine[];
   total: number;
-  fullPriceUnitLine: ImportFeeLine | null;
 }
 
-// Expands cart items into individual physical units (quantity flattened),
-// since the "first unit full price, rest discounted" rule operates per
-// physical unit, not per distinct product line.
-function expandImportUnits(items: CartItem[], tiersById: Map<string, ImportFeeTier>) {
-  const units: { cartItemIndex: number; productName: string; unitIndex: number; tier: ImportFeeTier }[] = [];
+export function calculateImportShipping(
+  items: CartItem[],
+  rates: ImportShippingRates,
+  usdToNgn: number
+): ImportShippingBreakdown {
+  const lines: ImportShippingLine[] = [];
 
   items.forEach((item, cartItemIndex) => {
-    const tierId = item.product.import_fee_tier_id;
-    if (!tierId) return; // not an import product — handled by normal delivery flow
-    const tier = tiersById.get(tierId);
-    if (!tier) return; // tier not loaded/deleted — fee is skipped rather than guessed
+    if (!isImportProduct(item)) return;
 
-    for (let unitIndex = 0; unitIndex < item.quantity; unitIndex++) {
-      units.push({ cartItemIndex, productName: item.product.name, unitIndex, tier });
-    }
+    const heavy = isHeavyShipOnly(item.product);
+    const method: 'air' | 'sea' | 'heavy' = heavy ? 'heavy' : (item.selectedShipping ?? 'sea');
+
+    const unitFee = heavy
+      ? rates.heavy_flat_fee_ngn
+      : method === 'air'
+        ? calculateAirFee(item.product, rates)
+        : calculateSeaFee(item.product, rates, usdToNgn);
+
+    lines.push({
+      cartItemIndex,
+      productName: item.product.name,
+      method,
+      quantity: item.quantity,
+      unitFee,
+      lineTotal: unitFee * item.quantity,
+    });
   });
-
-  return units;
-}
-
-export function calculateImportFees(items: CartItem[], tiers: ImportFeeTier[]): ImportFeeBreakdown {
-  const tiersById = new Map(tiers.map(t => [t.id, t]));
-  const units = expandImportUnits(items, tiersById);
-
-  if (units.length === 0) {
-    return { hasImportItems: false, lines: [], total: 0, fullPriceUnitLine: null };
-  }
-
-  const withFullFee = units.map(u => ({ ...u, fullFee: u.tier.shipping_fee + u.tier.clearance_fee }));
-
-  // The single most expensive unit across the whole import portion of the
-  // cart is the one charged in full — every other unit gets its own
-  // tier's discount applied, so a cart of 3 Standard + 1 Oversized item
-  // charges the Oversized item in full and discounts the 3 Standard units.
-  let fullPriceIdx = 0;
-  withFullFee.forEach((u, i) => {
-    if (u.fullFee > withFullFee[fullPriceIdx].fullFee) fullPriceIdx = i;
-  });
-
-  const lines: ImportFeeLine[] = withFullFee.map((u, i) => {
-    const isFullPriceUnit = i === fullPriceIdx;
-    const discountPercent = u.tier.additional_item_discount_percent;
-    const chargedFee = isFullPriceUnit
-      ? u.fullFee
-      : Math.round(u.fullFee * (1 - discountPercent / 100));
-
-    return {
-      cartItemIndex: u.cartItemIndex,
-      productName: u.productName,
-      unitIndex: u.unitIndex,
-      tierName: u.tier.name,
-      fullFee: u.fullFee,
-      chargedFee,
-      isFullPriceUnit,
-    };
-  });
-
-  const total = lines.reduce((sum, l) => sum + l.chargedFee, 0);
 
   return {
-    hasImportItems: true,
+    hasImportItems: lines.length > 0,
     lines,
-    total,
-    fullPriceUnitLine: lines[fullPriceIdx] ?? null,
+    total: lines.reduce((sum, l) => sum + l.lineTotal, 0),
   };
 }
 

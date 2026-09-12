@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { supabase, CartItem, ImportFeeTier, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
+import { supabase, CartItem, PAYSTACK_PUBLIC_KEY } from '../../../lib/supabase';
 import { useStore } from '../../../context/StoreContext';
 import { sendEmail } from '../../../lib/email';
-import { calculateImportFees, cartHasImportItems, cartHasNonImportItems } from '../../../lib/importFees';
+import { calculateImportShipping, cartHasImportItems, cartHasNonImportItems, isImportProduct } from '../../../lib/importFees';
 import { getVariantAdjustedPrice } from '../../../lib/variantPricing';
+import { useImportShippingRates, isHeavyShipOnly } from '../../../lib/importShippingCalc';
+import { useCurrencyRates } from '../../../lib/currency';
 
 export const NIGERIAN_STATES = [
   "Abia", "Adamawa", "Akwa Ibom", "Anambra", "Bauchi", "Bayelsa", "Benue", "Borno", 
@@ -103,11 +105,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [senderBankName, setSenderBankName] = useState('');
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
-  const [importFeeTiers, setImportFeeTiers] = useState<ImportFeeTier[]>([]);
+  const importRates = useImportShippingRates();
+  const currencyRates = useCurrencyRates();
 
   const hasImportItems = cartHasImportItems(items);
   const hasNonImportItems = cartHasNonImportItems(items);
-  const importFeeBreakdown = calculateImportFees(items, importFeeTiers);
+  const importFeeBreakdown = calculateImportShipping(items, importRates, currencyRates.usd_to_ngn);
 
   // Imported items ship as part of a consolidated batch that clears
   // customs and moves through the Jumia network as one unit — there's no
@@ -202,12 +205,6 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
       deliveryData.forEach(row => { map[row.state] = row.delivery_fee; });
       setDeliveryFees(map);
     }
-
-    const { data: tiersData } = await supabase
-      .from('import_fee_tiers')
-      .select('id, name, shipping_fee, clearance_fee, additional_item_discount_percent, sort_order')
-      .order('sort_order');
-    if (tiersData) setImportFeeTiers(tiersData as ImportFeeTier[]);
   };
 
   const loadRetryOrder = async (orderId: string) => {
@@ -433,6 +430,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         const orderItems = items.map(item => {
           const threshold = item.product.wholesale_min_qty || 7;
           const isWholesale = !!(item.quantity >= threshold && item.product.wholesale_price);
+          const isImport = isImportProduct(item);
           return {
             order_id: order.id,
             product_id: item.product.id,
@@ -440,7 +438,8 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
             price: getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale),
             selected_color: item.selectedColor || null,
             selected_type: item.selectedType || null,
-            selected_size: item.selectedSize || null
+            selected_size: item.selectedSize || null,
+            selected_shipping: isImport ? (isHeavyShipOnly(item.product) ? 'heavy' : (item.selectedShipping ?? 'sea')) : null
           };
         });
 
