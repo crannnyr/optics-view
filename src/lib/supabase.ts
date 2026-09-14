@@ -163,7 +163,7 @@ export interface CartItem {
   selectedColor?: string;
   selectedType?: string;
   selectedSize?: string;  // ← added
-  selectedShipping?: 'air' | 'sea';  // import products only — customer's fly/sea choice
+  selectedShipping?: 'air_express' | 'air_normal' | 'sea';  // import products only — customer's shipping choice
 }
 
 export interface RetailerRegistration {

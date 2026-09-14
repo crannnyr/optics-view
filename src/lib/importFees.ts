@@ -12,10 +12,12 @@ import { calculateAirFee, calculateSeaFee, isHeavyShipOnly, ImportShippingRates 
 // unlike the old flat-tier system, this pricing already reflects each
 // item's actual footprint, so no additional adjustment is layered on top.
 
+export type ImportShippingMethod = 'air_express' | 'air_normal' | 'sea' | 'heavy';
+
 export interface ImportShippingLine {
   cartItemIndex: number;
   productName: string;
-  method: 'air' | 'sea' | 'heavy';
+  method: ImportShippingMethod;
   quantity: number;
   unitFee: number;
   lineTotal: number;
@@ -38,13 +40,13 @@ export function calculateImportShipping(
     if (!isImportProduct(item)) return;
 
     const heavy = isHeavyShipOnly(item.product);
-    const method: 'air' | 'sea' | 'heavy' = heavy ? 'heavy' : (item.selectedShipping ?? 'sea');
+    const method: ImportShippingMethod = heavy ? 'heavy' : (item.selectedShipping ?? 'sea');
 
     const unitFee = heavy
       ? rates.heavy_flat_fee_ngn
-      : method === 'air'
-        ? calculateAirFee(item.product, rates)
-        : calculateSeaFee(item.product, rates, usdToNgn);
+      : method === 'sea'
+        ? calculateSeaFee(item.product, rates)
+        : calculateAirFee(item.product, rates, method, usdToNgn);
 
     lines.push({
       cartItemIndex,

@@ -114,7 +114,7 @@ export default function ShippingStep({
           ) : hasImportItems ? (
             <p className="text-xs text-gray-500 leading-relaxed">
               Your imported item(s) are grouped with other orders into one shipment from China. Delivery
-              timing depends on whether an item ships by air or sea — check each product page for its
+              timing depends on the shipping method chosen for each item (Express, Air, or Sea) — check each product page for its
               exact estimate — and you'll pick it up from the station you chose above.
             </p>
           ) : (
@@ -241,7 +241,7 @@ export default function ShippingStep({
         {hasImportItems && (
           <p className="text-[11px] text-gray-400 leading-relaxed pt-0.5">
             Each imported item is priced individually by its own weight/size and the shipping
-            method you chose (flight or sea) on its product page.
+            method you chose (Express, Air, or Sea) on its product page.
           </p>
         )}
 

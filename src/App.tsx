@@ -339,7 +339,7 @@ function App() {
     navigateTo('checkout', '/checkout');
   };
 
-  const addToCart = (product: Product, quantity = 1, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air' | 'sea') => {
+  const addToCart = (product: Product, quantity = 1, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air_express' | 'air_normal' | 'sea') => {
     setCart(prev => {
       const exists = prev.find(item =>
         item.product.id === product.id &&

@@ -3,7 +3,7 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
-import { useImportShippingRates, calculateAirFee, calculateSeaFee, isHeavyShipOnly } from '../lib/importShippingCalc';
+import { useImportShippingRates, calculateAirFee, calculateSeaFee, isHeavyShipOnly, AirTier } from '../lib/importShippingCalc';
 import { useShippingTimingEnabled } from '../lib/shippingSettings';
 import { getVariantAdjustedPrice } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
@@ -13,7 +13,7 @@ import Cart from './Cart';
 interface ProductDetailsProps {
   product: Product;
   onBack: () => void;
-  onAddToCart: (product: Product, quantity: number, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air' | 'sea') => void;
+  onAddToCart: (product: Product, quantity: number, selectedColor?: string, selectedType?: string, selectedSize?: string, selectedShipping?: 'air_express' | 'air_normal' | 'sea') => void;
   cart: CartItem[];
   onUpdateQuantity: (id: string, qty: number, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
   onRemoveFromCart: (id: string, selectedColor?: string, selectedType?: string, selectedSize?: string) => void;
@@ -51,7 +51,7 @@ export default function ProductDetails({
   const showShippingTiming = useShippingTimingEnabled();
   const importRates = useImportShippingRates();
   const currencyRates = useCurrencyRates();
-  const [selectedShipping, setSelectedShipping] = useState<'air' | 'sea' | null>(null);
+  const [selectedShipping, setSelectedShipping] = useState<'air_express' | 'air_normal' | 'sea' | null>(null);
   const heavyShipOnly = isHeavyShipOnly(product);
 
   // The price actually charged once color/type/size are picked — base price
@@ -142,7 +142,7 @@ export default function ProductDetails({
     if (hasColors && !selectedColor) { alert('Please select a color'); return; }
     if (hasTypes && !selectedType) { alert('Please select a type'); return; }
     if (hasSizes && !selectedSize) { alert('Please select a size'); return; }
-    if (isImportProduct && !heavyShipOnly && !selectedShipping) { alert('Please choose Flight or Sea shipping'); return; }
+    if (isImportProduct && !heavyShipOnly && !selectedShipping) { alert('Please choose a shipping method'); return; }
     onAddToCart(product, quantity, selectedColor, selectedType, selectedSize, isImportProduct ? (heavyShipOnly ? 'sea' : selectedShipping ?? undefined) : undefined);
     setAddedToCart(true);
     setTimeout(() => setAddedToCart(false), 2000);
@@ -289,11 +289,13 @@ export default function ProductDetails({
               ) : (
                 <div className="space-y-1.5">
                   <p className="text-[10px] text-gray-400 uppercase tracking-wide">Choose how it ships</p>
-                  {(['air', 'sea'] as const).map(method => {
-                    const fee = method === 'air'
-                      ? calculateAirFee(product, importRates)
-                      : calculateSeaFee(product, importRates, currencyRates.usd_to_ngn);
+                  {(['air_express', 'air_normal', 'sea'] as const).map(method => {
+                    const fee = method === 'sea'
+                      ? calculateSeaFee(product, importRates)
+                      : calculateAirFee(product, importRates, method as AirTier, currencyRates.usd_to_ngn);
                     const isSelected = selectedShipping === method;
+                    const label = method === 'air_express' ? 'Express' : method === 'air_normal' ? 'Air' : 'Sea';
+                    const timing = method === 'air_express' ? '· 2–3 days' : method === 'air_normal' ? '· 20–30 days' : '· 60–90 days';
                     return (
                       <button
                         key={method}
@@ -304,14 +306,12 @@ export default function ProductDetails({
                           : { borderColor: '#e5e7eb' }}
                       >
                         <div className="flex items-center gap-1.5 text-[11px] text-gray-700">
-                          {method === 'air'
-                            ? <Plane size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />
-                            : <Ship size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />}
-                          {method === 'air' ? 'Flight' : 'Sea'}
+                          {method === 'sea'
+                            ? <Ship size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />
+                            : <Plane size={13} style={{ color: isSelected ? store.themeColor : '#9ca3af' }} />}
+                          {label}
                           {showShippingTiming && (
-                            <span className="text-[10px] text-gray-400">
-                              {method === 'air' ? '· 20–30 days' : '· 60–90 days'}
-                            </span>
+                            <span className="text-[10px] text-gray-400">{timing}</span>
                           )}
                         </div>
                         <span className="text-xs font-medium" style={{ color: isSelected ? store.themeColor : '#374151' }}>
