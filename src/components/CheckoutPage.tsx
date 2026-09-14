@@ -26,6 +26,7 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
     shippingError,
     paystackConfig,
     settings,
+    transferAvailable,
     copied,
     transferDetails,
     senderName,
@@ -150,6 +151,7 @@ export default function CheckoutPage({ items, onBack, onSuccess, retryOrderId }:
             <PaymentMethodStep
               payableAmount={payableAmount}
               settings={settings}
+              transferAvailable={transferAvailable}
               setPaymentMethod={setPaymentMethod}
               createOrder={createOrder}
               loading={loading}

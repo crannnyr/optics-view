@@ -13,7 +13,13 @@ interface Discounts {
   heavy: number;
 }
 
+interface Caps {
+  air_express: number;
+  air_normal: number;
+}
+
 const FALLBACK: Discounts = { air_express: 0, air_normal: 0, sea: 0, heavy: 0 };
+const FALLBACK_CAPS: Caps = { air_express: 0, air_normal: 0 };
 
 const METHOD_LABELS: Record<keyof Discounts, string> = {
   air_express: 'Air Express',
@@ -24,25 +30,28 @@ const METHOD_LABELS: Record<keyof Discounts, string> = {
 
 export default function ShippingDiscountsSettings() {
   const [discounts, setDiscounts] = useState<Discounts>(FALLBACK);
+  const [caps, setCaps] = useState<Caps>(FALLBACK_CAPS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'shipping_discounts')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.value) setDiscounts(data.value as Discounts);
-        setLoading(false);
-      });
+    Promise.all([
+      supabase.from('app_settings').select('value').eq('key', 'shipping_discounts').maybeSingle(),
+      supabase.from('app_settings').select('value').eq('key', 'shipping_fee_caps').maybeSingle(),
+    ]).then(([discountsRes, capsRes]) => {
+      if (discountsRes.data?.value) setDiscounts(discountsRes.data.value as Discounts);
+      if (capsRes.data?.value) setCaps(capsRes.data.value as Caps);
+      setLoading(false);
+    });
   }, []);
 
   const handleSave = async () => {
     setSaving(true);
-    await supabase.from('app_settings').upsert({ key: 'shipping_discounts', value: discounts });
+    await Promise.all([
+      supabase.from('app_settings').upsert({ key: 'shipping_discounts', value: discounts }),
+      supabase.from('app_settings').upsert({ key: 'shipping_fee_caps', value: caps }),
+    ]);
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -90,6 +99,32 @@ export default function ShippingDiscountsSettings() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="border-t border-gray-100 mt-5 pt-5">
+        <p className="text-xs font-medium text-gray-700 mb-1">Max shipping fee (% of item price)</p>
+        <p className="text-xs text-gray-500 mb-3">
+          A hard ceiling — the shipping fee for that item can never exceed this % of its price, no
+          matter what the weight/CBM math computes. 0 = no cap. Air Express and Air Normal only.
+        </p>
+        <div className="grid grid-cols-2 gap-4 max-w-sm">
+          {(['air_express', 'air_normal'] as const).map(method => (
+            <div key={method}>
+              <label className="block text-xs uppercase text-gray-500 mb-2">{METHOD_LABELS[method]}</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={caps[method]}
+                  onChange={e => setCaps({ ...caps, [method]: Math.max(0, Math.min(100, Number(e.target.value))) })}
+                  className="w-full border p-2.5 pr-7 text-sm rounded outline-none focus:border-[#0d2818]"
+                />
+                <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

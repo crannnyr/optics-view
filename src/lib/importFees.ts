@@ -1,7 +1,7 @@
 import { CartItem } from './supabase';
 import {
   calculateAirFee, calculateSeaFee, isHeavyShipOnly, quantityDiscountRate,
-  ImportShippingRates, ShippingDiscountSettings
+  ImportShippingRates, ShippingDiscountSettings, ShippingFeeCaps
 } from './importShippingCalc';
 
 // Shared import (admin-sourced, supplier 'jumia'/'shein') shipping
@@ -41,7 +41,8 @@ export function calculateImportShipping(
   items: CartItem[],
   rates: ImportShippingRates,
   usdToNgn: number,
-  discounts: ShippingDiscountSettings
+  discounts: ShippingDiscountSettings,
+  caps: ShippingFeeCaps
 ): ImportShippingBreakdown {
   const lines: ImportShippingLine[] = [];
 
@@ -56,7 +57,7 @@ export function calculateImportShipping(
       ? rates.heavy_flat_fee_ngn
       : method === 'sea'
         ? calculateSeaFee(item.product, rates)
-        : calculateAirFee(item.product, rates, method, usdToNgn);
+        : calculateAirFee(item.product, rates, method, usdToNgn, caps);
 
     const adminPct = discounts[method] ?? 0;
     const unitFeeAfterAdmin = fullPriceUnitFee * (1 - adminPct / 100);

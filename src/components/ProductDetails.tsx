@@ -3,7 +3,7 @@ import { supabase, Product, Review, CartItem } from '../lib/supabase';
 import { ArrowLeft, Star, ShoppingBag, ChevronLeft, ChevronRight, Minus, Plus, TrendingUp, Plane, Ship, ShieldCheck, HelpCircle, Truck } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { useCurrencyRates, formatUsd, formatCny } from '../lib/currency';
-import { useImportShippingRates, calculateAirFee, calculateSeaFee, isHeavyShipOnly, AirTier } from '../lib/importShippingCalc';
+import { useImportShippingRates, useShippingFeeCaps, calculateAirFee, calculateSeaFee, isHeavyShipOnly, AirTier } from '../lib/importShippingCalc';
 import { useShippingTimingEnabled } from '../lib/shippingSettings';
 import { getVariantAdjustedPrice } from '../lib/variantPricing';
 import AskQuestionModal from './AskQuestionModal';
@@ -50,6 +50,7 @@ export default function ProductDetails({
   const isImportProduct = !!product.import_fee_tier_id;
   const showShippingTiming = useShippingTimingEnabled();
   const importRates = useImportShippingRates();
+  const shippingCaps = useShippingFeeCaps();
   const currencyRates = useCurrencyRates();
   const [selectedShipping, setSelectedShipping] = useState<'air_express' | 'air_normal' | 'sea' | null>(null);
   const heavyShipOnly = isHeavyShipOnly(product);
@@ -292,7 +293,7 @@ export default function ProductDetails({
                   {(['air_express', 'air_normal', 'sea'] as const).map(method => {
                     const fee = method === 'sea'
                       ? calculateSeaFee(product, importRates)
-                      : calculateAirFee(product, importRates, method as AirTier, currencyRates.usd_to_ngn);
+                      : calculateAirFee(product, importRates, method as AirTier, currencyRates.usd_to_ngn, shippingCaps);
                     const isSelected = selectedShipping === method;
                     const label = method === 'air_express' ? 'Express' : method === 'air_normal' ? 'Air' : 'Sea';
                     const timing = method === 'air_express' ? '· 2–3 days' : method === 'air_normal' ? '· 20–30 days' : '· 60–90 days';

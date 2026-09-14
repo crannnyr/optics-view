@@ -5,14 +5,16 @@ import { useVendorFulfillments, MyFulfillment } from '../hooks/useVendorFulfillm
 import { formatCountdown } from '../../../lib/countdown';
 
 const STATUS_LABEL: Record<string, { label: string; className: string; icon: JSX.Element }> = {
-  pending_approval: { label: 'Awaiting Approval', className: 'bg-yellow-100 text-yellow-800', icon: <Clock size={11} /> },
-  approved:         { label: 'Ready to Ship',      className: 'bg-blue-100 text-blue-800',    icon: <Truck size={11} /> },
-  shipped:          { label: 'Shipped',            className: 'bg-green-100 text-green-800',  icon: <CheckCircle2 size={11} /> },
-  failed_delivery:  { label: 'Failed Delivery',    className: 'bg-red-100 text-red-800',       icon: <AlertTriangle size={11} /> },
+  pending_approval:      { label: 'Awaiting Approval',   className: 'bg-yellow-100 text-yellow-800', icon: <Clock size={11} /> },
+  approved:              { label: 'Action Needed',       className: 'bg-blue-100 text-blue-800',     icon: <Truck size={11} /> },
+  ready_to_ship:         { label: 'Ready to Ship',       className: 'bg-indigo-100 text-indigo-800', icon: <CheckCircle2 size={11} /> },
+  shipped:               { label: 'Shipped',             className: 'bg-green-100 text-green-800',   icon: <CheckCircle2 size={11} /> },
+  failed_delivery:       { label: 'Failed Delivery',     className: 'bg-red-100 text-red-800',       icon: <AlertTriangle size={11} /> },
+  cancelled_no_response: { label: 'Cancelled — No Response', className: 'bg-red-100 text-red-800',   icon: <AlertTriangle size={11} /> },
 };
 
-function Row({ fulfillment, marking, onMarkShipped, themeColor }: {
-  fulfillment: MyFulfillment; marking: boolean; onMarkShipped: () => void; themeColor: string;
+function Row({ fulfillment, marking, onMarkReady, onMarkShipped, themeColor }: {
+  fulfillment: MyFulfillment; marking: boolean; onMarkReady: () => void; onMarkShipped: () => void; themeColor: string;
 }) {
   const [, forceTick] = useState(0);
   useEffect(() => {
@@ -47,6 +49,21 @@ function Row({ fulfillment, marking, onMarkShipped, themeColor }: {
       )}
 
       {fulfillment.status === 'approved' && (
+        <>
+          <p className="text-[11px] text-gray-400 mb-2">Mark this ready once you've packed it — you have 48 hours or the order auto-cancels.</p>
+          <button
+            onClick={onMarkReady}
+            disabled={marking}
+            className="mt-1 flex items-center gap-1.5 text-white text-xs font-medium px-4 py-2 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+            style={{ backgroundColor: themeColor }}
+          >
+            {marking ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+            Mark Ready to Ship
+          </button>
+        </>
+      )}
+
+      {fulfillment.status === 'ready_to_ship' && (
         <button
           onClick={onMarkShipped}
           disabled={marking}
@@ -62,7 +79,7 @@ function Row({ fulfillment, marking, onMarkShipped, themeColor }: {
 }
 
 export default function VendorOrdersList({ vendor, themeColor }: { vendor: VendorAccount; themeColor: string }) {
-  const { fulfillments, loading, markingId, markShipped } = useVendorFulfillments(vendor);
+  const { fulfillments, loading, markingId, markReady, markShipped } = useVendorFulfillments(vendor);
 
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="animate-spin text-gray-300" size={28} /></div>;
@@ -75,7 +92,14 @@ export default function VendorOrdersList({ vendor, themeColor }: { vendor: Vendo
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       {fulfillments.map(f => (
-        <Row key={f.id} fulfillment={f} marking={markingId === f.id} onMarkShipped={() => markShipped(f)} themeColor={themeColor} />
+        <Row
+          key={f.id}
+          fulfillment={f}
+          marking={markingId === f.id}
+          onMarkReady={() => markReady(f)}
+          onMarkShipped={() => markShipped(f)}
+          themeColor={themeColor}
+        />
       ))}
     </div>
   );

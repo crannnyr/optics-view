@@ -60,23 +60,63 @@ function seaMinimumFor(price: number, tiers: SeaMinTier[]): number {
   return tiers[tiers.length - 1]?.min_fee_ngn ?? 0;
 }
 
+// ── Admin-configurable max shipping fee (% of item price) ───────────────
+// A hard ceiling on the raw air fee, before any discount is applied. 0
+// means "no cap" for that method. Sea/heavy are never capped.
+export interface ShippingFeeCaps {
+  air_express: number;
+  air_normal: number;
+}
+
+const FALLBACK_CAPS: ShippingFeeCaps = { air_express: 0, air_normal: 0 };
+
+export function useShippingFeeCaps(): ShippingFeeCaps {
+  const [caps, setCaps] = useState<ShippingFeeCaps>(FALLBACK_CAPS);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'shipping_fee_caps')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.value) setCaps(data.value as ShippingFeeCaps);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return caps;
+}
+
 /**
  * Air fee: two tiers, both priced as $/kg (converted at the customer-facing
  * USD rate) plus a flat NGN/kg clearance fee on top.
  *   Express (2-3 days from ship time): $15/kg + ₦1,500/kg clearance
  *   Normal: $10/kg + ₦1,000/kg clearance
+ * If a max-fee cap % is set for this tier, the raw computed fee is ceilinged
+ * at (item price × cap%) before any discount runs on top.
  */
 export function calculateAirFee(
   product: Product,
   rates: ImportShippingRates,
   tier: AirTier,
-  usdToNgn: number
+  usdToNgn: number,
+  caps?: ShippingFeeCaps
 ): number {
   const kg = product.weight_kg ?? 0;
   const tierRate = rates[tier];
   const freightNgn = kg * tierRate.usd_per_kg * usdToNgn;
   const clearanceNgn = kg * tierRate.clearance_ngn_per_kg;
-  return Math.round(freightNgn + clearanceNgn);
+  let fee = freightNgn + clearanceNgn;
+
+  const capPct = caps?.[tier] ?? 0;
+  if (capPct > 0) {
+    const maxFee = product.price * (capPct / 100);
+    fee = Math.min(fee, maxFee);
+  }
+
+  return Math.round(fee);
 }
 
 /**

@@ -5,8 +5,9 @@ import { VendorAccount } from './useVendorAccess';
 export interface MyFulfillment {
   id: string;
   order_id: string;
-  status: 'pending_approval' | 'approved' | 'shipped' | 'failed_delivery';
+  status: 'pending_approval' | 'approved' | 'ready_to_ship' | 'shipped' | 'failed_delivery' | 'cancelled_no_response';
   ship_by: string | null;
+  ready_at: string | null;
   shipped_at: string | null;
   created_at: string;
   orders: {
@@ -21,7 +22,7 @@ export interface MyFulfillment {
 }
 
 const SELECT = `
-  id, order_id, status, ship_by, shipped_at, created_at,
+  id, order_id, status, ship_by, ready_at, shipped_at, created_at,
   orders ( customer_name, customer_phone_1, shipping_state, shipping_city, shipping_lga, shipping_area, shipping_landmark )
 `;
 
@@ -43,6 +44,19 @@ export function useVendorFulfillments(vendor: VendorAccount) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // First step after approval — acknowledges the order without yet
+  // confirming physical dispatch. Clears the 48h auto-cancel deadline.
+  const markReady = async (fulfillment: MyFulfillment) => {
+    setMarkingId(fulfillment.id);
+    const now = new Date().toISOString();
+    await supabase
+      .from('vendor_order_fulfillments')
+      .update({ status: 'ready_to_ship', ready_at: now })
+      .eq('id', fulfillment.id);
+    setFulfillments(prev => prev.map(f => f.id === fulfillment.id ? { ...f, status: 'ready_to_ship', ready_at: now } : f));
+    setMarkingId(null);
+  };
+
   const markShipped = async (fulfillment: MyFulfillment) => {
     setMarkingId(fulfillment.id);
     const now = new Date().toISOString();
@@ -54,5 +68,5 @@ export function useVendorFulfillments(vendor: VendorAccount) {
     setMarkingId(null);
   };
 
-  return { fulfillments, loading, markingId, markShipped };
+  return { fulfillments, loading, markingId, markReady, markShipped };
 }

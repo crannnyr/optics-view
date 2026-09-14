@@ -144,6 +144,41 @@ const templates: Record<string, (data: any) => { subject: string; html: string }
     `, `Your order #${data.order_id?.slice(0, 8).toUpperCase()} has been confirmed.`)
   }),
 
+  vendor_order_alert: (data) => ({
+    subject: `🛒 New order approved — ship by ${data.ship_by_display}`,
+    html: baseTemplate(`
+      ${h('New Order For You 🛒')}
+      ${divider()}
+      ${p(`Hi ${data.business_name}, an order for your product has been approved and is ready for you to prepare.`)}
+      ${table(`
+        ${row('Order ID', `#${data.order_id?.slice(0, 8).toUpperCase()}`)}
+        ${row('Customer', data.customer_name)}
+        ${row('Ship to', data.shipping_address)}
+        ${row('Ship By', data.ship_by_display)}
+      `)}
+      ${p(`Please mark this order <strong>Ready to Ship</strong> in your dashboard within 48 hours. If you don't respond in time, the order is automatically cancelled and the customer refunded — you'll get reminder emails every 8 hours in the meantime.`)}
+      <div style="text-align:center;margin-top:28px;">${btn('Go to My Dashboard', `${SITE_URL}/vendor`)}</div>
+    `, `New order for you — ship by ${data.ship_by_display}.`)
+  }),
+
+  refund_details_submitted: (data) => ({
+    subject: `💸 Refund ready to process — ₦${Number(data.amount).toLocaleString()}`,
+    html: baseTemplate(`
+      ${h('Refund Details Submitted')}
+      ${divider()}
+      ${p(`A customer has submitted their bank details for a vendor non-response refund. Please process it.`)}
+      ${table(`
+        ${row('Order ID', `#${data.order_id?.slice(0, 8).toUpperCase()}`)}
+        ${row('Amount', `₦${Number(data.amount).toLocaleString()}`)}
+        ${row('Customer Email', data.customer_email)}
+        ${row('Bank', data.bank_name)}
+        ${row('Account Number', data.account_number)}
+        ${row('Account Name', data.account_name)}
+      `)}
+      <div style="text-align:center;margin-top:28px;">${btn('View in Admin', `${SITE_URL}/admin`)}</div>
+    `, `Refund of ₦${Number(data.amount).toLocaleString()} ready to process.`)
+  }),
+
   order_shipped: (data) => ({
     subject: `Your order is on the way! 🚚`,
     html: baseTemplate(`

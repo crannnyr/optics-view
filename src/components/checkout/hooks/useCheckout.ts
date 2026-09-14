@@ -4,7 +4,7 @@ import { useStore } from '../../../context/StoreContext';
 import { sendEmail } from '../../../lib/email';
 import { calculateImportShipping, cartHasImportItems, cartHasNonImportItems, isImportProduct } from '../../../lib/importFees';
 import { getVariantAdjustedPrice } from '../../../lib/variantPricing';
-import { useImportShippingRates, useShippingDiscountSettings, isHeavyShipOnly } from '../../../lib/importShippingCalc';
+import { useImportShippingRates, useShippingDiscountSettings, useShippingFeeCaps, isHeavyShipOnly } from '../../../lib/importShippingCalc';
 import { useCurrencyRates } from '../../../lib/currency';
 
 export const NIGERIAN_STATES = [
@@ -107,11 +107,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
   const importRates = useImportShippingRates();
   const shippingDiscounts = useShippingDiscountSettings();
+  const shippingCaps = useShippingFeeCaps();
   const currencyRates = useCurrencyRates();
 
   const hasImportItems = cartHasImportItems(items);
   const hasNonImportItems = cartHasNonImportItems(items);
-  const importFeeBreakdown = calculateImportShipping(items, importRates, currencyRates.usd_to_ngn, shippingDiscounts);
+  const importFeeBreakdown = calculateImportShipping(items, importRates, currencyRates.usd_to_ngn, shippingDiscounts, shippingCaps);
 
   // Imported items ship as part of a consolidated batch that clears
   // customs and moves through the Jumia network as one unit — there's no
@@ -292,6 +293,15 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const totalOrderAmount = isRetryMode ? retryOrder!.total_amount : subtotal + calculateShipping();
   const payableAmount = totalOrderAmount;
 
+  // Manual transfer is only ever offered when: transfer is enabled, the
+  // order is at/above the admin threshold, AND the cart has no vendor
+  // (non-import) items. Vendor items always force Paystack-only — vendor
+  // payouts need instant, verifiable settlement, which manual transfer
+  // can't guarantee the way Paystack's confirmed webhook can.
+  const transferAvailable = settings.enable_transfer
+    && payableAmount >= settings.manual_min_amount
+    && !hasNonImportItems;
+
   // Sends the customer's payment receipt (itemized: line items + shipping
   // breakdown + discount + total). Admin new-order alert emails have been
   // intentionally disabled per request — order volume made the admin
@@ -332,10 +342,6 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
       return;
     }
     setShippingError(null);
-
-    // Manual transfer only makes sense above the admin-set threshold — below
-    // it, Paystack handles the payment regardless of the transfer toggle.
-    const transferAvailable = settings.enable_transfer && payableAmount >= settings.manual_min_amount;
 
     if (settings.enable_paystack && !transferAvailable) {
       // Paystack is the only option — no bank-selection gate applies, skip straight in
@@ -438,6 +444,8 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
             retailer_id: store?.id,
             retailer_slug: store?.slug,
             retailer_profit: Math.max(0, retailerProfit),
+            shipping_fee: importFeeBreakdown.total,
+            delivery_fee: Math.max(0, calculateShipping() - importFeeBreakdown.total),
           }])
           .select()
           .single();
@@ -602,6 +610,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     processingMessage,
     paystackConfig,
     settings,
+    transferAvailable,
     copied,
     transferDetails,
     senderName,

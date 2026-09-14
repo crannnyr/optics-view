@@ -9,6 +9,7 @@ interface PaymentMethodStepProps {
     enable_transfer: boolean;
     manual_min_amount: number;
   };
+  transferAvailable: boolean;
   setPaymentMethod: (method: 'paystack' | 'transfer') => void;
   createOrder: (method: 'paystack' | 'transfer') => void;
   loading: boolean;
@@ -21,6 +22,7 @@ interface PaymentMethodStepProps {
 export default function PaymentMethodStep({
   payableAmount,
   settings,
+  transferAvailable,
   setPaymentMethod,
   createOrder,
   loading,
@@ -33,7 +35,6 @@ export default function PaymentMethodStep({
   // sending FROM before we reveal our transfer details. If their bank isn't
   // on the preset commercial-bank list, they're pointed to Paystack instead.
   const [showBankSelect, setShowBankSelect] = useState(false);
-  const transferAvailable = settings.enable_transfer && payableAmount >= settings.manual_min_amount;
 
   if (showBankSelect) {
     return (

@@ -10,6 +10,7 @@ import OrderListPanel from './OrderListPanel';
 import ShippingAddressModal from './ShippingAddressModal';
 import InfoModal from './InfoModal';
 import TrackOrderModal from './TrackOrderModal';
+import RefundRequestBanner from './RefundRequestBanner';
 
 interface CustomerProfileProps {
   onBack: () => void;
@@ -118,6 +119,8 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
             </button>
           </div>
         </div>
+
+        <RefundRequestBanner themeColor={store.themeColor} />
 
         <ImportationSection
           orders={orders}
