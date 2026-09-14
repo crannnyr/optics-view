@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { supabase } from './supabase';
 import { Product } from './supabase';
+import { useAppSetting } from './settingsCache';
 
 interface SeaMinTier {
   max_price: number | null;
@@ -35,22 +34,7 @@ const FALLBACK_RATES: ImportShippingRates = {
 };
 
 export function useImportShippingRates(): ImportShippingRates {
-  const [rates, setRates] = useState<ImportShippingRates>(FALLBACK_RATES);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'import_shipping_rates')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled && data?.value) setRates(data.value as ImportShippingRates);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return rates;
+  return useAppSetting('import_shipping_rates', FALLBACK_RATES);
 }
 
 function seaMinimumFor(price: number, tiers: SeaMinTier[]): number {
@@ -71,22 +55,7 @@ export interface ShippingFeeCaps {
 const FALLBACK_CAPS: ShippingFeeCaps = { air_express: 0, air_normal: 0 };
 
 export function useShippingFeeCaps(): ShippingFeeCaps {
-  const [caps, setCaps] = useState<ShippingFeeCaps>(FALLBACK_CAPS);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'shipping_fee_caps')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled && data?.value) setCaps(data.value as ShippingFeeCaps);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return caps;
+  return useAppSetting('shipping_fee_caps', FALLBACK_CAPS);
 }
 
 /**
@@ -155,22 +124,7 @@ export interface ShippingDiscountSettings {
 const FALLBACK_DISCOUNTS: ShippingDiscountSettings = { air_express: 0, air_normal: 0, sea: 0, heavy: 0 };
 
 export function useShippingDiscountSettings(): ShippingDiscountSettings {
-  const [discounts, setDiscounts] = useState<ShippingDiscountSettings>(FALLBACK_DISCOUNTS);
-
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'shipping_discounts')
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled && data?.value) setDiscounts(data.value as ShippingDiscountSettings);
-      });
-    return () => { cancelled = true; };
-  }, []);
-
-  return discounts;
+  return useAppSetting('shipping_discounts', FALLBACK_DISCOUNTS);
 }
 
 // ── Automatic quantity discount (air methods only) ──────────────────────
