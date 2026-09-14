@@ -67,6 +67,16 @@ const btnGreen = (text: string, href: string) => `<a href="${href}" style="displ
 const p = (text: string, style = '') => `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#555;${style}">${text}</p>`;
 const row = (label: string, value: string) => `<tr><td style="padding:8px 0;font-size:12px;color:#999;text-transform:uppercase;letter-spacing:1px;width:140px;">${label}</td><td style="padding:8px 0;font-size:13px;color:#222;font-weight:500;">${value}</td></tr>`;
 const table = (rows: string) => `<table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #eee;border-bottom:1px solid #eee;margin:20px 0;">${rows}</table>`;
+const itemsTable = (items: { name: string; quantity: number; price: number }[]) => `
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 4px;">
+    ${items.map(it => `
+      <tr>
+        <td style="padding:6px 0;font-size:13px;color:#333;">${it.name}${it.quantity > 1 ? ` <span style="color:#999;">×${it.quantity}</span>` : ''}</td>
+        <td style="padding:6px 0;font-size:13px;color:#222;text-align:right;font-weight:500;white-space:nowrap;">₦${(it.price * it.quantity).toLocaleString()}</td>
+      </tr>
+    `).join('')}
+  </table>
+`;
 
 // ── Templates ──────────────────────────────────────────────────
 const templates: Record<string, (data: any) => { subject: string; html: string }> = {
@@ -112,14 +122,20 @@ const templates: Record<string, (data: any) => { subject: string; html: string }
   }),
 
   order_confirmation: (data) => ({
-    subject: `Order Confirmed — #${data.order_id?.slice(0, 8).toUpperCase()}`,
+    subject: `${data.payment_method === 'transfer' ? 'Order Received' : 'Payment Receipt'} — #${data.order_id?.slice(0, 8).toUpperCase()}`,
     html: baseTemplate(`
-      ${h('Order Confirmed ✅')}
+      ${h(data.payment_method === 'transfer' ? 'Order Received ✅' : 'Payment Receipt ✅')}
       ${divider()}
-      ${p(`Hi ${data.customer_name}, thank you for your order! We've received it and it's being reviewed.`)}
+      ${p(`Hi ${data.customer_name}, ${data.payment_method === 'transfer'
+        ? "we've recorded your transfer and it's pending verification — you'll get another email once it's confirmed."
+        : "thank you for your payment! Here's your receipt."}`)}
+      ${data.items && data.items.length ? itemsTable(data.items) : ''}
       ${table(`
         ${row('Order ID', `#${data.order_id?.slice(0, 8).toUpperCase()}`)}
-        ${row('Total', `₦${Number(data.total_amount).toLocaleString()}`)}
+        ${data.subtotal !== undefined ? row('Items Subtotal', `₦${Number(data.subtotal).toLocaleString()}`) : ''}
+        ${data.shipping_total !== undefined ? row('Shipping', `₦${Number(data.shipping_total).toLocaleString()}`) : ''}
+        ${data.shipping_discount ? row('Shipping Discount', `−₦${Number(data.shipping_discount).toLocaleString()}`) : ''}
+        ${row('Total ' + (data.payment_method === 'transfer' ? 'Due' : 'Paid'), `₦${Number(data.total_amount).toLocaleString()}`)}
         ${row('Payment', data.payment_method === 'paystack' ? 'Card (Paystack)' : 'Bank Transfer')}
         ${row('Delivery', data.shipping_address)}
       `)}

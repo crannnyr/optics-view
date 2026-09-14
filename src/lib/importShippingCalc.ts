@@ -100,3 +100,52 @@ export function calculateSeaFee(product: Product, rates: ImportShippingRates): n
 export function isHeavyShipOnly(product: Product): boolean {
   return product.import_type === 'ship';
 }
+
+// ── Admin-configurable global shipping discount ─────────────────────────
+// A flat % (0-100) per method the admin can set from Settings, applied to
+// every customer's shipping fee for that method. Stacks multiplicatively
+// with the automatic quantity discount below (air methods only).
+export interface ShippingDiscountSettings {
+  air_express: number;
+  air_normal: number;
+  sea: number;
+  heavy: number;
+}
+
+const FALLBACK_DISCOUNTS: ShippingDiscountSettings = { air_express: 0, air_normal: 0, sea: 0, heavy: 0 };
+
+export function useShippingDiscountSettings(): ShippingDiscountSettings {
+  const [discounts, setDiscounts] = useState<ShippingDiscountSettings>(FALLBACK_DISCOUNTS);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'shipping_discounts')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled && data?.value) setDiscounts(data.value as ShippingDiscountSettings);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  return discounts;
+}
+
+// ── Automatic quantity discount (air methods only) ──────────────────────
+// The first unit in a cart line always pays full price. Every unit after
+// the first gets a discount off ITS OWN unit fee, at a rate that steps up
+// with the line's total quantity:
+//   2-10 units  → 20% off each unit after the 1st
+//   11-20 units → 30% off each unit after the 1st
+//   21-49 units → 40% off each unit after the 1st
+//   50+ units   → 50% off each unit after the 1st
+// Sea and heavy shipping never get this — only air_express/air_normal.
+export function quantityDiscountRate(quantity: number): number {
+  if (quantity <= 1) return 0;
+  if (quantity <= 10) return 0.20;
+  if (quantity <= 20) return 0.30;
+  if (quantity <= 49) return 0.40;
+  return 0.50;
+}

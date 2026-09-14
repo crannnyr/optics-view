@@ -5,6 +5,7 @@ interface PaymentSettingsViewProps {
   paymentMethods: {
     enable_paystack: boolean;
     enable_transfer: boolean;
+    manual_min_amount: number;
   };
   setPaymentMethods: (methods: any) => void;
   transferDetails: {
@@ -90,6 +91,25 @@ export default function PaymentSettingsView({
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0d2818]"></div>
                    </label>
                 </div>
+
+                {paymentMethods.enable_transfer && (
+                  <div className="flex items-center justify-between p-4 border border-gray-100 rounded-lg bg-gray-50">
+                    <div>
+                      <p className="font-bold text-sm text-gray-800">Minimum order for bank transfer</p>
+                      <p className="text-xs text-gray-500">Orders below this amount only show the card option</p>
+                    </div>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">₦</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={paymentMethods.manual_min_amount}
+                        onChange={e => setPaymentMethods({ ...paymentMethods, manual_min_amount: Math.max(0, Number(e.target.value)) })}
+                        className="w-36 border p-2.5 pl-7 text-sm rounded outline-none focus:border-[#0d2818]"
+                      />
+                    </div>
+                  </div>
+                )}
              </div>
           </div>
 

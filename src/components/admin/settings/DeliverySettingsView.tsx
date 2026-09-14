@@ -1,6 +1,7 @@
 import { Truck, MapPin, CheckCircle, XCircle } from 'lucide-react';
 import { NIGERIAN_STATES } from '../hooks/useSettings';
 import ShippingTimingToggle from './ShippingTimingToggle';
+import ShippingDiscountsSettings from './ShippingDiscountsSettings';
 
 interface DeliverySettingsViewProps {
   getDeliveryFee: (state: string) => number;
@@ -27,6 +28,7 @@ export default function DeliverySettingsView({
       </div>
 
       <ShippingTimingToggle />
+      <ShippingDiscountsSettings />
 
       <div className="bg-white border rounded-sm p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

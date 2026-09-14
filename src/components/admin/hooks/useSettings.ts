@@ -67,7 +67,8 @@ export function useSettings() {
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState({
     enable_paystack: true,
-    enable_transfer: true
+    enable_transfer: true,
+    manual_min_amount: 50000
   });
   const [transferDetails, setTransferDetails] = useState({
     bank: 'OPay',
@@ -145,7 +146,7 @@ export function useSettings() {
       .select('value')
       .eq('key', 'payment_methods')
       .single();
-    if (methodData?.value) setPaymentMethods(methodData.value);
+    if (methodData?.value) setPaymentMethods({ enable_paystack: true, enable_transfer: true, manual_min_amount: 50000, ...methodData.value });
 
     const { data: transferData } = await supabase
       .from('app_settings')

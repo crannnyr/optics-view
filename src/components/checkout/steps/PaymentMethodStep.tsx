@@ -7,6 +7,7 @@ interface PaymentMethodStepProps {
   settings: {
     enable_paystack: boolean;
     enable_transfer: boolean;
+    manual_min_amount: number;
   };
   setPaymentMethod: (method: 'paystack' | 'transfer') => void;
   createOrder: (method: 'paystack' | 'transfer') => void;
@@ -32,6 +33,7 @@ export default function PaymentMethodStep({
   // sending FROM before we reveal our transfer details. If their bank isn't
   // on the preset commercial-bank list, they're pointed to Paystack instead.
   const [showBankSelect, setShowBankSelect] = useState(false);
+  const transferAvailable = settings.enable_transfer && payableAmount >= settings.manual_min_amount;
 
   if (showBankSelect) {
     return (
@@ -133,7 +135,7 @@ export default function PaymentMethodStep({
             </button>
          )}
 
-         {settings.enable_transfer && (
+         {transferAvailable && (
             <button 
               onClick={() => setShowBankSelect(true)}
               className="w-full p-4 border border-gray-200 rounded-lg flex items-center justify-between hover:border-black group transition-all hover:shadow-md"
@@ -149,6 +151,12 @@ export default function PaymentMethodStep({
                </div>
                <ArrowRight size={16} className="text-gray-300 group-hover:text-black" />
             </button>
+         )}
+
+         {!settings.enable_paystack && !transferAvailable && (
+            <div className="text-center text-xs text-gray-500 border border-gray-200 rounded-lg p-4">
+              No payment method is currently available for this order amount. Please contact support.
+            </div>
          )}
       </div>
 

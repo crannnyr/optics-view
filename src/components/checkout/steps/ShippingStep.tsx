@@ -225,9 +225,16 @@ export default function ShippingStep({
                 <span className="text-[11px] text-gray-400"> ({importFeeBreakdown.lines.length} items)</span>
               )}
             </span>
-            <span>₦{importFeeBreakdown.total.toLocaleString()}</span>
+            <span>₦{(importFeeBreakdown.total + importFeeBreakdown.totalDiscount).toLocaleString()}</span>
           </div>
         ) : null}
+
+        {hasImportItems && importFeeBreakdown.totalDiscount > 0 && (
+          <div className="flex justify-between text-sm text-green-600">
+            <span>Shipping discount</span>
+            <span>−₦{importFeeBreakdown.totalDiscount.toLocaleString()}</span>
+          </div>
+        )}
 
         {hasNonImportItems && (
           <div className="flex justify-between text-sm">

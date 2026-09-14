@@ -4,7 +4,7 @@ import { useStore } from '../../../context/StoreContext';
 import { sendEmail } from '../../../lib/email';
 import { calculateImportShipping, cartHasImportItems, cartHasNonImportItems, isImportProduct } from '../../../lib/importFees';
 import { getVariantAdjustedPrice } from '../../../lib/variantPricing';
-import { useImportShippingRates, isHeavyShipOnly } from '../../../lib/importShippingCalc';
+import { useImportShippingRates, useShippingDiscountSettings, isHeavyShipOnly } from '../../../lib/importShippingCalc';
 import { useCurrencyRates } from '../../../lib/currency';
 
 export const NIGERIAN_STATES = [
@@ -92,7 +92,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [processingMessage, setProcessingMessage] = useState('');
   const [paystackConfig, setPaystackConfig] = useState<any>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
-  const [settings, setSettings] = useState({ enable_paystack: true, enable_transfer: true });
+  const [settings, setSettings] = useState({ enable_paystack: true, enable_transfer: true, manual_min_amount: 50000 });
   const [copied, setCopied] = useState(false);
 
   const [transferDetails, setTransferDetails] = useState({
@@ -106,11 +106,12 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const [deliveryFees, setDeliveryFees] = useState<Record<string, number>>({});
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG);
   const importRates = useImportShippingRates();
+  const shippingDiscounts = useShippingDiscountSettings();
   const currencyRates = useCurrencyRates();
 
   const hasImportItems = cartHasImportItems(items);
   const hasNonImportItems = cartHasNonImportItems(items);
-  const importFeeBreakdown = calculateImportShipping(items, importRates, currencyRates.usd_to_ngn);
+  const importFeeBreakdown = calculateImportShipping(items, importRates, currencyRates.usd_to_ngn, shippingDiscounts);
 
   // Imported items ship as part of a consolidated batch that clears
   // customs and moves through the Jumia network as one unit — there's no
@@ -188,7 +189,7 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
 
   const fetchSettings = async () => {
     const { data: methodData } = await supabase.from('app_settings').select('*').eq('key', 'payment_methods').single();
-    if (methodData?.value) setSettings(methodData.value);
+    if (methodData?.value) setSettings({ enable_paystack: true, enable_transfer: true, manual_min_amount: 50000, ...methodData.value });
 
     const { data: transferData } = await supabase.from('app_settings').select('*').eq('key', 'transfer_details').single();
     if (transferData?.value) setTransferDetails(transferData.value);
@@ -291,12 +292,13 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
   const totalOrderAmount = isRetryMode ? retryOrder!.total_amount : subtotal + calculateShipping();
   const payableAmount = totalOrderAmount;
 
-  // Sends only the customer's own order confirmation. Admin new-order
-  // alert emails have been intentionally disabled per request — order
-  // volume made the admin inbox/Resend usage too noisy. Nothing is sent
-  // to the admin address here anymore, and no Resend call fires for it.
+  // Sends the customer's payment receipt (itemized: line items + shipping
+  // breakdown + discount + total). Admin new-order alert emails have been
+  // intentionally disabled per request — order volume made the admin
+  // inbox/Resend usage too noisy. Nothing is sent to the admin address here.
   const fireCustomerConfirmation = (order: any, user: any, method: string) => {
     const shippingAddress = `${shippingData.city}, ${shippingData.lga}, ${shippingData.state} · Near ${shippingData.landmark || shippingData.area}`;
+    const shippingTotal = calculateShipping();
 
     sendEmail({
       type: 'order_confirmation',
@@ -305,6 +307,18 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
       data: {
         customer_name: user.user_metadata?.full_name || 'Customer',
         order_id: order.id,
+        items: items.map(item => {
+          const threshold = item.product.wholesale_min_qty || 7;
+          const isWholesale = !!(item.quantity >= threshold && item.product.wholesale_price);
+          return {
+            name: item.product.name,
+            quantity: item.quantity,
+            price: getVariantAdjustedPrice(item.product, item.selectedColor, item.selectedType, item.selectedSize, isWholesale),
+          };
+        }),
+        subtotal,
+        shipping_total: shippingTotal,
+        shipping_discount: importFeeBreakdown.totalDiscount,
         total_amount: totalOrderAmount,
         payment_method: method,
         shipping_address: shippingAddress,
@@ -319,7 +333,11 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
     }
     setShippingError(null);
 
-    if (settings.enable_paystack && !settings.enable_transfer) {
+    // Manual transfer only makes sense above the admin-set threshold — below
+    // it, Paystack handles the payment regardless of the transfer toggle.
+    const transferAvailable = settings.enable_transfer && payableAmount >= settings.manual_min_amount;
+
+    if (settings.enable_paystack && !transferAvailable) {
       // Paystack is the only option — no bank-selection gate applies, skip straight in
       setPaymentMethod('paystack');
       createOrder('paystack');
@@ -495,6 +513,20 @@ export function useCheckout({ isOpen, items, onSuccess, retryOrderId }: UseCheck
         .from('orders')
         .update({ payment_sender_name: senderName.trim() || null })
         .eq('id', currentOrderId);
+
+      // Customer gets a receipt here too — worded as "pending verification"
+      // rather than "confirmed", since transfer payments aren't verified yet.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: order } = await supabase
+          .from('orders')
+          .select('id, customer_name, customer_email')
+          .eq('id', currentOrderId)
+          .single();
+        if (order) {
+          fireCustomerConfirmation(order, user, 'transfer');
+        }
+      }
 
       setProcessingMessage('Order placed! Awaiting verification.');
       setTimeout(() => {
