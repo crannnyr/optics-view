@@ -92,6 +92,11 @@ export default function ProductDetails({
   }, [product.id]);
 
   useEffect(() => {
+    // Powers three things: the "suggested products" strip, swipe-to-next
+    // navigation within the category, and the "X of Y" count — which is why
+    // this needs full rows for every product in the category, not just a
+    // handful. Capped at 200 as a safety net for unusually large categories;
+    // doesn't change anything for the ~50-product-average category today.
     supabase
       .from('products_feed')
       .select('*')
@@ -99,6 +104,7 @@ export default function ProductDetails({
       .eq('is_active', true)
       .order('is_boosted', { ascending: false })
       .order('created_at', { ascending: false })
+      .limit(200)
       .then(({ data }) => { if (data) setCategoryProducts(data); });
   }, [product.category]);
 

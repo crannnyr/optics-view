@@ -223,26 +223,12 @@ export function useHome({ user, autoOpenAuth, onAutoAuthHandled, onNavigateToChe
 
       if (!catsRes.data) return;
 
-      // One small query per category, each grabbing its own most-recent
-      // active product image — guarantees every category gets a
-      // representative image regardless of how recently its products were
-      // added. Sampling from a single "80 most recent products overall"
-      // query (the previous approach) silently starved every category
-      // except whichever one a bulk import had just landed in.
-      const imageEntries = await Promise.all(
-        catsRes.data.map(async cat => {
-          const { data } = await supabase
-            .from('products')
-            .select('images, image_url')
-            .eq('category', cat.slug)
-            .eq('is_active', true)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return [cat.slug, data?.images?.[0] ?? data?.image_url ?? null] as const;
-        })
-      );
-      const imageBySlug = new Map(imageEntries);
+      // Single query for every category's thumbnail (see
+      // get_category_thumbnails) instead of one round-trip per category —
+      // this used to fire N parallel queries (18 today) on every homepage
+      // load just to grab thumbnail images.
+      const { data: thumbs } = await supabase.rpc('get_category_thumbnails');
+      const imageBySlug = new Map((thumbs ?? []).map((t: any) => [t.category, t.thumbnail]));
 
       setCategories(
         catsRes.data.map(cat => ({ ...cat, image: imageBySlug.get(cat.slug) ?? null }))
