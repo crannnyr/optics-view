@@ -40,13 +40,10 @@ export default function VendorSection({ orders, themeColor, activeTab, onSelectT
   }, [vendorOrders]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-600">
-          Vendor orders
-        </span>
-        <p className="text-xs text-gray-400">Everything else from OpticsView's marketplace</p>
-      </div>
+    <div className="space-y-3">
+      <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded bg-gray-100 text-gray-600 inline-block">
+        Vendor orders
+      </span>
 
       <StatusTabRow
         tabs={VENDOR_TABS}

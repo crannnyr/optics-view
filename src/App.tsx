@@ -9,6 +9,7 @@ const CustomerProfile   = lazy(() => import('./components/profile/CustomerProfil
 const ProductDetails    = lazy(() => import('./components/ProductDetails'));
 const LegalPages        = lazy(() => import('./components/LegalPages'));
 const ShippingExplainer = lazy(() => import('./components/ShippingExplainer'));
+const HelpCenter = lazy(() => import('./components/HelpCenter'));
 const RetailerDashboard = lazy(() => import('./components/RetailerDashboard'));
 const CheckoutPage      = lazy(() => import('./components/CheckoutPage'));
 const VendorLandingPage = lazy(() => import('./components/vendor/VendorLandingPage'));
@@ -141,7 +142,7 @@ function App() {
   const [isAdminUser, setIsAdminUser] = useState<boolean | null>(null);
 
   const [currentView, setCurrentView] = useState<
-    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'shipping-info' | 'vendor-landing' | 'vendor-register' | 'vendor-dashboard'
+    'shop' | 'admin' | 'retailer' | 'orders' | 'details' | 'checkout' | 'legal-privacy' | 'legal-terms' | 'shipping-info' | 'help-center' | 'vendor-landing' | 'vendor-register' | 'vendor-dashboard'
   >('shop');
   const [user, setUser]                       = useState<any>(null);
   const [authLoading, setAuthLoading]         = useState(true);
@@ -176,6 +177,7 @@ function App() {
     if (path === '/privacy-policy')   return 'legal-privacy';
     if (path === '/terms-conditions') return 'legal-terms';
     if (path === '/shipping-info')    return 'shipping-info';
+    if (path === '/help-center')      return 'help-center';
     if (path === '/orders')           return 'orders';
     if (path === '/checkout')         return 'checkout';
     if (path === '/become-a-vendor')  return 'vendor-landing';
@@ -487,6 +489,13 @@ function App() {
       </Suspense>
     );
   }
+  if (currentView === 'help-center') {
+    return (
+      <Suspense fallback={<PageLoader />}>
+        <HelpCenter onBack={() => navigateTo('shop', '/')} />
+      </Suspense>
+    );
+  }
 
   if (currentView === 'admin') {
     const isAdmin = !!user && isAdminUser === true;
@@ -574,6 +583,7 @@ function App() {
           onRetryPayment={(orderId) => navigateToCheckout(orderId)}
           onNavigateToPrivacy={() => navigateTo('legal-privacy', '/privacy-policy')}
           onNavigateToTerms={() => navigateTo('legal-terms', '/terms-conditions')}
+          onNavigateToHelpCenter={() => navigateTo('help-center', '/help-center')}
         />
       </Suspense>
     );

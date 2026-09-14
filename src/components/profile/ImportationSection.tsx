@@ -43,13 +43,10 @@ export default function ImportationSection({ orders, themeColor, activeTab, onSe
   }, [importOrders]);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded" style={{ backgroundColor: `${themeColor}1a`, color: themeColor }}>
-          Importation
-        </span>
-        <p className="text-xs text-gray-400">China-sourced orders, tracked separately</p>
-      </div>
+    <div className="space-y-3">
+      <span className="text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded inline-block" style={{ backgroundColor: `${themeColor}1a`, color: themeColor }}>
+        Importation
+      </span>
 
       <StatusTabRow
         tabs={IMPORT_TABS}

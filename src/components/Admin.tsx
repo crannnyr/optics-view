@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Settings, Upload, Store, Users, PackageSearch, Truck, Building2, MessageCircleQuestion, TrendingUp } from 'lucide-react';
+import { Package, Settings, Upload, Store, Users, PackageSearch, Truck, Building2, MessageCircleQuestion, TrendingUp, ClipboardList } from 'lucide-react';
 import SettingsTab from './admin/SettingsTab';
 import ProductsTab from './admin/ProductsTab';
 import OrdersTab from './admin/OrdersTab';
@@ -10,8 +10,9 @@ import VendorOrdersTab from './admin/VendorOrdersTab';
 import VendorManagementTab from './admin/VendorManagementTab';
 import AdminProductQuestionsTab from './admin/AdminProductQuestionsTab';
 import EarningsTab from './admin/EarningsTab';
+import TotalOrdersTab from './admin/TotalOrdersTab';
 
-type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'vendor-manage' | 'users' | 'questions' | 'settings' | 'earnings';
+type TabType = 'products' | 'orders' | 'retailers' | 'vendors' | 'vendor-orders' | 'vendor-manage' | 'users' | 'questions' | 'settings' | 'earnings' | 'total-orders';
 
 export default function Admin() {
   const [activeTab, setActiveTab] = useState<TabType>('products');
@@ -19,6 +20,7 @@ export default function Admin() {
   const navItems = [
     { id: 'products'      as const, label: 'Products',      icon: Upload },
     { id: 'orders'        as const, label: 'Orders',        icon: Package },
+    { id: 'total-orders'  as const, label: 'Total Orders',  icon: ClipboardList },
     { id: 'earnings'      as const, label: 'Earnings',      icon: TrendingUp },
     { id: 'retailers'     as const, label: 'Retailers',     icon: Store },
     { id: 'vendors'       as const, label: 'Listings',      icon: PackageSearch },
@@ -81,6 +83,7 @@ export default function Admin() {
         <div className="max-w-7xl mx-auto">
           {activeTab === 'products'      && <ProductsTab />}
           {activeTab === 'orders'        && <OrdersTab />}
+          {activeTab === 'total-orders'  && <TotalOrdersTab />}
           {activeTab === 'earnings'      && <EarningsTab />}
           {activeTab === 'retailers'     && <RetailersTab />}
           {activeTab === 'vendors'       && <VendorApplicationsTab />}

@@ -17,15 +17,15 @@ interface CustomerProfileProps {
   onRetryPayment: (orderId: string) => void;
   onNavigateToTerms: () => void;
   onNavigateToPrivacy: () => void;
+  onNavigateToHelpCenter: () => void;
 }
 
-const WHATSAPP_NUMBER = '447404707531';
 const QAFRICA_STORE_URL = 'https://qafrica.store';
 const JUMIA_STORE_URL = 'https://jforce.jumia.com.ng/s/C6tCHzq';
 
 type ModalKind = 'avatar' | 'address' | 'policies' | 'trust' | 'track' | null;
 
-export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTerms, onNavigateToPrivacy }: CustomerProfileProps) {
+export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTerms, onNavigateToPrivacy, onNavigateToHelpCenter }: CustomerProfileProps) {
   const { store } = useStore();
   const { profile, orders, loading, error, userId, refetch, updateProfile } = useCustomerProfile();
   const [openModal, setOpenModal] = useState<ModalKind>(null);
@@ -96,23 +96,23 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
         </div>
       </div>
 
-      <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+      <div className="max-w-3xl mx-auto px-6 py-4 space-y-4">
         {/* Avatar + name */}
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-100 border border-gray-200 shrink-0">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt={displayName} className="w-full h-full object-cover" />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl font-light">
+              <div className="w-full h-full flex items-center justify-center text-gray-300 text-base font-light">
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
           </div>
           <div>
-            <p className="text-lg font-medium text-gray-900">{displayName}</p>
+            <p className="text-sm font-medium text-gray-900">{displayName}</p>
             <button
               onClick={() => setOpenModal('avatar')}
-              className="text-xs font-medium hover:underline"
+              className="text-[11px] font-medium hover:underline"
               style={{ color: store.themeColor }}
             >
               Edit profile picture
@@ -138,7 +138,7 @@ export default function CustomerProfile({ onBack, onRetryPayment, onNavigateToTe
         <QuickActionsGrid
           themeColor={store.themeColor}
           onShippingAddress={() => setOpenModal('address')}
-          onHelpCenter={() => window.open(`https://wa.me/${WHATSAPP_NUMBER}`, '_blank')}
+          onHelpCenter={onNavigateToHelpCenter}
           onDropShipping={() => window.open(QAFRICA_STORE_URL, '_blank')}
           onJumia={() => window.open(JUMIA_STORE_URL, '_blank')}
           onPolicies={() => setOpenModal('policies')}
